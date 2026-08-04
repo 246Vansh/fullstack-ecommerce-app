@@ -1,0 +1,73 @@
+export const filters = [
+    {
+        id: 1,
+        key: "category",
+        title: "Category",
+        source: "categories",
+        type: "checkbox",
+        multiple: false,
+        collapsible: true,
+        defaultOpen: true,
+        order: 1,
+    },
+
+    {
+        id: 2,
+        key: "brand",
+        title: "Brand",
+        source: "brands",
+        type: "checkbox",
+        multiple: true,
+        collapsible: true,
+        defaultOpen: true,
+        order: 2,
+    },
+
+    {
+        id: 3,
+        key: "price",
+        title: "Price",
+        source: "priceRanges",
+        type: "radio",
+        multiple: false,
+        collapsible: true,
+        defaultOpen: true,
+        order: 3,
+    },
+
+    {
+        id: 4,
+        key: "color",
+        title: "Color",
+        source: "colors",
+        type: "color",
+        multiple: true,
+        collapsible: true,
+        defaultOpen: true,
+        order: 4,
+    },
+
+    {
+        id: 5,
+        key: "size",
+        title: "Size",
+        source: "sizes",
+        type: "checkbox",
+        multiple: true,
+        collapsible: true,
+        defaultOpen: true,
+        order: 5,
+    },
+
+    {
+        id: 6,
+        key: "availability",
+        title: "Availability",
+        source: "availability",
+        type: "checkbox",
+        multiple: false,
+        collapsible: true,
+        defaultOpen: true,
+        order: 6,
+    },
+];
