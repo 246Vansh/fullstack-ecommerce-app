@@ -5,11 +5,13 @@ import CartPage from "@/pages/cartPage.vue";
 import CheckoutPage from "../pages/checkoutPage.vue";
 import OrderSuccess from "../pages/orderSuccess.vue";
 import TrackOrder from "../pages/trackOrder.vue";
+import invoice from "../pages/invoice.vue";
 import SignInPage from "@/pages/signInPage.vue";
 import SignUpPage from "@/pages/signUpPage.vue";
 import ForgotPasswordPage from "@/pages/forgotPasswordPage.vue";
 import ResetPasswordPage from "@/pages/resetPasswordPage.vue";
 import VerifyEmailPage from "@/pages/verifyEmailPage.vue";
+import Invoice from "../pages/invoice.vue";
 
 export const routes = [
 
@@ -53,6 +55,12 @@ export const routes = [
         path: "/trackOrder",
         name: "trackOrder",
         component: TrackOrder,
+    },
+
+    {
+        path: "/invoice",
+        name: "invoice",
+        component: Invoice,
     },
 
     {
