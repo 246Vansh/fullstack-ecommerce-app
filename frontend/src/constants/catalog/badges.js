@@ -1,23 +1,27 @@
 export const badges = [
+
     {
         id: 1,
         name: "New",
-        slug: "New",
-        background: "bg-green-600",
+        slug: "new",
+        background: "bg-gradient-to-r from-violet-500 to-indigo-600",
         text: "text-white",
     },
+
     {
         id: 2,
         name: "Sale",
-        slug: "Sale",
-        background: "bg-red-600",
-        text: "text-white",
+        slug: "sale",
+        background: "bg-gradient-to-r from-orange-500 to-red-500",
+        text: "text-black",
     },
+
     {
         id: 3,
         name: "Best Seller",
-        slug: "Best Seller",
-        background: "bg-indigo-600",
-        text: "text-white",
+        slug: "best-seller",
+        background: "bg-gradient-to-r from-amber-400 to-orange-500",
+        text: "text-black",
     },
+
 ];
