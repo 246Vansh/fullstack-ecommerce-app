@@ -1,43 +1,49 @@
 <template>
+    <RouterLink :to="{
+        name: 'product-details',
+        params: {
+            id: product.id,
+        },
+    }">
+        <article class="group relative flex flex-col">
 
-    <article class="group relative flex flex-col">
+            <!-- Product Image -->
 
-        <!-- Product Image -->
+            <div class="relative">
 
-        <div class="relative">
+                <ProductImage :src="product.image" :alt="product.name" />
 
-            <ProductImage :src="product.image" :alt="product.name" />
+                <!-- Product Badge -->
 
-            <!-- Product Badge -->
+                <ProductBadge :badge="badge" />
 
-            <ProductBadge :badge="badge" />
+                <!-- Wishlist -->
 
-            <!-- Wishlist -->
+                <WishlistButton :is-favorite="product.isFavorite" @toggle="toggleWishlist" />
 
-            <WishlistButton :is-favorite="product.isFavorite" @toggle="toggleWishlist" />
-
-        </div>
+            </div>
 
 
-        <!-- Product Details -->
+            <!-- Product Details -->
 
-        <div class="flex flex-1 flex-col">
+            <div class="flex flex-1 flex-col">
 
-            <ProductInfo :brand="brand?.name" :name="product.name" />
+                <ProductInfo :brand="brand?.name" :name="product.name" />
 
-            <ProductRating :rating="product.rating" :reviewCount="product.reviewCount" />
+                <ProductRating :rating="product.rating" :reviewCount="product.reviewCount" />
 
-            <ProductPrice :price="product.price" :originalPrice="product.originalPrice" />
+                <ProductPrice :price="product.price" :originalPrice="product.originalPrice" />
 
-        </div>
+            </div>
 
-    </article>
+        </article>
+    </RouterLink>
 
 </template>
 
 
 <script setup>
-
+import { RouterLink } from "vue-router"
 import { computed } from "vue";
 
 

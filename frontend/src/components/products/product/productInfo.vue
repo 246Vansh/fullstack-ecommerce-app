@@ -1,5 +1,5 @@
 <template>
-    <div class="mt-5 space-y-1">
+    <div class="mt-2 space-y-1">
 
         <!-- Brand -->
         <p v-if="brand" class="text-sm font-medium uppercase tracking-wide text-gray-500">
