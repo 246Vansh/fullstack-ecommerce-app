@@ -12,8 +12,8 @@ export const badges = [
         id: 2,
         name: "Sale",
         slug: "sale",
-        background: "bg-gradient-to-r from-orange-500 to-red-500",
-        text: "text-black",
+        background: "bg-gradient-to-r from-green-500 to-emerald-600",
+        text: "text-white",
     },
 
     {
