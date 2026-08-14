@@ -1,5 +1,5 @@
 <template>
-    <div class="mt-4 flex items-center gap-3">
+    <div class="mt-1 flex items-center gap-3">
 
         <!-- Current Price -->
         <span class="text-lg font-semibold text-gray-900">
