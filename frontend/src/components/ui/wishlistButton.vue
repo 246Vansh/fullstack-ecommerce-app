@@ -1,26 +1,47 @@
 <template>
-    <button type="button" @click="$emit('toggle')"
-        class="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:bg-white"
-        aria-label="Toggle wishlist">
-        <HeartIcon :class="[
-            isFavorite
-                ? 'fill-gray-900 text-gray-900'
-                : 'fill-transparent text-gray-600',
-            'h-5 w-5 transition-colors duration-300']" />
+
+    <button type="button" @click.stop="toggleFavorite" :aria-pressed="isFavorite" aria-label="Toggle wishlist"
+        class="group absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-md backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:shadow-lg cursor-pointer">
+
+        <HeartIcon class="h-5 w-5 transition-all duration-200" :class="isFavorite
+                ? 'scale-110 fill-red-500 text-red-500'
+                : 'text-slate-600 group-hover:text-red-500'
+            " />
+
     </button>
+
 </template>
 
+
 <script setup>
+
 import { HeartIcon } from "@heroicons/vue/24/outline";
 
-defineProps({
+
+const props = defineProps({
+
     isFavorite: {
+
         type: Boolean,
+
         default: false,
+
     },
+
 });
 
-defineEmits([
+
+const emit = defineEmits([
+
     "toggle",
+
 ]);
+
+
+const toggleFavorite = () => {
+
+    emit("toggle");
+
+};
+
 </script>
