@@ -1,5 +1,5 @@
 <template>
-    <div class="hidden items-center justify-between border-b border-gray-200 pb-6 lg:flex">
+    <div class="relative z-50 hidden items-center justify-between overflow-visible pb-6 lg:flex">
 
         <!-- Product Count -->
 

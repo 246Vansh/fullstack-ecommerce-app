@@ -1,10 +1,10 @@
 <template>
-    <Menu as="div" class="relative inline-block text-left">
+    <Menu as="div" class="relative z-[100] inline-block text-left">
 
         <!-- Button -->
 
         <MenuButton
-            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+            class="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-600 cursor-pointer">
             <span>
                 Sort by:
             </span>
@@ -32,7 +32,7 @@
                                 ? 'bg-gray-100'
                                 : '',
 
-                            'flex w-full items-center justify-between px-4 py-2 text-sm text-gray-700 transition-colors'
+                            'flex w-full items-center justify-between px-4 py-2 text-sm text-gray-700 transition-colors cursor-pointer'
                         ]">
                             {{ option.label }}
 
