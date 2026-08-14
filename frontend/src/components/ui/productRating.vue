@@ -1,5 +1,5 @@
 <template>
-    <div class="mt-3 flex items-center gap-2">
+    <div class="mt-1 flex items-center gap-2">
 
         <!-- Rating -->
 
