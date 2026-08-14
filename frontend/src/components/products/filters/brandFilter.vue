@@ -6,7 +6,7 @@
         <div class="space-y-4">
             <div v-for="brand in options" :key="brand.id" class="flex items-center">
                 <input :id="`brand-${brand.id}`" type="checkbox" :checked="modelValue.includes(brand.id)"
-                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     @change="toggleBrand(brand.id)" />
 
                 <label :for="`brand-${brand.id}`" class="ml-3 text-sm text-gray-600">

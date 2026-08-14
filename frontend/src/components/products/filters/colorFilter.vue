@@ -9,7 +9,7 @@
 
             <button v-for="color in options" :key="color.id" type="button" :aria-label="color.name" :title="color.name"
                 @click="selectColor(color.id)" :class="[
-                    'relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200',
+                    'relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 cursor-pointer',
 
                     modelValue.includes(color.id)
                         ? 'ring-2 ring-indigo-600 ring-offset-2'

@@ -6,7 +6,7 @@
         <div class="space-y-4">
             <div v-for="category in options" :key="category.id" class="flex items-center">
                 <input :id="`category-${category.id}`" type="checkbox" :checked="modelValue.includes(category.id)"
-                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     @change="toggleCategory(category.id)" />
 
                 <label :for="`category-${category.id}`" class="ml-3 text-sm text-gray-600">

@@ -9,7 +9,7 @@
             <div v-for="availability in options" :key="availability.id" class="flex items-center">
                 <input :id="`availability-${availability.id}`" type="checkbox"
                     :checked="modelValue.includes(availability.id)"
-                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     @change="toggleAvailability(availability.id)" />
 
                 <label :for="`availability-${availability.id}`" class="ml-3 text-sm text-gray-600">

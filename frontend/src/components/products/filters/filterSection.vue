@@ -12,9 +12,9 @@
 
                 <span class="ml-6 flex items-center">
 
-                    <PlusIcon v-if="!open" class="h-5 w-5" />
+                    <PlusIcon v-if="!open" class="h-5 w-5 cursor-pointer" />
 
-                    <MinusIcon v-else class="h-5 w-5" />
+                    <MinusIcon v-else class="h-5 w-5 cursor-pointer" />
 
                 </span>
 
