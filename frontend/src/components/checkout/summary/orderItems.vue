@@ -26,7 +26,8 @@
 
             <div class="space-y-5">
 
-                <article v-for="product in products" :key="product.id" class="flex items-center gap-4">
+                <article v-for="product in products" :key="product.id" class="flex items-center gap-4"
+                    :class="{ 'rounded-2xl bg-red-50 p-2': product.issue }">
 
                     <!-- Image -->
 
@@ -50,9 +51,16 @@
 
                             Qty {{ product.quantity }}
 
-                            •
+                            <template v-for="option in [product.color, product.size].filter(Boolean)" :key="option">
+                                • {{ option }}
+                            </template>
 
-                            {{ product.color }}
+                        </p>
+
+                        <!-- Why this item blocks checkout (from the server) -->
+                        <p v-if="product.issue" class="mt-1 text-sm font-medium text-red-600">
+
+                            {{ product.issue.message }}
 
                         </p>
 
@@ -64,7 +72,13 @@
 
                         <p class="font-bold text-slate-900">
 
-                            ${{ product.price }}
+                            {{ formatPrice(product.subtotal) }}
+
+                        </p>
+
+                        <p v-if="product.quantity > 1" class="text-xs text-slate-500">
+
+                            {{ formatPrice(product.price) }} each
 
                         </p>
 
@@ -81,6 +95,9 @@
 </template>
 
 <script setup>
+
+// Items and prices come from GET /api/checkout; they are only formatted here.
+const formatPrice = (price) => `$${Number(price).toFixed(2)}`;
 
 defineProps({
 

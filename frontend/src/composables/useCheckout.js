@@ -1,222 +1,82 @@
 import { ref, computed } from "vue";
 
-import { useCart } from "./useCart";
+import { checkoutService } from "@/services/checkoutService";
+import { addressService } from "@/services/addressService";
+import { parseApiError } from "@/services/apiClient";
+import { useCartStore } from "@/stores/cartStore";
 
-import { addresses } from "@/constants/checkout/addresses";
-import { deliveryMethods } from "@/constants/checkout/deliveryMethods";
-import { paymentMethods } from "@/constants/checkout/paymentMethods";
-
+// Checkout page state. Everything shown comes from GET /api/checkout; the
+// page only formats the server's prices and totals, it never computes them.
 export function useCheckout() {
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cart
-    |--------------------------------------------------------------------------
-    */
+    const cart = useCartStore();
 
-    const cart = useCart();
+    const checkout = ref(null);
+    const loading = ref(false);
+    const error = ref("");
 
-    /*
-    |--------------------------------------------------------------------------
-    | Checkout State
-    |--------------------------------------------------------------------------
-    */
+    const items = computed(() => checkout.value?.items ?? []);
+    const summary = computed(() => checkout.value?.summary ?? null);
+    const addresses = computed(() => checkout.value?.addresses ?? []);
+    const validation = computed(() => checkout.value?.validation ?? null);
+    const selectedAddressId = computed(() => checkout.value?.selectedAddressId ?? null);
+    const selectedAddress = computed(() =>
+        addresses.value.find((address) => address.id === selectedAddressId.value) ?? null
+    );
 
-    const selectedAddress = ref(addresses[0]);
+    let latest = 0;
 
-    const selectedDelivery = ref(deliveryMethods[0]);
+    async function load(addressId = selectedAddressId.value) {
+        const request = ++latest;
 
-    const selectedPayment = ref(paymentMethods[0]);
-
-    const coupon = ref(null);
-
-    const notes = ref("");
-
-    const isProcessing = ref(false);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Pricing
-    |--------------------------------------------------------------------------
-    */
-
-    const subtotal = computed(() => cart.subtotal.value);
-
-    const discount = computed(() => cart.discount.value);
-
-    const shipping = computed(() => {
-
-        return selectedDelivery.value.price;
-
-    });
-
-    const tax = computed(() => {
-
-        return (subtotal.value - discount.value) * 0.08;
-
-    });
-
-    const total = computed(() => {
-
-        return (
-
-            subtotal.value
-
-            - discount.value
-
-            + shipping.value
-
-            + tax.value
-
-        );
-
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Methods
-    |--------------------------------------------------------------------------
-    */
-
-    function selectAddress(id) {
-
-        const address = addresses.find(
-
-            item => item.id === id
-
-        );
-
-        if (address) {
-
-            selectedAddress.value = address;
-
-        }
-
-    }
-
-    function selectDelivery(id) {
-
-        const delivery = deliveryMethods.find(
-
-            item => item.id === id
-
-        );
-
-        if (delivery) {
-
-            selectedDelivery.value = delivery;
-
-        }
-
-    }
-
-    function selectPayment(id) {
-
-        const payment = paymentMethods.find(
-
-            item => item.id === id
-
-        );
-
-        if (payment) {
-
-            selectedPayment.value = payment;
-
-        }
-
-    }
-
-    function applyCoupon(code) {
-
-        coupon.value = code;
-
-    }
-
-    async function placeOrder() {
-
-        isProcessing.value = true;
+        loading.value = true;
+        error.value = "";
 
         try {
+            // First load waits for a guest-cart merge still running after
+            // login, so the checkout reflects the merged server cart.
+            if (!checkout.value) await cart.loadCart();
 
-            console.log("Create Order");
+            const data = await checkoutService.getCheckout(addressId);
 
-            /*
-            Backend later
-
-            POST /api/orders
-
-            */
-
+            // Only the most recent request wins (e.g. quick address switches).
+            if (request === latest) checkout.value = data;
+        } catch (err) {
+            if (request === latest) error.value = parseApiError(err).message;
+        } finally {
+            if (request === latest) loading.value = false;
         }
+    }
 
-        finally {
+    // The server re-prices for the chosen address (shipping/tax may depend on it later).
+    function selectAddress(id) {
+        if (id !== selectedAddressId.value) return load(id);
+    }
 
-            isProcessing.value = false;
+    // Creates or updates an address, then selects it. Errors are re-thrown for the form.
+    async function saveAddress(fields, id = null) {
+        const saved = id
+            ? await addressService.updateAddress(id, fields)
+            : await addressService.createAddress(fields);
 
-        }
+        await load(saved.id);
 
+        return saved;
     }
 
     return {
-
-        /*
-        |--------------------------------------------------------------------------
-        | Cart
-        |--------------------------------------------------------------------------
-        */
-
-        products: cart.products,
-
-        /*
-        |--------------------------------------------------------------------------
-        | Checkout
-        |--------------------------------------------------------------------------
-        */
-
+        checkout,
+        items,
+        summary,
+        addresses,
+        validation,
+        selectedAddressId,
         selectedAddress,
-
-        selectedDelivery,
-
-        selectedPayment,
-
-        coupon,
-
-        notes,
-
-        isProcessing,
-
-        /*
-        |--------------------------------------------------------------------------
-        | Pricing
-        |--------------------------------------------------------------------------
-        */
-
-        subtotal,
-
-        discount,
-
-        shipping,
-
-        tax,
-
-        total,
-
-        /*
-        |--------------------------------------------------------------------------
-        | Methods
-        |--------------------------------------------------------------------------
-        */
-
+        loading,
+        error,
+        load,
         selectAddress,
-
-        selectDelivery,
-
-        selectPayment,
-
-        applyCoupon,
-
-        placeOrder,
-
+        saveAddress,
     };
 
 }

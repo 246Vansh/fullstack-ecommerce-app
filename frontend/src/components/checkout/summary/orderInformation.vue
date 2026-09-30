@@ -13,11 +13,11 @@
                 </p>
 
                 <h3 class="mt-1 font-semibold text-slate-900">
-                    John Carter
+                    {{ customerName }}
                 </h3>
 
                 <p class="text-sm text-slate-500">
-                    john@example.com
+                    {{ customer?.email }}
                 </p>
 
             </div>
@@ -32,9 +32,14 @@
                 Shipping Address
             </p>
 
-            <p class="mt-2 text-sm leading-6 text-slate-600">
-                1450 Park Avenue, Apartment 12B,
-                New York, NY 10029
+            <p v-if="address" class="mt-2 text-sm leading-6 text-slate-600">
+                {{ address.firstName }} {{ address.lastName }},
+                {{ [address.address, address.apartment].filter(Boolean).join(", ") }},
+                {{ address.city }}, {{ address.state }} {{ address.zipCode }}
+            </p>
+
+            <p v-else class="mt-2 text-sm font-medium text-amber-600">
+                No shipping address selected
             </p>
 
         </div>
@@ -84,3 +89,24 @@
     </section>
 
 </template>
+
+<script setup>
+import { computed } from "vue";
+
+const props = defineProps({
+    // Signed-in user ({ firstName, lastName, email }).
+    customer: {
+        type: Object,
+        default: null,
+    },
+    // Selected saved address, from GET /api/checkout.
+    address: {
+        type: Object,
+        default: null,
+    },
+});
+
+const customerName = computed(() =>
+    [props.customer?.firstName, props.customer?.lastName].filter(Boolean).join(" ")
+);
+</script>

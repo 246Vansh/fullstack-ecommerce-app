@@ -34,13 +34,13 @@
 
         </div>
 
-        <orderInformation />
+        <orderInformation :customer="customer" :address="address" />
 
         <orderItems :products="products" />
 
         <orderTotals :subtotal="subtotal" :discount="discount" :shipping="shipping" :tax="tax" :total="total" />
 
-        <checkoutButton />
+        <checkoutButton :disabled="!canProceed" />
 
         <securityBenefits />
 
@@ -70,6 +70,13 @@ defineProps({
     tax: Number,
 
     total: Number,
+
+    customer: Object,
+
+    address: Object,
+
+    // From the server's checkout validation.
+    canProceed: Boolean,
 
 });
 </script>
