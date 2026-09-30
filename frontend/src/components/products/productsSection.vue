@@ -32,7 +32,7 @@
 
                 <div class="lg:col-span-3 cursor-pointer">
 
-                    <ProductList :products="products" />
+                    <ProductList :products="products" :loading="loading" :error="error" />
 
                     <Pagination class="mt-12" :total-pages="pagination.totalPages" v-model="pagination.currentPage" />
 
@@ -103,6 +103,16 @@ defineProps({
     sortOptions: {
         type: Array,
         default: () => [],
+    },
+
+    loading: {
+        type: Boolean,
+        default: false,
+    },
+
+    error: {
+        type: String,
+        default: "",
     },
 
 });

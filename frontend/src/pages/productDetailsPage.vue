@@ -3,8 +3,36 @@
 
     <main>
 
-        <ProductDetails :product="productDetails" :related-products="relatedProducts"
+        <ProductDetails v-if="productDetails" :product="productDetails" :related-products="relatedProducts"
             :breadcrumb-items="breadcrumbItems" />
+
+        <!-- Loading / Error -->
+
+        <section v-else class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+
+            <div class="flex min-h-100 items-center justify-center rounded-xl border border-dashed border-gray-300">
+
+                <div class="flex flex-col items-center text-center">
+
+                    <LoadingSpinner v-if="loading" class="text-gray-400" />
+
+                    <h3 v-else class="text-lg font-semibold text-gray-900">
+
+                        {{ error }}
+
+                    </h3>
+
+                    <RouterLink v-if="!loading" to="/products" class="mt-2 text-sm text-indigo-600 hover:text-indigo-500">
+
+                        Back to products
+
+                    </RouterLink>
+
+                </div>
+
+            </div>
+
+        </section>
 
     </main>
 
@@ -15,52 +43,78 @@
 import Header from "@/components/layout/Header/Header.vue";
 import Footer from "@/components/layout/Footer/Footer.vue";
 import ProductDetails from "@/components/productDetails/ProductDetails.vue";
+import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
 
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { products } from "@/constants/products/products.js";
-import { colors } from "@/constants/catalog/colors.js";
-import { sizes } from "@/constants/catalog/sizes.js";
-import { badges } from "@/constants/catalog/badges.js";
+import { productService } from "@/services/productService";
+import { parseApiError } from "@/services/apiClient";
 
 const route = useRoute();
 
-const product = computed(() =>
-    products.find(
-        item => item.id === Number(route.params.id)
-    )
-);
+const productDetails = ref(null);
 
-const productDetails = computed(() => {
-    if (!product.value) return null;
+const relatedProducts = ref([]);
 
-    return {
-        ...product.value,
+const loading = ref(false);
 
-        colors: colors.filter(color =>
-            product.value.colorIds.includes(color.id)
-        ),
+const error = ref("");
 
-        sizes: sizes.filter(size =>
-            product.value.sizeIds.includes(size.id)
-        ),
+async function loadProduct(id) {
 
-        badge: badges.find(badge =>
-            badge.id === product.value.badgeId
-        ),
-    };
-});
+    loading.value = true;
+    error.value = "";
+    productDetails.value = null;
+    relatedProducts.value = [];
 
-const relatedProducts = computed(() => {
-    if (!product.value) return [];
+    try {
 
-    return products.filter(
-        item =>
-            item.categoryId === product.value.categoryId &&
-            item.id !== product.value.id
-    );
-});
+        const product = await productService.getProduct(id);
+
+        productDetails.value = product;
+
+        loadRelated(product);
+
+    } catch (err) {
+
+        const { status, message } = parseApiError(err);
+
+        error.value = status === 404 || status === 422 ? "Product not found" : message;
+
+    } finally {
+
+        loading.value = false;
+
+    }
+
+}
+
+// Related products are optional; a failure leaves the section empty.
+async function loadRelated(product) {
+
+    if (!product.category?.slug) return;
+
+    try {
+
+        const { products } = await productService.listProducts({
+            category: product.category.slug,
+            limit: 5,
+        });
+
+        relatedProducts.value = products
+            .filter(item => item.id !== product.id)
+            .slice(0, 4);
+
+    } catch {
+        relatedProducts.value = [];
+    }
+
+}
+
+watch(() => route.params.id, (id) => {
+    if (id) loadProduct(id);
+}, { immediate: true });
 
 const breadcrumbItems = computed(() => [
     {
@@ -72,7 +126,7 @@ const breadcrumbItems = computed(() => [
         href: "/products",
     },
     {
-        label: product.value?.name || "",
+        label: productDetails.value?.name || "",
     },
 ]);
 

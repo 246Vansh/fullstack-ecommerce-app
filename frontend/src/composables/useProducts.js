@@ -1,12 +1,36 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
+import { refDebounced } from "@vueuse/core";
+import axios from "axios";
 
-export function useProducts(initialProducts = []) {
+import { productService } from "@/services/productService";
+import { parseApiError } from "@/services/apiClient";
+import {
+    brands,
+    colors,
+    sizes,
+    priceRanges,
+    availability,
+    categories as fallbackCategories,
+} from "@/constants/catalog";
+
+export function useProducts() {
 
     // ==========================
     // Source Data
     // ==========================
 
-    const products = ref(initialProducts);
+    const products = ref([]);
+
+    // Starts with the constants so the sidebar renders before the API answers.
+    const categories = ref(fallbackCategories);
+
+    const loading = ref(false);
+
+    const error = ref("");
+
+    const total = ref(0);
+
+    const serverTotalPages = ref(1);
 
     // ==========================
     // UI State
@@ -17,6 +41,7 @@ export function useProducts(initialProducts = []) {
     const selectedFilters = reactive({
 
         category: [],
+        subcategory: [],
         brand: [],
         price: null,
         color: [],
@@ -27,134 +52,135 @@ export function useProducts(initialProducts = []) {
 
     const searchQuery = ref("");
 
+    const debouncedSearch = refDebounced(searchQuery, 300);
+
     // ==========================
     // Pagination
     // ==========================
 
     const pagination = reactive({
-
         currentPage: 1,
-
         itemsPerPage: 12,
+    });
+
+    // ==========================
+    // Query Mapping
+    // ==========================
+
+    // Filter state holds option ids from the sidebar; the API expects
+    // slugs (categories) and names (brand, color, size).
+    function namesFor(ids, list, field = "name") {
+        return list
+            .filter((item) => ids.includes(item.id))
+            .map((item) => item[field]);
+    }
+
+    const query = computed(() => {
+
+        const subcategoryList = categories.value.flatMap((category) => category.subcategories ?? []);
+
+        const price = priceRanges.find((range) => range.id === selectedFilters.price);
+
+        const stockValues = namesFor(selectedFilters.availability, availability, "value");
+
+        const params = {
+            search: debouncedSearch.value.trim() || undefined,
+            category: namesFor(selectedFilters.category, categories.value, "slug").join(",") || undefined,
+            subcategory: namesFor(selectedFilters.subcategory, subcategoryList, "slug").join(",") || undefined,
+            brand: namesFor(selectedFilters.brand, brands).join(",") || undefined,
+            color: namesFor(selectedFilters.color, colors).join(",") || undefined,
+            size: namesFor(selectedFilters.size, sizes).join(",") || undefined,
+            minPrice: price?.min || undefined,
+            maxPrice: price?.max ?? undefined,
+            // Both or neither availability boxes ticked means no stock filter.
+            inStock: stockValues.length === 1 ? stockValues[0] : undefined,
+            sort: selectedSort.value,
+            page: pagination.currentPage,
+            limit: pagination.itemsPerPage,
+        };
+
+        return params;
 
     });
 
     // ==========================
-    // Filter
+    // Fetching
     // ==========================
 
-    const filteredProducts = computed(() => {
+    let controller = null;
 
-        let result = [...products.value];
+    async function fetchProducts() {
 
-        // Search
-        if (searchQuery.value.trim()) {
+        controller?.abort();
 
-            const query = searchQuery.value.toLowerCase();
+        const current = new AbortController();
+        controller = current;
 
-            result = result.filter(product =>
+        loading.value = true;
+        error.value = "";
 
-                product.name.toLowerCase().includes(query)
+        try {
 
-            );
+            const result = await productService.listProducts(query.value, { signal: current.signal });
 
-        }
+            products.value = result.products;
+            total.value = result.pagination.total;
+            serverTotalPages.value = result.pagination.totalPages;
 
-        // Category
+        } catch (err) {
 
-        if (selectedFilters.category.length) {
+            if (axios.isCancel(err)) return;
 
-            result = result.filter(product =>
+            products.value = [];
+            total.value = 0;
+            error.value = parseApiError(err).message;
 
-                selectedFilters.category.includes(product.category)
+        } finally {
 
-            );
-
-        }
-
-        // Brand
-
-        if (selectedFilters.brand.length) {
-
-            result = result.filter(product =>
-
-                selectedFilters.brand.includes(product.brand)
-
-            );
+            if (!current.signal.aborted) {
+                loading.value = false;
+            }
 
         }
 
-        // Availability
+    }
 
-        if (selectedFilters.availability.length) {
+    async function fetchCategories() {
 
-            result = result.filter(product =>
-
-                selectedFilters.availability.includes(
-
-                    product.inStock
-                        ? "in-stock"
-                        : "out-of-stock"
-
-                )
-
-            );
-
+        try {
+            categories.value = await productService.getCategories();
+        } catch {
+            // Keep the constants as a fallback so the sidebar still renders.
         }
 
-        return result;
+    }
 
-    });
+    // New filters, sort or search start again from page 1.
+    watch(
+        [selectedSort, debouncedSearch, () => JSON.stringify(selectedFilters)],
+        () => {
+            pagination.currentPage = 1;
+        },
+    );
 
-    // ==========================
-    // Sorting
-    // ==========================
+    // Compared as a string so loading categories alone does not refetch.
+    watch(() => JSON.stringify(query.value), fetchProducts, { immediate: true });
 
-    const sortedProducts = computed(() => {
-
-        const result = [...filteredProducts.value];
-
-        switch (selectedSort.value) {
-
-            case "price-low-high":
-
-                result.sort((a, b) => a.price - b.price);
-
-                break;
-
-            case "price-high-low":
-
-                result.sort((a, b) => b.price - a.price);
-
-                break;
-
-            case "rating":
-
-                result.sort((a, b) => b.rating - a.rating);
-
-                break;
-
-            case "newest":
-
-            default:
-
-                break;
-
-        }
-
-        return result;
-
-    });
+    fetchCategories();
 
     // ==========================
     // Statistics
     // ==========================
 
-    const totalProducts = computed(() =>
+    // The API already filters, sorts and paginates, so these all point
+    // at the current page of results.
+    const filteredProducts = products;
 
-        sortedProducts.value.length
+    const sortedProducts = products;
 
-    );
+    const paginatedProducts = products;
+
+    const totalProducts = computed(() => total.value);
 
     const activeFilterCount = computed(() => {
 
@@ -163,15 +189,11 @@ export function useProducts(initialProducts = []) {
         Object.values(selectedFilters).forEach(value => {
 
             if (Array.isArray(value)) {
-
                 count += value.length;
-
             }
 
             else if (value !== null) {
-
                 count++;
-
             }
 
         });
@@ -184,64 +206,27 @@ export function useProducts(initialProducts = []) {
     // Pagination Info
     // ==========================
 
-    const totalPages = computed(() =>
+    const totalPages = computed(() => Math.max(1, serverTotalPages.value));
 
-        Math.max(
-
-            1,
-
-            Math.ceil(
-
-                totalProducts.value /
-                pagination.itemsPerPage
-
-            )
-
-        )
-
-    );
-
+    // currentPage is a getter/setter so v-model="pagination.currentPage"
+    // in productsSection.vue changes the page.
     const paginationInfo = computed(() => {
 
-        const start =
-            (pagination.currentPage - 1)
-            * pagination.itemsPerPage;
-
-        const end =
-            start + pagination.itemsPerPage;
+        const start = (pagination.currentPage - 1) * pagination.itemsPerPage;
 
         return {
-
-            currentPage: pagination.currentPage,
-
+            get currentPage() {
+                return pagination.currentPage;
+            },
+            set currentPage(page) {
+                changePage(page);
+            },
             itemsPerPage: pagination.itemsPerPage,
-
-            totalItems: totalProducts.value,
-
+            totalItems: total.value,
             totalPages: totalPages.value,
-
-            start: totalProducts.value === 0 ? 0 : start + 1,
-
-            end: Math.min(end, totalProducts.value),
-
+            start: total.value === 0 ? 0 : start + 1,
+            end: Math.min(start + pagination.itemsPerPage, total.value),
         };
-
-    });
-
-    // ==========================
-    // Visible Products
-    // ==========================
-
-    const paginatedProducts = computed(() => {
-
-        const start =
-            (pagination.currentPage - 1)
-            * pagination.itemsPerPage;
-
-        const end =
-            start + pagination.itemsPerPage;
-
-        return sortedProducts.value.slice(start, end);
 
     });
 
@@ -263,6 +248,7 @@ export function useProducts(initialProducts = []) {
     function clearFilters() {
 
         selectedFilters.category = [];
+        selectedFilters.subcategory = [];
         selectedFilters.brand = [];
         selectedFilters.price = null;
         selectedFilters.color = [];
@@ -274,30 +260,27 @@ export function useProducts(initialProducts = []) {
     return {
 
         products,
+        categories,
+        loading,
+        error,
 
         selectedSort,
-
         selectedFilters,
-
         searchQuery,
 
         pagination,
-
         paginationInfo,
 
         paginatedProducts,
-
         filteredProducts,
-
         sortedProducts,
 
         totalProducts,
-
         activeFilterCount,
 
         changePage,
-
         clearFilters,
+        refetch: fetchProducts,
 
     };
 

@@ -9,13 +9,13 @@
 
             <h3 class="text-lg font-semibold text-gray-900">
 
-                No products found
+                {{ loading ? "Loading products..." : error ? "Could not load products" : "No products found" }}
 
             </h3>
 
-            <p class="mt-2 text-sm text-gray-500">
+            <p v-if="!loading" class="mt-2 text-sm text-gray-500">
 
-                Try adjusting your filters or search criteria.
+                {{ error || "Try adjusting your filters or search criteria." }}
 
             </p>
 
@@ -48,6 +48,16 @@ const props = defineProps({
     products: {
         type: Array,
         default: () => [],
+    },
+
+    loading: {
+        type: Boolean,
+        default: false,
+    },
+
+    error: {
+        type: String,
+        default: "",
     },
 
 });
