@@ -3,11 +3,13 @@
 
         <!-- Color Selection -->
 
-        <ColorSelector :colors="product.colors" :selected-color="selectedColor" @select-color="selectColor" />
+        <ColorSelector v-if="hasColors" :colors="product.colors" :selected-color="selectedColor"
+            @select-color="selectColor" />
 
-        <!-- Size Selection -->
+        <!-- Size Selection (hidden for one-size products such as bags) -->
 
-        <SizeSelector :sizes="product.sizes" :selected-size="selectedSize" @select-size="selectSize" />
+        <SizeSelector v-if="hasSizes" :sizes="product.sizes" :selected-size="selectedSize"
+            @select-size="selectSize" />
 
         <!-- Quantity -->
 
@@ -15,19 +17,33 @@
 
         <!-- Purchase Buttons -->
 
-        <PurchaseActions :purchase="purchase" :disabled="!canPurchase" />
+        <div>
+
+            <PurchaseActions :purchase="purchase" :disabled="!canPurchase" @add-to-cart="handleAddToCart" />
+
+            <p v-if="message.text" class="mt-3 text-sm font-medium"
+                :class="message.type === 'error' ? 'text-red-600' : 'text-emerald-600'">
+                {{ message.text }}
+            </p>
+
+        </div>
 
         <!-- Delivery Information -->
     </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import ColorSelector from "./productColorSelector.vue";
 import SizeSelector from "./productSizeSelector.vue";
 import QuantitySelector from "./productQuantitySelector.vue";
 import PurchaseActions from "./productPurchaseActions.vue";
+
+import { useAuthStore } from "@/stores/authStore";
+import { useCartStore } from "@/stores/cartStore";
+import { parseApiError } from "@/services/apiClient";
 
 const props = defineProps({
     product: {
@@ -36,26 +52,84 @@ const props = defineProps({
     },
 });
 
+const auth = useAuthStore();
+const cart = useCartStore();
+const route = useRoute();
+const router = useRouter();
+
 // ==================================================
 // State
 // ==================================================
 
+const variants = computed(() => props.product.variants ?? []);
+
+// A selector is only required when the product's variants actually vary by it.
+const hasColors = computed(() => (props.product.colors?.length ?? 0) > 0);
+const hasSizes = computed(() => (props.product.sizes?.length ?? 0) > 0);
+
+// Start on the first in-stock variant so the default choice can be bought.
+const initialVariant = variants.value.find((variant) => variant.stock > 0) ?? variants.value[0];
+
 const quantity = ref(1);
 
 const selectedColor = ref(
-    props.product.colors?.[0] ?? null
+    props.product.colors?.find((color) => color.name === initialVariant?.color)
+    ?? props.product.colors?.[0]
+    ?? null
 );
 
 const selectedSize = ref(
-    props.product.sizes?.[0] ?? null
+    props.product.sizes?.find((size) => size.name === initialVariant?.size)
+    ?? props.product.sizes?.[0]
+    ?? null
 );
 
+// The exact ProductVariant for the current selection; sizeless variants
+// have size null, which matches an unselected (hidden) size.
+const selectedVariant = computed(() => variants.value.find((variant) =>
+    (variant.color ?? null) === (selectedColor.value?.name ?? null)
+    && (variant.size ?? null) === (selectedSize.value?.name ?? null)
+) ?? null);
+
+const adding = ref(false);
+
+const feedback = ref(null);
+
+// Explains why the button is disabled, unless an add just succeeded/failed.
+const message = computed(() => {
+    if (feedback.value) return feedback.value;
+
+    const variant = selectedVariant.value;
+
+    if ((hasColors.value && !selectedColor.value) || (hasSizes.value && !selectedSize.value)) {
+        return { type: "error", text: "Please select a color and size." };
+    }
+
+    if (!variant) return { type: "error", text: "This combination is not available." };
+
+    if (variant.stock === 0) return { type: "error", text: "This option is out of stock." };
+
+    if (quantity.value > variant.stock) {
+        return { type: "error", text: `Only ${variant.stock} left in stock.` };
+    }
+
+    return { type: "info", text: "" };
+});
+
 const canPurchase = computed(() => {
-    return (
-        selectedColor.value &&
-        selectedSize.value &&
-        quantity.value > 0
+    const variant = selectedVariant.value;
+
+    return Boolean(
+        variant &&
+        variant.stock > 0 &&
+        quantity.value > 0 &&
+        quantity.value <= variant.stock &&
+        !adding.value
     );
+});
+
+watch([selectedColor, selectedSize, quantity], () => {
+    feedback.value = null;
 });
 
 // ==================================================
@@ -80,18 +154,27 @@ const decreaseQuantity = () => {
     }
 };
 
-const handleAddToCart = () => {
-    const purchase = {
-        product: props.product,
-        color: selectedColor.value,
-        size: selectedSize.value,
-        quantity: quantity.value,
-    };
+// Sends only variantId and quantity; the server prices it and checks stock.
+const handleAddToCart = async () => {
+    if (!canPurchase.value) return;
 
-    console.log("Add To Cart", purchase);
+    // There is no guest cart yet, so guests sign in first and come back here.
+    if (!auth.isAuthenticated) {
+        await router.push({ name: "login", query: { redirect: route.fullPath } });
+        return;
+    }
 
-    // Next sprint:
-    // cartStore.addItem(purchase)
+    adding.value = true;
+
+    try {
+        await cart.addItem(selectedVariant.value.id, quantity.value);
+
+        feedback.value = { type: "success", text: "Added to your cart." };
+    } catch (err) {
+        feedback.value = { type: "error", text: parseApiError(err).message };
+    } finally {
+        adding.value = false;
+    }
 };
 
 const handleBuyNow = () => {

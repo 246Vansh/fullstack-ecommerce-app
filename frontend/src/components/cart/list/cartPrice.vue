@@ -13,6 +13,11 @@
                 {{ formatPrice(product.originalPrice) }}
             </p>
 
+            <!-- Line Subtotal (from the server) -->
+            <p v-if="product.subtotal != null" class="mt-1 text-sm text-gray-500">
+                Subtotal: <span class="font-semibold text-slate-900">{{ formatPrice(product.subtotal) }}</span>
+            </p>
+
         </div>
 
         <!-- Discount Badge -->

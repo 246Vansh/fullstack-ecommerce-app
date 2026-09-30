@@ -19,11 +19,15 @@
                     {{ color }}
                 </span>
 
-                <span>•</span>
+                <template v-if="size">
 
-                <span>
-                    {{ size }}
-                </span>
+                    <span>•</span>
+
+                    <span>
+                        {{ size }}
+                    </span>
+
+                </template>
 
             </div>
         </div>
@@ -68,8 +72,11 @@ const props = defineProps({
     },
 });
 
+// Server cart items carry brand/color/size as strings; the id lookups
+// remain for the older constant-based product shape.
 const brand = computed(() => {
     return (
+        props.product.brand ||
         brands.find(
             item => item.id === props.product.brandId
         )?.name || "Unknown Brand"
@@ -77,13 +84,16 @@ const brand = computed(() => {
 });
 
 const color = computed(() => {
-    return props.product.colorIds
+    return props.product.color || props.product.colorIds
         ?.map(id => colors.find(color => color.id === id)?.name)
         .filter(Boolean)
         .join(" , ") || "Unknown Color"
 });
 
+// Empty for one-size variants (bags, caps, ...), which hides the size.
 const size = computed(() => {
+    if ("size" in props.product) return props.product.size;
+
     return props.product.sizeIds
         ?.map(id => sizes.find(size => size.id === id)?.name)
         .filter(Boolean)
