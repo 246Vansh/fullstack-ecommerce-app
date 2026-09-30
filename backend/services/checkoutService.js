@@ -41,6 +41,10 @@ const itemSelect = {
 // Reasons an item blocks checkout. The cart is never changed here; the
 // user decides whether to remove the item or lower the quantity.
 function findIssue({ quantity, variant }) {
+    if (!(quantity > 0)) {
+        return { code: "INVALID_QUANTITY", message: "This item has an invalid quantity" };
+    }
+
     if (!variant.product.isActive) {
         return { code: "PRODUCT_UNAVAILABLE", message: "This product is no longer available" };
     }
@@ -103,27 +107,37 @@ function toCheckoutItem(row) {
     };
 }
 
+// Loads and prices the user's cart from the database, flagging items that
+// cannot be bought. `client` is prisma or a transaction (order creation).
+// Returns { priced: [{ id, quantity, unitPrice: Decimal, item }], issues }.
+export async function loadCartItems(client, userId) {
+    const rows = await client.cartItem.findMany({
+        where: { cart: { userId } },
+        select: itemSelect,
+        orderBy: { createdAt: "asc" },
+    });
+
+    const priced = rows.map(toCheckoutItem);
+
+    const issues = priced
+        .filter(({ item }) => item.issue)
+        .map(({ item }) => ({ cartItemId: item.id, variantId: item.variant.id, ...item.issue }));
+
+    return { priced, issues };
+}
+
 // Read-only snapshot of what the user would buy. `addressId` selects one of
 // the user's addresses; anything else falls back to their default.
 export async function getCheckout(userId, { addressId } = {}) {
-    const [rows, addresses] = await Promise.all([
-        prisma.cartItem.findMany({
-            where: { cart: { userId } },
-            select: itemSelect,
-            orderBy: { createdAt: "asc" },
-        }),
+    const [{ priced, issues }, addresses] = await Promise.all([
+        loadCartItems(prisma, userId),
         listAddresses(userId),
     ]);
 
-    const priced = rows.map(toCheckoutItem);
     const items = priced.map(({ item }) => item);
 
     // listAddresses puts defaults first, so [0] is the best fallback.
     const address = addresses.find((item) => item.id === addressId) ?? addresses[0] ?? null;
-
-    const issues = items
-        .filter((item) => item.issue)
-        .map((item) => ({ cartItemId: item.id, variantId: item.variant.id, ...item.issue }));
 
     const isEmpty = items.length === 0;
     const valid = !isEmpty && issues.length === 0;
