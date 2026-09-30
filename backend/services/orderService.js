@@ -36,6 +36,8 @@ const orderSelect = {
     discount: true,
     total: true,
     placedAt: true,
+    createdAt: true,
+    shippingEmail: true,
     shippingFirstName: true,
     shippingLastName: true,
     shippingPhone: true,
@@ -63,13 +65,19 @@ const orderSelect = {
     },
 };
 
+// Built only from the persisted order snapshot, never from live catalog data.
+// `orderId` duplicates `id` for the original POST response shape.
 function toOrderResponse(order) {
     return {
+        id: order.id,
         orderId: order.id,
         orderNumber: order.orderNumber,
         status: order.status,
+        createdAt: order.createdAt,
         placedAt: order.placedAt,
         currency: order.currency,
+        // The email captured when the order was placed.
+        email: order.shippingEmail,
         items: order.items.map((item) => ({
             ...item,
             unitPrice: toMoney(item.unitPrice),
@@ -252,4 +260,15 @@ export async function createOrder(userId, { addressId }, hooks) {
             throw err;
         }
     }
+}
+
+// Only the owner's order: another user's id behaves exactly like a missing one.
+export async function getOrder(userId, id) {
+    const order = await prisma.order.findFirst({ where: { id, userId }, select: orderSelect });
+
+    if (!order) {
+        throw new ApiError(404, "Order not found");
+    }
+
+    return toOrderResponse(order);
 }

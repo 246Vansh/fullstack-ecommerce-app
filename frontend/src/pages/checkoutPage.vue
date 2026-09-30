@@ -85,7 +85,13 @@
 
                     <orderSummary :products="products" :subtotal="summary.subtotal" :discount="summary.discount"
                         :shipping="summary.shipping" :tax="summary.tax" :total="summary.total" :customer="auth.user"
-                        :address="selectedAddress" :can-proceed="validation.canProceed && !loading" />
+                        :address="selectedAddress" :can-proceed="validation.canProceed && !loading" :placing="placing"
+                        @place-order="placeOrder" />
+
+                    <p v-if="placeError" role="alert"
+                        class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                        {{ placeError }}
+                    </p>
 
                 </aside>
 
@@ -137,6 +143,9 @@ const {
     load,
     selectAddress,
     saveAddress,
+    placing,
+    placeError,
+    placeOrder,
 } = useCheckout();
 
 // Server checkout items in the shape the summary components render.

@@ -40,7 +40,7 @@
 
         <orderTotals :subtotal="subtotal" :discount="discount" :shipping="shipping" :tax="tax" :total="total" />
 
-        <checkoutButton :disabled="!canProceed" />
+        <checkoutButton :disabled="!canProceed" :loading="placing" @place="$emit('place-order')" />
 
         <securityBenefits />
 
@@ -78,5 +78,10 @@ defineProps({
     // From the server's checkout validation.
     canProceed: Boolean,
 
+    // An order request is in flight.
+    placing: Boolean,
+
 });
+
+defineEmits(["place-order"]);
 </script>

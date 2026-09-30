@@ -83,16 +83,18 @@
 
                                 <span class="text-xl font-bold text-green-600">
 
-                                    Order #ODR-2026-004512
+                                    Order #{{ order.orderNumber }}
 
                                 </span>
 
                             </div>
 
-                            <button
-                                class="flex items-center justify-center border-l border-gray-200 px-6 transition hover:bg-slate-50 cursor-pointer">
+                            <button type="button" :title="copied ? 'Copied' : 'Copy order number'"
+                                class="flex items-center justify-center border-l border-gray-200 px-6 transition hover:bg-slate-50 cursor-pointer"
+                                @click="copyOrderNumber">
 
-                                <DocumentDuplicateIcon class="h-6 w-6 text-slate-500" />
+                                <CheckIcon v-if="copied" class="h-6 w-6 text-green-600" />
+                                <DocumentDuplicateIcon v-else class="h-6 w-6 text-slate-500" />
 
                             </button>
 
@@ -124,7 +126,7 @@
 
             <div class="px-14 pb-10">
 
-                <successOverviewCards :product-count="productCount" :total-quantity="totalQuantity" />
+                <successOverviewCards :order="order" :product-count="productCount" :total-quantity="totalQuantity" />
 
             </div>
 
@@ -135,6 +137,7 @@
 </template>
 
 <script setup>
+import { ref } from "vue";
 import {
     CheckIcon,
     DocumentDuplicateIcon,
@@ -142,11 +145,28 @@ import {
 
 import successOverviewCards from "../overview/successOverviewCards.vue";
 
-defineProps({
+const props = defineProps({
+
+    order: {
+        type: Object,
+        required: true,
+    },
 
     productCount: Number,
 
     totalQuantity: Number,
 
 });
+
+const copied = ref(false);
+
+async function copyOrderNumber() {
+    try {
+        await navigator.clipboard.writeText(props.order.orderNumber);
+        copied.value = true;
+        setTimeout(() => { copied.value = false; }, 2000);
+    } catch {
+        // Clipboard unavailable (permissions / insecure context): nothing to do.
+    }
+}
 </script>

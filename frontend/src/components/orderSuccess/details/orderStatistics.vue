@@ -38,13 +38,13 @@
 
                     <h3 class="text-base font-semibold text-slate-900">
 
-                        Payment Confirmed
+                        Order Received
 
                     </h3>
 
                     <p class="mt-1 text-xs leading-5 text-slate-500">
 
-                        Your payment was successfully received.
+                        Your order has been recorded.
 
                     </p>
 
@@ -66,13 +66,13 @@
 
                     <h3 class="text-base font-semibold text-slate-900">
 
-                        Delivery in 2–3 Days
+                        Shipping Updates
 
                     </h3>
 
                     <p class="mt-1 text-xs leading-5 text-slate-500">
 
-                        Your order will be delivered soon.
+                        We'll let you know when your order ships.
 
                     </p>
 
@@ -94,13 +94,13 @@
 
                     <h3 class="text-base font-semibold text-slate-900">
 
-                        Secure Transaction
+                        Secure Checkout
 
                     </h3>
 
                     <p class="mt-1 text-xs leading-5 text-slate-500">
 
-                        Your transaction is 100% secure and protected.
+                        Prices and stock were verified by our servers.
 
                     </p>
 
@@ -122,13 +122,13 @@
 
                     <h3 class="text-base font-semibold text-slate-900">
 
-                        Reward Points
+                        Easy Returns
 
                     </h3>
 
                     <p class="mt-1 text-xs leading-5 text-slate-500">
 
-                        You earned 48 points with this order.
+                        30-day hassle-free returns.
 
                     </p>
 

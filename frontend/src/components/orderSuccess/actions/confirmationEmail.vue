@@ -14,15 +14,14 @@
 
                 <h3 class="text-lg font-semibold text-slate-900">
 
-                    Confirmation Email Sent
+                    Order Updates
 
                 </h3>
 
                 <p class="mt-1 text-slate-600">
 
-                    We've sent your order confirmation and receipt to
-                    <strong>john@example.com</strong>.
-                    You'll receive another email when your order ships.
+                    Updates about this order will be sent to
+                    <strong>{{ email }}</strong>.
 
                 </p>
 
@@ -36,4 +35,12 @@
 
 <script setup>
 import { EnvelopeIcon } from "@heroicons/vue/24/outline";
+
+defineProps({
+    // The email captured on the order.
+    email: {
+        type: String,
+        required: true,
+    },
+});
 </script>

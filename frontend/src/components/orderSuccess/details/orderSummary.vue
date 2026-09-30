@@ -31,7 +31,7 @@
                 </span>
 
                 <span class="text-sm font-medium text-slate-700">
-                    ODR-2026-004512
+                    {{ order.orderNumber }}
                 </span>
 
             </div>
@@ -43,7 +43,7 @@
                 </span>
 
                 <span class="text-sm font-medium text-slate-700">
-                    14 Aug 2026, 10:24 AM
+                    {{ formatDate(order.createdAt, true) }}
                 </span>
 
             </div>
@@ -55,7 +55,7 @@
                 </span>
 
                 <span class="text-base font-bold text-orange-600">
-                    $489.98
+                    {{ formatPrice(order.total) }}
                 </span>
 
             </div>
@@ -67,7 +67,7 @@
                 </span>
 
                 <span class="text-sm font-medium text-slate-700">
-                    Visa •••• 4242
+                    Not collected yet
                 </span>
 
             </div>
@@ -79,7 +79,7 @@
                 </span>
 
                 <span class="text-sm font-medium text-slate-700">
-                    4 Items
+                    {{ totalQuantity }} {{ totalQuantity === 1 ? "Item" : "Items" }}
                 </span>
 
             </div>
@@ -91,20 +91,20 @@
                 <div class="flex items-start justify-between">
 
                     <span class="font-semibold text-slate-900 text-sm">
-                        Estimated Delivery
+                        Order Status
                     </span>
 
                     <div class="text-right">
 
                         <h3 class="text-sm font-bold text-slate-900">
 
-                            Tue, 18 Aug 2026
+                            {{ statusLabel(order.status) }}
 
                         </h3>
 
                         <p class="mt-0.5 text-xs font-medium text-green-600">
 
-                            2–3 Business Days
+                            We'll let you know when it ships
 
                         </p>
 
@@ -122,4 +122,15 @@
 
 <script setup>
 import { ClipboardDocumentListIcon } from "@heroicons/vue/24/outline";
+
+import { formatDate, formatPrice, statusLabel } from "@/composables/useOrderSuccess";
+
+defineProps({
+    order: {
+        type: Object,
+        required: true,
+    },
+    productCount: Number,
+    totalQuantity: Number,
+});
 </script>

@@ -30,7 +30,7 @@
 
             <span class="rounded-full bg-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-600">
 
-                {{ products.length }} Products
+                {{ products.length }} {{ products.length === 1 ? "Product" : "Products" }}
 
             </span>
 
@@ -47,7 +47,7 @@
 
                 <div class="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-50">
 
-                    <img :src="product.image" :alt="product.name" class="h-20 w-20 object-contain">
+                    <img v-if="product.image" :src="product.image" :alt="product.productName" class="h-20 w-20 object-contain">
 
                 </div>
 
@@ -57,27 +57,22 @@
 
                     <h3 class="text-lg font-semibold text-slate-900">
 
-                        {{ product.name }}
+                        {{ product.productName }}
 
                     </h3>
 
                     <p class="mt-2 text-sm text-slate-500">
 
-                        {{ product.brand }}
+                        SKU {{ product.sku }}
 
                     </p>
 
                     <div class="mt-4 flex flex-wrap gap-2">
 
-                        <span class="rounded-lg bg-slate-100 px-3 py-1.5 text-sm">
+                        <span v-for="option in [product.color, product.size].filter(Boolean)" :key="option"
+                            class="rounded-lg bg-slate-100 px-3 py-1.5 text-sm">
 
-                            {{ getColor(product) }}
-
-                        </span>
-
-                        <span class="rounded-lg bg-slate-100 px-3 py-1.5 text-sm">
-
-                            {{ getSize(product) }}
+                            {{ option }}
 
                         </span>
 
@@ -95,7 +90,7 @@
 
                     <h3 class="mt-2 text-lg font-bold">
 
-                        ${{ product.price }}
+                        {{ formatPrice(product.unitPrice) }}
 
                     </h3>
 
@@ -127,7 +122,7 @@
 
                     <h3 class="mt-2 text-xl font-semibold text-orange-600">
 
-                        ${{ (product.price * product.quantity).toFixed(2) }}
+                        {{ formatPrice(product.lineTotal) }}
 
                     </h3>
 
@@ -143,10 +138,11 @@
 
 <script setup>
 import { CubeIcon } from "@heroicons/vue/24/outline";
-import { colors } from "@/constants/catalog/colors";
-import { sizes } from "@/constants/catalog/sizes";
 
-const props = defineProps({
+import { formatPrice } from "@/composables/useOrderSuccess";
+
+// Order item snapshots: names and prices as they were when the order was placed.
+defineProps({
 
     products: {
         type: Array,
@@ -155,23 +151,6 @@ const props = defineProps({
 
 });
 
-const getColor = (product) => {
-
-    return product.colorIds
-        ?.map(id => colors.find(color => color.id === id)?.name)
-        .filter(Boolean)
-        .join(", ") || "Unknown";
-
-};
-
-const getSize = (product) => {
-
-    return product.sizeIds
-        ?.map(id => sizes.find(size => size.id === id)?.name)
-        .filter(Boolean)
-        .join(", ") || "Unknown";
-
-};
 
 </script>
 

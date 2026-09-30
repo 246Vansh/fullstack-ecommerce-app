@@ -46,9 +46,10 @@ export const routes = [
     },
 
     {
-        path: "/orderSuccess",
+        path: "/orderSuccess/:id(\\d+)",
         name: "orderSuccess",
         component: OrderSuccess,
+        meta: { requiresAuth: true },
     },
 
     {

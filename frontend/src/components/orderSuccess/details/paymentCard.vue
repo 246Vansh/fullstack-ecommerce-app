@@ -16,13 +16,13 @@
 
                 <h2 class="text-xl font-bold text-slate-900">
 
-                    Payment Information
+                    Payment Summary
 
                 </h2>
 
                 <p class="text-xs text-slate-500">
 
-                    Payment completed successfully
+                    Amounts calculated by our servers
 
                 </p>
 
@@ -34,17 +34,33 @@
 
         <div class="space-y-4 px-6 py-5">
 
-            <div class="flex items-center justify-between">
+            <div v-for="row in rows" :key="row.label" class="flex items-center justify-between">
 
                 <span class="text-sm font-semibold text-slate-900">
 
-                    Payment Method
+                    {{ row.label }}
 
                 </span>
 
                 <span class="text-sm font-medium text-slate-700">
 
-                    Visa •••• 4242
+                    {{ row.value }}
+
+                </span>
+
+            </div>
+
+            <div class="flex items-center justify-between border-t border-gray-100 pt-3">
+
+                <span class="text-sm font-bold text-slate-900">
+
+                    Total
+
+                </span>
+
+                <span class="text-base font-bold text-orange-600">
+
+                    {{ formatPrice(order.total) }}
 
                 </span>
 
@@ -54,45 +70,13 @@
 
                 <span class="text-sm font-semibold text-slate-900">
 
-                    Transaction ID
+                    Payment Status
 
                 </span>
 
-                <span class="text-sm font-medium text-slate-700">
+                <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
 
-                    TXN-84569231
-
-                </span>
-
-            </div>
-
-            <div class="flex items-center justify-between">
-
-                <span class="text-sm font-semibold text-slate-900">
-
-                    Payment Date
-
-                </span>
-
-                <span class="text-sm font-medium text-slate-700">
-
-                    14 Aug 2026
-
-                </span>
-
-            </div>
-
-            <div class="flex items-center justify-between">
-
-                <span class="text-sm font-semibold text-slate-900">
-
-                    Status
-
-                </span>
-
-                <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-
-                    Paid
+                    Pending
 
                 </span>
 
@@ -105,5 +89,22 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { CreditCardIcon } from "@heroicons/vue/24/outline";
+
+import { formatPrice } from "@/composables/useOrderSuccess";
+
+const props = defineProps({
+    order: {
+        type: Object,
+        required: true,
+    },
+});
+
+const rows = computed(() => [
+    { label: "Subtotal", value: formatPrice(props.order.subtotal) },
+    { label: "Shipping", value: props.order.shipping === 0 ? "FREE" : formatPrice(props.order.shipping) },
+    { label: "Tax", value: formatPrice(props.order.tax) },
+    { label: "Discount", value: `-${formatPrice(props.order.discount)}` },
+]);
 </script>

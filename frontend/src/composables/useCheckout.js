@@ -1,7 +1,9 @@
 import { ref, computed } from "vue";
+import { useRouter } from "vue-router";
 
 import { checkoutService } from "@/services/checkoutService";
 import { addressService } from "@/services/addressService";
+import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
 import { useCartStore } from "@/stores/cartStore";
 
@@ -10,6 +12,7 @@ import { useCartStore } from "@/stores/cartStore";
 export function useCheckout() {
 
     const cart = useCartStore();
+    const router = useRouter();
 
     const checkout = ref(null);
     const loading = ref(false);
@@ -64,6 +67,35 @@ export function useCheckout() {
         return saved;
     }
 
+    const placing = ref(false);
+    const placeError = ref("");
+
+    // Sends only the address id; the server re-validates, prices and creates
+    // the order atomically. `placing` is set before the request, so a double
+    // click (even before the button re-renders as disabled) sends one request.
+    async function placeOrder() {
+        if (placing.value || !validation.value?.canProceed || !selectedAddressId.value) return;
+
+        placing.value = true;
+        placeError.value = "";
+
+        try {
+            const order = await orderService.createOrder(selectedAddressId.value);
+
+            // The server emptied the cart; resync the header badge.
+            cart.loadCart();
+
+            await router.push({ name: "orderSuccess", params: { id: order.id } });
+        } catch (err) {
+            placeError.value = parseApiError(err).message;
+
+            // Stock or availability changed: reload so the affected items are shown.
+            if (err.response?.status === 409) await load();
+
+            placing.value = false;
+        }
+    }
+
     return {
         checkout,
         items,
@@ -77,6 +109,9 @@ export function useCheckout() {
         load,
         selectAddress,
         saveAddress,
+        placing,
+        placeError,
+        placeOrder,
     };
 
 }

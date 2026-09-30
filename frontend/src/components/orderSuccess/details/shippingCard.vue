@@ -32,7 +32,7 @@
 
                 <p class="text-sm font-semibold text-slate-900">
 
-                    John Doe
+                    {{ address.firstName }} {{ address.lastName }}
 
                 </p>
 
@@ -46,7 +46,7 @@
 
                 <p class="text-sm font-semibold text-slate-700">
 
-                    +1 (555) 123-4567
+                    {{ address.phone }}
 
                 </p>
 
@@ -62,19 +62,19 @@
 
                     <p>
 
-                        123 Main Street, Apartment 5B
+                        {{ [address.address, address.apartment].filter(Boolean).join(", ") }}
 
                     </p>
 
                     <p>
 
-                        New York, NY 10001
+                        {{ address.city }}, {{ address.state }} {{ address.zipCode }}
 
                     </p>
 
                     <p>
 
-                        United States
+                        {{ address.country }}
 
                     </p>
 
@@ -102,7 +102,7 @@
 
                     <p class="mt-0.5 text-xs font-semibold text-slate-500">
 
-                        Standard Shipping (2–3 Business Days)
+                        Standard Shipping
 
                     </p>
 
@@ -124,4 +124,12 @@ import {
     HomeIcon,
     TruckIcon,
 } from "@heroicons/vue/24/outline";
+
+// The shipping address snapshot stored on the order.
+defineProps({
+    address: {
+        type: Object,
+        required: true,
+    },
+});
 </script>
