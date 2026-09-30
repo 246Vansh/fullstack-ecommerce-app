@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ==========================
+// Enums
+// ==========================
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum AddressType {
+  HOME
+  WORK
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+// ==========================
+// Users
+// ==========================
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique @db.VarChar(191)
+  passwordHash    String    @db.VarChar(255)
+  firstName       String    @db.VarChar(100)
+  lastName        String    @db.VarChar(100)
+  phone           String?   @db.VarChar(30)
+  role            Role      @default(CUSTOMER)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  addresses Address[]
+  cart      Cart?
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Address {
+  id        Int         @id @default(autoincrement())
+  userId    Int
+  type      AddressType @default(HOME)
+  firstName String      @db.VarChar(100)
+  lastName  String      @db.VarChar(100)
+  phone     String      @db.VarChar(30)
+  address   String      @db.VarChar(255)
+  apartment String?     @db.VarChar(255)
+  city      String      @db.VarChar(100)
+  state     String      @db.VarChar(100)
+  zipCode   String      @db.VarChar(20)
+  country   String      @db.VarChar(100)
+  isDefault Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ==========================
+// Catalog
+// ==========================
+
+// Top-level categories (Men, Women, ...) have no parent;
+// subcategories (T-Shirts, ...) point to their parent.
+model Category {
+  id          Int      @id @default(autoincrement())
+  parentId    Int?
+  name        String   @db.VarChar(100)
+  slug        String   @unique @db.VarChar(120)
+  description String?  @db.Text
+  image       String?  @db.VarChar(500)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id            Int      @id @default(autoincrement())
+  categoryId    Int
+  name          String   @db.VarChar(200)
+  slug          String   @unique @db.VarChar(220)
+  description   String?  @db.Text
+  brand         String?  @db.VarChar(100)
+  price         Decimal  @db.Decimal(10, 2)
+  originalPrice Decimal? @db.Decimal(10, 2)
+  isNew         Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants   ProductVariant[]
+  images     ProductImage[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([brand])
+  @@index([price])
+  @@index([createdAt])
+  @@map("products")
+}
+
+// A purchasable size/color combination of a product.
+// `price` overrides Product.price when set.
+model ProductVariant {
+  id            Int      @id @default(autoincrement())
+  productId     Int
+  sku           String   @unique @db.VarChar(100)
+  size          String?  @db.VarChar(20)
+  color         String?  @db.VarChar(50)
+  colorHex      String?  @db.VarChar(7)
+  price         Decimal? @db.Decimal(10, 2)
+  originalPrice Decimal? @db.Decimal(10, 2)
+  stock         Int      @default(0) @db.UnsignedInt
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@unique([productId, size, color])
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  url       String   @db.VarChar(500)
+  altText   String?  @db.VarChar(200)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, position])
+  @@map("product_images")
+}
+
+// ==========================
+// Cart
+// ==========================
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    Int
+  variantId Int
+  quantity  Int      @default(1) @db.UnsignedInt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, variantId])
+  @@index([variantId])
+  @@map("cart_items")
+}
+
+// ==========================
+// Orders
+// ==========================
+
+// Totals and the shipping address are copied onto the order
+// so later edits to products or addresses do not change history.
+model Order {
+  id          Int         @id @default(autoincrement())
+  orderNumber String      @unique @db.VarChar(30)
+  userId      Int
+  status      OrderStatus @default(PENDING)
+
+  subtotal Decimal @db.Decimal(10, 2)
+  discount Decimal @default(0) @db.Decimal(10, 2)
+  shipping Decimal @default(0) @db.Decimal(10, 2)
+  tax      Decimal @default(0) @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+  currency String  @default("USD") @db.Char(3)
+
+  shippingFirstName String  @db.VarChar(100)
+  shippingLastName  String  @db.VarChar(100)
+  shippingPhone     String  @db.VarChar(30)
+  shippingEmail     String  @db.VarChar(191)
+  shippingAddress   String  @db.VarChar(255)
+  shippingApartment String? @db.VarChar(255)
+  shippingCity      String  @db.VarChar(100)
+  shippingState     String  @db.VarChar(100)
+  shippingZipCode   String  @db.VarChar(20)
+  shippingCountry   String  @db.VarChar(100)
+
+  deliveryMethod String?   @db.VarChar(50)
+  notes          String?   @db.Text
+  placedAt       DateTime  @default(now())
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("orders")
+}
+
+// Snapshot of what was bought; product/variant links are kept
+// when possible but become null if the product is deleted.
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  productId   Int?
+  variantId   Int?
+  productName String   @db.VarChar(200)
+  sku         String   @db.VarChar(100)
+  size        String?  @db.VarChar(20)
+  color       String?  @db.VarChar(50)
+  image       String?  @db.VarChar(500)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  quantity    Int      @db.UnsignedInt
+  lineTotal   Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+  @@map("order_items")
+}

@@ -5,7 +5,6 @@ import CartPage from "@/pages/cartPage.vue";
 import CheckoutPage from "../pages/checkoutPage.vue";
 import OrderSuccess from "../pages/orderSuccess.vue";
 import TrackOrder from "../pages/trackOrder.vue";
-import invoice from "../pages/invoice.vue";
 import SignInPage from "@/pages/signInPage.vue";
 import SignUpPage from "@/pages/signUpPage.vue";
 import ForgotPasswordPage from "@/pages/forgotPasswordPage.vue";
@@ -96,7 +95,7 @@ export const routes = [
     {
         path: "/:pathMatch(.*)*",
         name: "not-found",
-        component: () => import("@/pages/NotFoundPage.vue"),
+        component: () => import("@/pages/notFoundPage.vue"),
     },
 
 ];
