@@ -16,6 +16,6 @@ import { RouterLink } from 'vue-router';
 
 import { useCartStore } from '@/stores/cartStore';
 
-// Server item count for signed-in users; 0 for guests.
+// Quantity-based count: the server cart when signed in, the guest cart otherwise.
 const cart = useCartStore()
 </script>

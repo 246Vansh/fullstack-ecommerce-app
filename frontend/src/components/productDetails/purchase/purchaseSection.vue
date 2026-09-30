@@ -34,14 +34,12 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
 
 import ColorSelector from "./productColorSelector.vue";
 import SizeSelector from "./productSizeSelector.vue";
 import QuantitySelector from "./productQuantitySelector.vue";
 import PurchaseActions from "./productPurchaseActions.vue";
 
-import { useAuthStore } from "@/stores/authStore";
 import { useCartStore } from "@/stores/cartStore";
 import { parseApiError } from "@/services/apiClient";
 
@@ -52,10 +50,7 @@ const props = defineProps({
     },
 });
 
-const auth = useAuthStore();
 const cart = useCartStore();
-const route = useRoute();
-const router = useRouter();
 
 // ==================================================
 // State
@@ -154,24 +149,21 @@ const decreaseQuantity = () => {
     }
 };
 
-// Sends only variantId and quantity; the server prices it and checks stock.
+// Signed in: sends only variantId and quantity; the server prices it and checks stock.
+// Guest: stored locally (productId is the catalog lookup key) and merged after login.
 const handleAddToCart = async () => {
     if (!canPurchase.value) return;
 
-    // There is no guest cart yet, so guests sign in first and come back here.
-    if (!auth.isAuthenticated) {
-        await router.push({ name: "login", query: { redirect: route.fullPath } });
-        return;
-    }
+    const variant = selectedVariant.value;
 
     adding.value = true;
 
     try {
-        await cart.addItem(selectedVariant.value.id, quantity.value);
+        await cart.addItem(variant.id, quantity.value, { productId: props.product.id, stock: variant.stock });
 
         feedback.value = { type: "success", text: "Added to your cart." };
     } catch (err) {
-        feedback.value = { type: "error", text: parseApiError(err).message };
+        feedback.value = { type: "error", text: err.response ? parseApiError(err).message : err.message };
     } finally {
         adding.value = false;
     }

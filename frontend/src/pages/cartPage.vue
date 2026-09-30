@@ -5,6 +5,23 @@
 
         <div class="mx-auto max-w-[1850px] px-2 py-2">
 
+            <!-- Guest items the server rejected while merging after login -->
+            <section v-if="cart.mergeIssues.length"
+                class="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+                <p class="font-semibold">Some items from your guest cart could not be added:</p>
+                <ul class="mt-2 list-disc space-y-1 pl-5">
+                    <li v-for="issue in cart.mergeIssues" :key="issue.variantId">
+                        {{ issue.name }} &times; {{ issue.quantity }} &mdash; {{ issue.message }}
+                    </li>
+                </ul>
+                <div class="mt-3 flex gap-4 font-medium">
+                    <button type="button" class="cursor-pointer text-indigo-600 hover:text-indigo-500"
+                        :disabled="cart.loading" @click="cart.retryMerge()">Try again</button>
+                    <button type="button" class="cursor-pointer text-gray-600 hover:text-gray-800"
+                        @click="cart.dismissMergeIssues()">Dismiss</button>
+                </div>
+            </section>
+
             <!-- Initial Load -->
             <section v-if="cart.loading && !products.length"
                 class="flex min-h-100 items-center justify-center rounded-4xl border border-dashed border-gray-300 bg-white">
@@ -22,13 +39,13 @@
                 </button>
             </section>
 
-            <!-- Empty Cart (guests have no cart yet and are asked to sign in) -->
+            <!-- Empty Cart (guests are offered their saved account cart) -->
             <template v-else-if="!products.length">
                 <emptyCart />
                 <p v-if="!auth.isAuthenticated" class="mt-4 text-center text-sm text-gray-500">
                     <RouterLink :to="{ name: 'login', query: { redirect: '/cart' } }"
                         class="font-medium text-indigo-600 hover:text-indigo-500">Sign in</RouterLink>
-                    to see the items in your cart.
+                    to see the items saved to your account.
                 </p>
             </template>
 
@@ -102,7 +119,7 @@
 
                     <!-- Recommendations -->
 
-                    <recommendedProducts class="px-8 py-8" :products="products" @add-to-cart="addToCart"
+                    <recommendedProducts class="px-8 py-8" :products="recommendable" @add-to-cart="addToCart"
                         @toggle-wishlist="toggleWishlist" />
 
                 </section>
@@ -147,8 +164,9 @@ import { useCartStore } from "@/stores/cartStore";
 const auth = useAuthStore();
 const cart = useCartStore();
 
-// Maps a server cart item to the shape the existing cart components render.
-// `id` is the cart item id, which the update/remove events send back.
+// Maps a cart item to the shape the existing cart components render.
+// `id` is the cart item id (the variant id for guests), which the
+// update/remove events send back.
 function toCartProduct(item) {
     return {
         id: item.id,
@@ -161,6 +179,7 @@ function toCartProduct(item) {
         color: item.variant.color,
         size: item.variant.size,
         stock: item.variant.stock,
+        isAvailable: item.isAvailable,
         quantity: item.quantity,
         price: item.unitPrice,
         originalPrice: item.originalPrice,
@@ -172,16 +191,21 @@ function toCartProduct(item) {
 
 const products = computed(() => cart.items.map(toCartProduct));
 
+// Items gone from the catalog have no price and are not recommended again.
+const recommendable = computed(() => products.value.filter((product) => product.price != null));
+
 // Re-sync on every visit; stock or prices may have changed since the last load.
+// Guests get fresh catalog data for their stored items.
 onMounted(() => {
-    if (auth.isAuthenticated) cart.loadCart();
+    cart.loadCart();
 });
 
 /*
 |--------------------------------------------------------------------------
 | Estimates
 |--------------------------------------------------------------------------
-| Shipping and tax are display estimates derived from the server subtotal;
+| Shipping and tax are display estimates derived from the cart subtotal
+| (server-priced when signed in, current catalog prices for guests);
 | the API has no shipping/tax yet, and checkout will price the final order.
 */
 
@@ -224,7 +248,7 @@ function clearCart() {
 }
 
 function addToCart(product) {
-    cart.addItem(product.variantId, 1).catch(ignore);
+    cart.addItem(product.variantId, 1, { productId: product.productId }).catch(ignore);
 }
 
 /*

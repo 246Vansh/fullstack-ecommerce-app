@@ -34,7 +34,18 @@
 
         <div>
 
-            <div v-if="product.stock > 5" class="flex items-center gap-2 text-emerald-600">
+            <!-- Removed from the catalog, sold out, or quantity above current stock -->
+            <div v-if="product.isAvailable === false" class="flex items-center gap-2 text-red-600">
+
+                <div class="h-2.5 w-2.5 rounded-full bg-red-500" />
+
+                <span class="font-medium">
+                    {{ product.stock > 0 ? `Only ${product.stock} left` : "Unavailable" }}
+                </span>
+
+            </div>
+
+            <div v-else-if="product.stock > 5" class="flex items-center gap-2 text-emerald-600">
 
                 <div class="h-2.5 w-2.5 rounded-full bg-emerald-500" />
 

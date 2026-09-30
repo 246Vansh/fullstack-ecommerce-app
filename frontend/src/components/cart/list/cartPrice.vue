@@ -3,8 +3,8 @@
 
         <div class="text-right">
 
-            <!-- Current Price -->
-            <h3 class="text-3xl font-bold text-slate-900">
+            <!-- Current Price (none for an item no longer in the catalog) -->
+            <h3 v-if="product.price != null" class="text-3xl font-bold text-slate-900">
                 {{ formatPrice(product.price) }}
             </h3>
 
