@@ -455,7 +455,7 @@ const inStock = computed(() => {
 const basicInformation = computed(() => [
     {
         label: "Brand",
-        value: props.product.brand?.name || "Unknown Brand",
+        value: props.product.brand?.name || props.product.brand || "Unknown Brand",
         icon: "🏷️",
         bg: "bg-blue-100",
         class: "text-gray-900",
