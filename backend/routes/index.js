@@ -4,6 +4,7 @@ import healthRoutes from "./healthRoutes.js";
 import authRoutes from "./authRoutes.js";
 import productRoutes from "./productRoutes.js";
 import categoryRoutes from "./categoryRoutes.js";
+import cartRoutes from "./cartRoutes.js";
 
 const router = Router();
 
@@ -11,5 +12,6 @@ router.use("/health", healthRoutes);
 router.use("/auth", authRoutes);
 router.use("/products", productRoutes);
 router.use("/categories", categoryRoutes);
+router.use("/cart", cartRoutes);
 
 export default router;
