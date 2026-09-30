@@ -42,6 +42,7 @@ export const routes = [
         path: "/checkout",
         name: "checkout",
         component: CheckoutPage,
+        meta: { requiresAuth: true },
     },
 
     {
@@ -54,24 +55,28 @@ export const routes = [
         path: "/trackOrder",
         name: "trackOrder",
         component: TrackOrder,
+        meta: { requiresAuth: true },
     },
 
     {
         path: "/invoice",
         name: "invoice",
         component: Invoice,
+        meta: { requiresAuth: true },
     },
 
     {
         path: "/login",
         name: "login",
         component: SignInPage,
+        meta: { guestOnly: true },
     },
 
     {
         path: "/register",
         name: "register",
         component: SignUpPage,
+        meta: { guestOnly: true },
     },
 
     {
