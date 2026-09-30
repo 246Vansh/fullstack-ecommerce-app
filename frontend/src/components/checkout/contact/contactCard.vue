@@ -1,39 +1,31 @@
 <template>
 
     <checkoutSection number="01" title="Contact Information" subtitle="We'll use this to send your order updates."
-        :icon="UserIcon">
+        :icon="UserIcon" :editable="false">
 
-        <div class="flex items-center gap-5">
+        <!-- The signed-in account; nothing here is editable yet. -->
 
-            <!-- Avatar -->
+        <div>
 
-            <img src="https://i.pravatar.cc/100?img=12" class="h-20 w-20 rounded-2xl object-cover">
+            <h3 class="text-xl font-semibold text-slate-900">
 
-            <!-- Info -->
+                {{ customerName }}
 
-            <div>
+            </h3>
 
-                <h3 class="text-xl font-semibold text-slate-900">
+            <div class="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
 
-                    John Carter
+                <span class="break-all">
 
-                </h3>
+                    {{ customer?.email }}
 
-                <div class="mt-2 flex flex-wrap gap-6 text-slate-600">
+                </span>
 
-                    <span>
+                <span v-if="customer?.phone">
 
-                        john@example.com
+                    {{ customer.phone }}
 
-                    </span>
-
-                    <span>
-
-                        +1 (555) 123-4567
-
-                    </span>
-
-                </div>
+                </span>
 
             </div>
 
@@ -44,6 +36,19 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { UserIcon } from "@heroicons/vue/24/outline";
 import checkoutSection from "../common/checkoutSection.vue";
+
+const props = defineProps({
+    // Signed-in user ({ firstName, lastName, email, phone }).
+    customer: {
+        type: Object,
+        default: null,
+    },
+});
+
+const customerName = computed(() =>
+    [props.customer?.firstName, props.customer?.lastName].filter(Boolean).join(" ")
+);
 </script>

@@ -12,7 +12,7 @@
 
             <span class="rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-600">
 
-                {{ products.length }} Items
+                {{ products.length }} {{ products.length === 1 ? "Item" : "Items" }}
 
             </span>
 

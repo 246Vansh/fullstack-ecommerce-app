@@ -1,7 +1,6 @@
 <script setup>
 
 import { footerNavigation } from "@/constants/navigation";
-import {RouterLink} from "vue-router"
 </script>
 
 <template>
@@ -16,12 +15,9 @@ import {RouterLink} from "vue-router"
               <a v-for="item in footerNavigation.bottomLinks" :key="item.name" to="#" class="text-sm text-gray-500 hover:text-gray-600">{{ item.name }}</a>
             </div>
 
+            <!-- Prices and orders are USD only; there is no location/currency switch. -->
             <div class="ml-6 border-l border-gray-200 pl-6">
-              <ROuterLink to="/" class="flex items-center text-gray-500 hover:text-gray-600">
-                <img src="https://tailwindcss.com/plus-assets/img/flags/flag-canada.svg" alt="" class="h-auto w-5 shrink-0" />
-                <span class="ml-3 text-sm">Change</span>
-                <span class="sr-only">location and currency</span>
-              </ROuterLink>
+              <span class="text-sm text-gray-500">USD</span>
             </div>
           </div>
         </div>

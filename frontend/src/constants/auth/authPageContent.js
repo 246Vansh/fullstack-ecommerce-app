@@ -41,7 +41,7 @@ export const authPages = {
         title: "Verify Your Email",
 
         description:
-            "We've sent a verification link to your email address. Please check your inbox and verify your account before signing in.",
+            "Email verification isn't available yet.",
 
     },
 

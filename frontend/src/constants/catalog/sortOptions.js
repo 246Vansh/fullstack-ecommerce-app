@@ -1,3 +1,5 @@
+// "rating-desc" (no reviews yet) and "latest" (same order as "newest") are
+// still accepted by the API but are not offered here.
 export const sortOptions = [
     {
         id: 1,
@@ -21,17 +23,5 @@ export const sortOptions = [
         id: 4,
         label: "Price: High to Low",
         value: "price-desc",
-    },
-
-    {
-        id: 5,
-        label: "Highest Rated",
-        value: "rating-desc",
-    },
-
-    {
-        id: 6,
-        label: "Newest Arrivals",
-        value: "latest",
     },
 ];

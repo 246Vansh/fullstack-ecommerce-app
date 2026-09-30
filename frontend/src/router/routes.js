@@ -4,13 +4,11 @@ import ProductDetailsPage from "@/pages/productDetailsPage.vue";
 import CartPage from "@/pages/cartPage.vue";
 import CheckoutPage from "../pages/checkoutPage.vue";
 import OrderSuccess from "../pages/orderSuccess.vue";
-import TrackOrder from "../pages/trackOrder.vue";
 import SignInPage from "@/pages/signInPage.vue";
 import SignUpPage from "@/pages/signUpPage.vue";
 import ForgotPasswordPage from "@/pages/forgotPasswordPage.vue";
 import ResetPasswordPage from "@/pages/resetPasswordPage.vue";
 import VerifyEmailPage from "@/pages/verifyEmailPage.vue";
-import Invoice from "../pages/invoice.vue";
 
 export const routes = [
 
@@ -52,19 +50,8 @@ export const routes = [
         meta: { requiresAuth: true },
     },
 
-    {
-        path: "/trackOrder",
-        name: "trackOrder",
-        component: TrackOrder,
-        meta: { requiresAuth: true },
-    },
-
-    {
-        path: "/invoice",
-        name: "invoice",
-        component: Invoice,
-        meta: { requiresAuth: true },
-    },
+    // /trackOrder and /invoice are not registered until tracking and invoices
+    // exist; their pages still render static placeholder data.
 
     {
         path: "/login",

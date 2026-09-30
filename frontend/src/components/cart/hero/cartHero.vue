@@ -28,7 +28,7 @@
                         <ShoppingBagIcon class="h-5 w-5 text-violet-600" />
 
                         <span class="text-[17px] font-semibold text-slate-800">
-                            {{ itemCount }} Items
+                            {{ itemCount }} {{ itemCount === 1 ? "Item" : "Items" }}
                         </span>
 
                     </div>

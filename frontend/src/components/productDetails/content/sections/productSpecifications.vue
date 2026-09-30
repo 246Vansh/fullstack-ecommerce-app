@@ -41,7 +41,7 @@
 
             </div>
 
-            <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4 cursor-pointer">
+            <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 cursor-pointer">
 
                 <div v-for="item in basicInformation" :key="item.label"
                     class="group rounded-2xl border border-gray-200 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
@@ -87,12 +87,12 @@
                     </h3>
 
                     <p class="mt-1 text-gray-500">
-                        Transparent pricing with exclusive savings.
+                        Transparent pricing.
                     </p>
 
                 </div>
 
-                <div class="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
+                <div v-if="hasDiscount" class="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
 
                     Save {{ discountPercentage }}%
 
@@ -102,7 +102,8 @@
 
             <!-- Content -->
 
-            <div class="grid gap-6 p-6 md:grid-cols-3">
+            <!-- Original price and savings only exist for products that are actually marked down. -->
+            <div class="grid gap-6 p-6" :class="{ 'md:grid-cols-3': hasDiscount }">
 
                 <!-- Current Price -->
 
@@ -130,7 +131,7 @@
 
                 <!-- Original Price -->
 
-                <div class="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+                <div v-if="hasDiscount" class="rounded-2xl border border-gray-200 bg-gray-50 p-6">
 
                     <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">
 
@@ -154,7 +155,7 @@
 
                 <!-- Savings -->
 
-                <div class="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-6">
+                <div v-if="hasDiscount" class="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-6">
 
                     <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">
 
@@ -256,140 +257,6 @@
 
         </section>-->
 
-        <!-- Shopping Benefits -->
-
-        <section class="rounded-3xl border border-gray-200 bg-gradient-to-r from-gray-50 to-white p-6">
-
-            <div class="mb-10">
-
-                <h3 class="text-2xl font-bold text-gray-900">
-
-                    Why Shop With Us?
-
-                </h3>
-
-                <p class="mt-2 text-gray-500">
-
-                    Premium shopping experience with every purchase.
-
-                </p>
-
-            </div>
-
-            <div class="grid gap-6 md:grid-cols-2 cursor-pointer">
-
-                <div class="flex gap-5 rounded-2xl bg-white p-6 shadow-sm transition hover:shadow-lg">
-
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-2xl">
-
-                        🚚
-
-                    </div>
-
-                    <div>
-
-                        <h4 class="text-lg font-semibold">
-
-                            Fast Delivery
-
-                        </h4>
-
-                        <p class="mt-2 leading-7 text-gray-600">
-
-                            Free delivery with secure packaging and
-                            live order tracking.
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div class="flex gap-5 rounded-2xl bg-white p-6 shadow-sm transition hover:shadow-lg">
-
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-100 text-2xl">
-
-                        🛡️
-
-                    </div>
-
-                    <div>
-
-                        <h4 class="text-lg font-semibold">
-
-                            Quality Guarantee
-
-                        </h4>
-
-                        <p class="mt-2 leading-7 text-gray-600">
-
-                            Carefully inspected products with premium
-                            craftsmanship.
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div class="flex gap-5 rounded-2xl bg-white p-6 shadow-sm transition hover:shadow-lg">
-
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-100 text-2xl">
-
-                        🔄
-
-                    </div>
-
-                    <div>
-
-                        <h4 class="text-lg font-semibold">
-
-                            Easy Returns
-
-                        </h4>
-
-                        <p class="mt-2 leading-7 text-gray-600">
-
-                            30-day hassle-free returns with a simple
-                            refund process.
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div class="flex gap-5 rounded-2xl bg-white p-6 shadow-sm transition hover:shadow-lg">
-
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
-
-                        ⭐
-
-                    </div>
-
-                    <div>
-
-                        <h4 class="text-lg font-semibold">
-
-                            Trusted by Customers
-
-                        </h4>
-
-                        <p class="mt-2 leading-7 text-gray-600">
-
-                            Thousands of satisfied customers love our
-                            products and service.
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>
-
     </section>
 
 </template>
@@ -422,6 +289,10 @@ const savedAmount = computed(() => {
 
     return Math.max(original - current, 0).toFixed(2);
 });
+
+const hasDiscount = computed(() =>
+    Number(props.product.originalPrice || 0) > Number(props.product.price || 0)
+);
 
 const discountPercentage = computed(() => {
     const original = Number(props.product.originalPrice || 0);
@@ -481,13 +352,6 @@ const basicInformation = computed(() => [
             : "text-red-600",
     },
 
-    {
-        label: "Rating",
-        value: `${props.product.rating ?? 0} ★ (${props.product.reviewCount ?? 0} Reviews)`,
-        icon: "⭐",
-        bg: "bg-yellow-100",
-        class: "text-gray-900",
-    },
 ]);
 
 /* ---------------------------------

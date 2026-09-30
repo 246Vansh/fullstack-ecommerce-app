@@ -239,15 +239,19 @@ export function useAuth() {
 
     }
 
+    // Password reset is not implemented on the server yet; say so instead of
+    // pretending a reset email was sent.
+    const RESET_UNAVAILABLE = "Password reset isn't available yet.";
+
     async function handleForgotPassword() {
 
-        console.log("Forgot Password");
+        forgotPassword.errors.email = RESET_UNAVAILABLE;
 
     }
 
     async function handleResetPassword() {
 
-        console.log("Reset Password");
+        resetPassword.errors.password = RESET_UNAVAILABLE;
 
     }
 

@@ -53,4 +53,14 @@ export const authBanners = {
 
     },
 
+    verifyEmail: {
+
+        badge: "Email Verification",
+
+        title: "Coming Soon",
+
+        description: "Email verification isn't available yet. You can sign in to your account as usual.",
+
+    },
+
 };

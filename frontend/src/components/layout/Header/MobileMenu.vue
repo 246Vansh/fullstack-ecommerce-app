@@ -145,43 +145,46 @@
 
                         <div class="space-y-6 border-t border-gray-200 px-4 py-6">
 
-                            <div class="flow-root">
+                            <template v-if="auth.isAuthenticated">
 
-                                <RouterLink to="/login" class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600">
-                                    Sign In
-                                </RouterLink>
+                                <p class="font-medium text-gray-500">
+                                    Signed in as {{ auth.user.firstName }}
+                                </p>
 
-                            </div>
+                                <div class="flow-root">
 
-                            <div class="flow-root">
+                                    <button type="button" :disabled="loggingOut"
+                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600 cursor-pointer disabled:opacity-50"
+                                        @click="logout">
+                                        Logout
+                                    </button>
 
-                                <RouterLink to="/SignIn"
-                                    class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600">
-                                    Create Account
-                                </RouterLink>
+                                </div>
 
-                            </div>
+                            </template>
 
-                        </div>
+                            <template v-else>
 
-                        <!-- Currency Selector -->
+                                <div class="flow-root">
 
-                        <div class="border-t border-gray-200 px-4 py-6">
+                                    <RouterLink :to="ROUTES.LOGIN" class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        @click="closeMenu">
+                                        Sign In
+                                    </RouterLink>
 
-                            <button class="-m-2 flex items-center rounded-md p-2 hover:bg-gray-50">
+                                </div>
 
-                                <img src="https://tailwindcss.com/plus-assets/img/flags/flag-canada.svg"
-                                    alt="Canada Flag" class="block h-auto w-5 shrink-0" />
+                                <div class="flow-root">
 
-                                <span class="ml-3 text-base font-medium text-gray-900">
-                                    CAD
-                                </span>
+                                    <RouterLink :to="ROUTES.REGISTER"
+                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        @click="closeMenu">
+                                        Create Account
+                                    </RouterLink>
 
-                                <span class="sr-only">
-                                    Change currency
-                                </span>
+                                </div>
 
-                            </button>
+                            </template>
 
                         </div>
 
@@ -215,11 +218,32 @@ import { navigation } from "@/constants/navigation";
 
 import { useMobileMenu } from "@/composables/useMobileMenu";
 
-import {RouterLink} from "vue-router"
+import { ref } from "vue";
+import { RouterLink } from "vue-router";
+
+import { ROUTES } from "@/config";
+import { useAuth } from "@/composables/useAuth";
+import { useAuthStore } from "@/stores/authStore";
 
 const {
     open,
     closeMenu
 } = useMobileMenu();
+
+const auth = useAuthStore();
+const { handleLogout } = useAuth();
+
+const loggingOut = ref(false);
+
+async function logout() {
+    loggingOut.value = true;
+
+    try {
+        await handleLogout();
+        closeMenu();
+    } finally {
+        loggingOut.value = false;
+    }
+}
 
 </script>

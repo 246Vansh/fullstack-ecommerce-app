@@ -4,8 +4,7 @@
     <!-- Authentication -->
     <AuthLinks />
 
-    <!-- Currency -->
-    <CurrencySelector />
+    <!-- Prices and orders are USD only; there is no currency selector. -->
 
     <!-- Search -->
     <SearchButton />
@@ -18,7 +17,6 @@
 
 <script setup>
 import AuthLinks from "./AuthLinks.vue";
-import CurrencySelector from "./CurrencySelector.vue";
 import SearchButton from "./SearchButton.vue";
 import CartButton from "./CartButton.vue";
 </script>

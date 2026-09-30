@@ -15,8 +15,6 @@
 
             <ProductReturns v-else-if="activeTab === 'returns'" />
 
-            <ProductReviews v-else-if="activeTab === 'reviews'" :product="product" />
-
         </div>
 
     </section>
@@ -30,7 +28,6 @@ import ProductDescription from "./sections/productDescription.vue";
 import ProductSpecifications from "./sections/productSpecifications.vue";
 import ProductShipping from "./sections/productShipping.vue";
 import ProductReturns from "./sections/productReturns.vue";
-import ProductReviews from "./reviews/productReviews.vue";
 
 defineProps({
     product: {
@@ -58,10 +55,7 @@ const tabs = [
         id: "returns",
         label: "Returns",
     },
-    {
-        id: "reviews",
-        label: "Reviews",
-    },
+    // No Reviews tab: there is no review system yet.
 ];
 
 const changeTab = (tab) => {

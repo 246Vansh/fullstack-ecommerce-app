@@ -158,7 +158,6 @@ export const footerNavigation = {
         { name: 'Shipping', href: '#' },
         { name: 'Returns', href: '#' },
         { name: 'Warranty', href: '#' },
-        { name: 'Secure Payments', href: '#' },
         { name: 'FAQ', href: '#' },
         { name: 'Find a store', href: '#' },
     ],

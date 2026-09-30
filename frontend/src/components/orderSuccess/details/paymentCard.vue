@@ -105,6 +105,9 @@ const rows = computed(() => [
     { label: "Subtotal", value: formatPrice(props.order.subtotal) },
     { label: "Shipping", value: props.order.shipping === 0 ? "FREE" : formatPrice(props.order.shipping) },
     { label: "Tax", value: formatPrice(props.order.tax) },
-    { label: "Discount", value: `-${formatPrice(props.order.discount)}` },
+    // A discount row is only shown for a real (non-zero) discount.
+    ...(Number(props.order.discount) > 0
+        ? [{ label: "Discount", value: `-${formatPrice(props.order.discount)}` }]
+        : []),
 ]);
 </script>

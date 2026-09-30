@@ -14,9 +14,7 @@
 
             <checkboxField id="remember" v-model="remember" label="Remember me" />
 
-            <authLink :to="ROUTES.FORGOT_PASSWORD">
-                Forgot password?
-            </authLink>
+            <!-- No "Forgot password?" link until password reset exists. -->
 
         </div>
 
@@ -42,7 +40,6 @@ import checkboxField from "../fields/checkboxField.vue";
 import authButton from "../ui/authButton.vue";
 import authDivider from "../ui/authDivider.vue";
 import authFooter from "../ui/authFooter.vue";
-import authLink from "../ui/authLink.vue";
 import socialLogin from "../ui/socialLogin.vue";
 import { socialProviders } from "@/constants/auth/socialProviders";
 import { ROUTES } from "@/config";

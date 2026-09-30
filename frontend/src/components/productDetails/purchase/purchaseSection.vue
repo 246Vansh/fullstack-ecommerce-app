@@ -19,7 +19,7 @@
 
         <div>
 
-            <PurchaseActions :purchase="purchase" :disabled="!canPurchase" @add-to-cart="handleAddToCart" />
+            <PurchaseActions :disabled="!canPurchase" @add-to-cart="handleAddToCart" />
 
             <p v-if="message.text" class="mt-3 text-sm font-medium"
                 :class="message.type === 'error' ? 'text-red-600' : 'text-emerald-600'">
@@ -168,25 +168,4 @@ const handleAddToCart = async () => {
         adding.value = false;
     }
 };
-
-const handleBuyNow = () => {
-    const purchase = {
-        product: props.product,
-        color: selectedColor.value,
-        size: selectedSize.value,
-        quantity: quantity.value,
-    };
-
-    console.log("Buy Now", purchase);
-
-    // Next sprint:
-    // router.push("/checkout")
-};
-
-const purchase = computed(() => ({
-    product: props.product,
-    color: selectedColor.value,
-    size: selectedSize.value,
-    quantity: quantity.value,
-}));
 </script>

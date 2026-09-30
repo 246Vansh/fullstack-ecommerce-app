@@ -9,10 +9,6 @@
                 {{ brand }}
             </p>
 
-            <div class="flex items-center gap-3">
-                <productRating :rating="product.rating" :review-count="product.reviewCount" />
-            </div>
-
             <div class="flex flex-wrap items-center gap-3 text-gray-500">
 
                 <span>
@@ -71,7 +67,6 @@
 
 <script setup>
 import { computed } from "vue";
-import productRating from "@/components/ui/productRating.vue";
 import { brands } from "../../../constants/catalog/brands";
 import { colors } from "../../../constants/catalog/colors";
 import { sizes } from "../../../constants/catalog/sizes";

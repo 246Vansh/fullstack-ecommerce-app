@@ -42,8 +42,6 @@
 
         <checkoutButton :disabled="!canProceed" :loading="placing" @place="$emit('place-order')" />
 
-        <securityBenefits />
-
     </aside>
 
 </template>
@@ -55,7 +53,6 @@ import orderInformation from "./orderInformation.vue";
 import orderItems from "./orderItems.vue";
 import orderTotals from "./orderTotals.vue";
 import checkoutButton from "./checkoutButton.vue";
-import securityBenefits from "./securityBenefits.vue";
 
 defineProps({
 

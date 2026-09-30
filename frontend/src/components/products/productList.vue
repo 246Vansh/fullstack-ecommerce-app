@@ -28,8 +28,7 @@
 
     <ProductGrid v-else>
 
-        <ProductCard v-for="product in props.products" :key="product.id" :product="product"
-            @toggle-wishlist="handleWishlistToggle" />
+        <ProductCard v-for="product in props.products" :key="product.id" :product="product" />
 
     </ProductGrid>
 
@@ -63,27 +62,10 @@ const props = defineProps({
 });
 
 
-const emit = defineEmits([
-
-    "toggle-wishlist",
-
-]);
-
-
 const hasProducts = computed(() => {
 
     return props.products.length > 0;
 
 });
-
-
-const handleWishlistToggle = (productId) => {
-
-    emit(
-        "toggle-wishlist",
-        productId
-    );
-
-};
 
 </script>

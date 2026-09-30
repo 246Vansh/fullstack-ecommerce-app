@@ -28,7 +28,7 @@
 
             <h3 class="mt-6 text-lg font-semibold text-gray-900">
 
-                Check your inbox
+                Email verification isn't available yet
 
             </h3>
 
@@ -36,27 +36,8 @@
 
             <p class="mt-3 text-sm leading-6 text-gray-600">
 
-                We've sent a verification email to your registered
-                email address.
-
-                Please click the verification link inside the email
-                to activate your account.
-
-            </p>
-
-        </div>
-
-        <!-- Information -->
-
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
-
-            <p class="text-sm leading-6 text-amber-700">
-
-                Didn't receive the email?
-
-                Check your spam or junk folder.
-
-                If it's still missing, you can resend the verification email below.
+                No verification email is sent and your account doesn't
+                need to be verified. You can sign in as usual.
 
             </p>
 
@@ -66,13 +47,9 @@
 
         <div class="space-y-4">
 
-            <authButton :loading="loading" @click="$emit('resend')">
+            <!-- Email verification is not implemented; no email is sent. -->
 
-                Resend Verification Email
-
-            </authButton>
-
-            <authFooter text="Already verified?" link-text="Sign In" :to="ROUTES.LOGIN" />
+            <authFooter text="Have an account?" link-text="Sign In" :to="ROUTES.LOGIN" />
 
         </div>
 
@@ -82,23 +59,9 @@
 
 <script setup>
 import authHeader from "../ui/authHeader.vue";
-import authButton from "../ui/authButton.vue";
 import authFooter from "../ui/authFooter.vue";
 
 import { ROUTES } from "@/config";
 import { authPages } from "@/constants/auth/authPageContent";
 
-defineProps({
-
-    loading: {
-        type: Boolean,
-        default: false,
-
-    },
-
-});
-
-defineEmits([
-    "resend",
-]);
 </script>

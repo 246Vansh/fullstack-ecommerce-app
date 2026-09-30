@@ -18,7 +18,8 @@
 
             </div>
 
-            <div class="flex justify-between">
+            <!-- Only a real (non-zero) discount from the server is shown. -->
+            <div v-if="discount > 0" class="flex justify-between">
 
                 <span class="text-slate-500">
                     Discount
@@ -49,7 +50,7 @@
             <div class="flex justify-between">
 
                 <span class="text-slate-500">
-                    Estimated Tax
+                    Tax
                 </span>
 
                 <span class="font-semibold">
@@ -99,24 +100,6 @@
                 </div>
 
             </div>
-
-        </div>
-
-        <!-- Delivery -->
-
-        <div class="mt-5 rounded-2xl bg-slate-50 p-5">
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Estimated Delivery
-            </p>
-
-            <p class="mt-2 text-lg font-semibold text-slate-900">
-                Tuesday, June 18
-            </p>
-
-            <p class="text-sm text-slate-500">
-                Express Shipping
-            </p>
 
         </div>
 

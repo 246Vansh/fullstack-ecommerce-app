@@ -65,18 +65,13 @@
                         </RouterLink>
                     </section>
 
-                    <contactCard />
+                    <contactCard :customer="auth.user" />
 
                     <shippingCard :addresses="addresses" :selected-id="selectedAddressId" :save="saveAddress"
                         @select="selectAddress" />
 
-                    <deliveryCard />
-
+                    <!-- Delivery methods, coupons and order notes are not implemented, so they are not shown. -->
                     <paymentCard />
-
-                    <couponCard />
-
-                    <notesCard />
 
                 </section>
 
@@ -115,10 +110,7 @@ import checkoutHero from "@/components/checkout/hero/checkoutHero.vue";
 
 import contactCard from "@/components/checkout/contact/contactCard.vue";
 import shippingCard from "@/components/checkout/address/shippingCard.vue";
-import deliveryCard from "@/components/checkout/delivery/deliveryCard.vue";
 import paymentCard from "@/components/checkout/payment/paymentCard.vue";
-import couponCard from "@/components/checkout/coupon/couponCard.vue";
-import notesCard from "@/components/checkout/notes/notesCard.vue";
 
 import orderSummary from "@/components/checkout/summary/orderSummary.vue";
 

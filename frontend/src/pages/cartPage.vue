@@ -70,14 +70,11 @@
 
                         <section class="p-8">
 
-                            <shippingBanner :is-free-shipping="shipping === 0" :remaining-amount="remainingAmount"
-                                :progress="shippingProgress" />
-
-                            <p v-if="cart.error" class="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            <p v-if="cart.error" class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                                 {{ cart.error }}
                             </p>
 
-                            <cartList class="mt-5" :class="{ 'pointer-events-none opacity-60': cart.updating }"
+                            <cartList :class="{ 'pointer-events-none opacity-60': cart.updating }"
                                 :products="products" @update-quantity="updateQuantity" @remove-product="removeProduct" />
 
                             <div class="flex items-center justify-between">
@@ -101,26 +98,14 @@
 
                             <div class="sticky top-8">
 
-                                <orderSummary :subtotal="cart.subtotal" :discount="0" :shipping="shipping" :tax="tax"
-                                    :total="total" @checkout="checkout" />
-
-                                <paymentMethods class="mt-5" />
+                                <!-- Shipping and tax are priced by the server at checkout -->
+                                <orderSummary :subtotal="cart.subtotal" />
 
                             </div>
 
                         </aside>
 
                     </div>
-
-                    <!-- Divider -->
-
-                    <div class="mx-8 border-t border-gray-200">
-                    </div>
-
-                    <!-- Recommendations -->
-
-                    <recommendedProducts class="px-8 py-8" :products="recommendable" @add-to-cart="addToCart"
-                        @toggle-wishlist="toggleWishlist" />
 
                 </section>
 
@@ -138,17 +123,12 @@ import Header from "../components/layout/Header/Header.vue";
 import Footer from "../components/layout/Footer/Footer.vue";
 
 import cartHero from "@/components/cart/hero/cartHero.vue";
-import shippingBanner from "@/components/cart/banner/shippingBanner.vue";
 
 import cartList from "@/components/cart/list/cartList.vue";
 
 import orderSummary from "@/components/cart/summary/orderSummary.vue";
 
-import paymentMethods from "../components/cart/summary/paymentMethods.vue";
-
 import continueShopping from "@/components/cart/continueShopping.vue";
-
-import recommendedProducts from "@/components/cart/recommendations/recommendedProducts.vue";
 
 import emptyCart from "@/components/cart/empty/emptyCart.vue";
 
@@ -184,46 +164,16 @@ function toCartProduct(item) {
         price: item.unitPrice,
         originalPrice: item.originalPrice,
         subtotal: item.subtotal,
-        rating: 0,
-        reviewCount: 0,
     };
 }
 
 const products = computed(() => cart.items.map(toCartProduct));
-
-// Items gone from the catalog have no price and are not recommended again.
-const recommendable = computed(() => products.value.filter((product) => product.price != null));
 
 // Re-sync on every visit; stock or prices may have changed since the last load.
 // Guests get fresh catalog data for their stored items.
 onMounted(() => {
     cart.loadCart();
 });
-
-/*
-|--------------------------------------------------------------------------
-| Estimates
-|--------------------------------------------------------------------------
-| Shipping and tax are display estimates derived from the cart subtotal
-| (server-priced when signed in, current catalog prices for guests);
-| the API has no shipping/tax yet, and checkout will price the final order.
-*/
-
-const FREE_SHIPPING_THRESHOLD = 100;
-
-const TAX_RATE = 0.08;
-
-const shipping = computed(() => (cart.subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 5));
-
-const tax = computed(() => Math.round(cart.subtotal * TAX_RATE * 100) / 100);
-
-const total = computed(() => cart.subtotal + shipping.value + tax.value);
-
-const remainingAmount = computed(() =>
-    Math.max(0, Math.round((FREE_SHIPPING_THRESHOLD - cart.subtotal) * 100) / 100)
-);
-
-const shippingProgress = computed(() => Math.min(100, (cart.subtotal / FREE_SHIPPING_THRESHOLD) * 100));
 
 /*
 |--------------------------------------------------------------------------
@@ -245,27 +195,5 @@ function removeProduct(itemId) {
 
 function clearCart() {
     cart.clearCart().catch(ignore);
-}
-
-function addToCart(product) {
-    cart.addItem(product.variantId, 1, { productId: product.productId }).catch(ignore);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Events
-|--------------------------------------------------------------------------
-*/
-
-function checkout() {
-
-    console.log("Proceed to checkout");
-
-}
-
-function toggleWishlist(product) {
-
-    console.log(product);
-
 }
 </script>
