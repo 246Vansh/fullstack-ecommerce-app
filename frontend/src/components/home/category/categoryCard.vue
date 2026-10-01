@@ -1,7 +1,7 @@
 <template>
     <div class="group relative overflow-hidden rounded-lg" :class="card.large
-        ? '[aspect-2/1] sm:row-span-2 sm:aspect-square'
-        : '[aspect-2/1] sm:aspect-auto'">
+        ? 'aspect-2/1 sm:row-span-2 sm:aspect-square'
+        : 'aspect-2/1 sm:aspect-auto'">
 
         <!-- Image -->
         <img :src="card.image" :alt="card.alt"

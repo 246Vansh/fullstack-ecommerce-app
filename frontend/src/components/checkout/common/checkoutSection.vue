@@ -3,14 +3,14 @@
 
         <!-- Header -->
 
-        <div class="flex items-start justify-between px-8 py-7">
+        <div class="flex items-start justify-between gap-4 px-5 py-6 sm:px-8 sm:py-7">
 
-            <div class="flex gap-5">
+            <div class="flex min-w-0 gap-3 sm:gap-5">
 
                 <!-- Number -->
 
                 <div
-                    class="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-lg font-bold text-indigo-600">
+                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-base sm:h-14 sm:w-14 sm:text-lg font-bold text-indigo-600">
 
                     {{ number }}
 
@@ -18,17 +18,17 @@
 
                 <!-- Icon -->
 
-                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 sm:h-14 sm:w-14">
 
-                    <component :is="icon" class="h-7 w-7 text-indigo-600" />
+                    <component :is="icon" class="h-6 w-6 text-indigo-600 sm:h-7 sm:w-7" />
 
                 </div>
 
                 <!-- Title -->
 
-                <div>
+                <div class="min-w-0">
 
-                    <h2 class="text-2xl font-bold text-slate-900">
+                    <h2 class="text-xl font-bold sm:text-2xl text-slate-900">
 
                         {{ title }}
 
@@ -47,7 +47,7 @@
             <!-- Edit -->
 
             <button v-if="editable"
-                class="flex items-center gap-2 font-medium text-indigo-600 transition hover:text-indigo-700 cursor-pointer">
+                class="flex shrink-0 items-center gap-2 font-medium text-indigo-600 transition hover:text-indigo-700 cursor-pointer">
 
                 <PencilSquareIcon class="h-5 w-5" />
 
@@ -63,7 +63,7 @@
 
         <!-- Body -->
 
-        <div class="px-8 py-7">
+        <div class="px-5 py-6 sm:px-8 sm:py-7">
 
             <slot />
 
@@ -83,7 +83,7 @@ defineProps({
 
     subtitle: String,
 
-    icon: Object,
+    icon: [Object, Function],
 
     editable: {
         type: Boolean,

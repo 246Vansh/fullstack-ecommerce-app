@@ -4,11 +4,11 @@
 
         <!-- Header -->
 
-        <div class="border-b border-gray-100 px-8 py-7">
+        <div class="border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
 
             <div class="flex items-center gap-4">
 
-                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-100">
 
                     <ClipboardDocumentListIcon class="h-7 w-7 text-indigo-600" />
 

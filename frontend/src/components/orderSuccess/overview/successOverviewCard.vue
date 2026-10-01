@@ -1,7 +1,7 @@
 <template>
 
     <article
-        class="flex items-center gap-5 rounded-2xl border border-gray-200 bg-white px-6 py-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+        class="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-5 sm:gap-5 sm:px-6 sm:py-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
 
         <!-- Icon -->
 
@@ -13,7 +13,7 @@
 
         <!-- Content -->
 
-        <div>
+        <div class="min-w-0">
 
             <p class="text-sm font-medium text-slate-500">
 
@@ -43,7 +43,7 @@
 
 defineProps({
 
-    icon: Object,
+    icon: [Object, Function],
 
     title: String,
 

@@ -13,15 +13,15 @@
 
             <!-- Hero -->
 
-            <div class="grid items-center gap-10 px-14 pt-10 pb-8 lg:grid-cols-[minmax(0,1fr)_560px]">
+            <div class="grid items-center gap-8 px-5 pt-8 pb-6 sm:px-8 lg:gap-10 lg:px-14 lg:pt-10 lg:pb-8 lg:grid-cols-[minmax(0,1fr)_560px]">
 
                 <!-- LEFT -->
 
-                <div class="flex items-center gap-20">
+                <div class="flex flex-col items-center gap-8 text-center sm:flex-row sm:gap-12 sm:text-left lg:flex-col lg:text-center xl:flex-row xl:gap-20 xl:text-left">
 
                     <!-- Success Icon -->
 
-                    <div class="relative shrink-0 -translate-y-16">
+                    <div class="relative shrink-0 xl:-translate-y-16">
 
                         <!-- Glow -->
 
@@ -31,9 +31,9 @@
                         <!-- Circle -->
 
                         <div
-                            class="relative flex h-44 w-44 items-center justify-center rounded-full bg-green-600 shadow-[0_20px_60px_rgba(34,197,94,.35)]">
+                            class="relative flex h-28 w-28 items-center sm:h-44 sm:w-44 justify-center rounded-full bg-green-600 shadow-[0_20px_60px_rgba(34,197,94,.35)]">
 
-                            <CheckIcon class="h-24 w-24 stroke-[3] text-white" />
+                            <CheckIcon class="h-16 w-16 stroke-[3] text-white sm:h-24 sm:w-24" />
 
                         </div>
 
@@ -52,9 +52,9 @@
 
                     <!-- Content -->
 
-                    <div>
+                    <div class="min-w-0">
 
-                        <h1 class="max-w-[640px] text-4xl font-extrabold leading-[1.12] tracking-tight text-slate-900">
+                        <h1 class="max-w-[640px] text-3xl font-extrabold sm:text-4xl leading-[1.12] tracking-tight text-slate-900">
 
                             Your order has been
 
@@ -66,7 +66,7 @@
 
                         </h1>
 
-                        <p class="mt-5 max-w-xl text-lg leading-8 text-slate-600">
+                        <p class="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
 
                             Thank you for shopping with us.
 
@@ -77,11 +77,11 @@
                         <!-- Order Card -->
 
                         <div
-                            class="mt-8 inline-flex translate-x-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+                            class="mt-8 inline-flex max-w-full overflow-hidden lg:translate-x-4 rounded-2xl border border-gray-200 bg-white shadow-md">
 
-                            <div class="flex items-center px-8 py-4">
+                            <div class="flex min-w-0 items-center px-5 py-4 sm:px-8">
 
-                                <span class="text-xl font-bold text-green-600">
+                                <span class="wrap-anywhere text-lg font-bold text-green-600 sm:text-xl">
 
                                     Order #{{ order.orderNumber }}
 
@@ -90,7 +90,7 @@
                             </div>
 
                             <button type="button" :title="copied ? 'Copied' : 'Copy order number'"
-                                class="flex items-center justify-center border-l border-gray-200 px-6 transition hover:bg-slate-50 cursor-pointer"
+                                class="flex shrink-0 items-center justify-center border-l border-gray-200 px-5 transition sm:px-6 hover:bg-slate-50 cursor-pointer"
                                 @click="copyOrderNumber">
 
                                 <CheckIcon v-if="copied" class="h-6 w-6 text-green-600" />
@@ -106,11 +106,11 @@
 
                 <!-- RIGHT -->
 
-                <div class="relative flex translate-x-6 translate-y-3 justify-center">
+                <div class="relative flex justify-center lg:translate-x-6 lg:translate-y-3">
 
                     <!-- Glow -->
 
-                    <div class="absolute h-[420px] w-[420px] rounded-full bg-green-100/40 blur-[120px]">
+                    <div class="absolute h-[280px] w-[280px] rounded-full sm:h-[420px] sm:w-[420px] bg-green-100/40 blur-[120px]">
                     </div>
 
                     <!-- Illustration -->
@@ -124,7 +124,7 @@
 
             <!-- Overview Cards -->
 
-            <div class="px-14 pb-10">
+            <div class="px-5 pb-8 sm:px-8 lg:px-14 lg:pb-10">
 
                 <successOverviewCards :order="order" :product-count="productCount" :total-quantity="totalQuantity" />
 

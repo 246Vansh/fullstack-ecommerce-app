@@ -68,7 +68,7 @@
 
                         <!-- LEFT -->
 
-                        <section class="p-8">
+                        <section class="min-w-0 p-4 sm:p-8">
 
                             <p v-if="cart.error" class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                                 {{ cart.error }}
@@ -77,7 +77,7 @@
                             <cartList :class="{ 'pointer-events-none opacity-60': cart.updating }"
                                 :products="products" @update-quantity="updateQuantity" @remove-product="removeProduct" />
 
-                            <div class="flex items-center justify-between">
+                            <div class="flex flex-wrap items-center justify-between gap-x-4">
 
                                 <continueShopping class="mt-6" />
 
@@ -94,7 +94,7 @@
 
                         <!-- RIGHT -->
 
-                        <aside class="bg-white p-8">
+                        <aside class="min-w-0 bg-white p-4 sm:p-8">
 
                             <div class="sticky top-8">
 

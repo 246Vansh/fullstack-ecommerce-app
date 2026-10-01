@@ -1,6 +1,6 @@
 <template>
 
-    <section class="border-t border-b border-gray-100 px-8 py-7">
+    <section class="border-t border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
 
         <!-- Price Rows -->
 
@@ -73,7 +73,7 @@
                 Total
             </h3>
 
-            <span class="text-3xl font-bold text-slate-900">
+            <span class="text-2xl font-bold text-slate-900 sm:text-3xl">
                 {{ formatPrice(total) }}
             </span>
 

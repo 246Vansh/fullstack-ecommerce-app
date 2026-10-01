@@ -4,7 +4,7 @@
 
     <main class="bg-slate-50">
 
-        <div class="mx-auto max-w-[1700px] px-6 py-4">
+        <div class="mx-auto max-w-[1700px] px-4 py-4 sm:px-6">
 
             <!-- Loading -->
             <section v-if="loading && !order"

@@ -1,7 +1,7 @@
 <template>
     <section class="bg-white">
 
-        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
             <!-- Breadcrumb -->
 
@@ -16,7 +16,7 @@
             <div class="mt-8">
 
                 <Toolbar :pagination="pagination" :sort-options="sortOptions" :active-filter-count="activeFilterCount"
-                    v-model="selectedSort" />
+                    v-model="selectedSort" @open-filters="filtersOpen = true" />
 
             </div>
 
@@ -24,9 +24,9 @@
 
             <div class="mt-10 grid grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-4">
 
-                <!-- Sidebar -->
+                <!-- Sidebar (desktop) -->
 
-                <FilterSidebar :filters="filters" :filter-data="filterData" v-model="selectedFilters" />
+                <FilterSidebar class="hidden lg:block" :filters="filters" :filter-data="filterData" v-model="selectedFilters" />
 
                 <!-- Products -->
 
@@ -42,14 +42,22 @@
 
         </div>
 
+        <!-- Filters (mobile) -->
+
+        <MobileFilterDrawer :open="filtersOpen" :filters="filters" :filter-data="filterData"
+            :total-products="totalProducts" v-model="selectedFilters" @close="filtersOpen = false" />
+
     </section>
 </template>
 
 <script setup>
+import { ref } from "vue";
+
 import Breadcrumb from "./breadcrumb.vue";
 import ProductsHeader from "./productsHeader.vue";
 import Toolbar from "./toolbar.vue";
 import FilterSidebar from "./filterSidebar.vue";
+import MobileFilterDrawer from "./mobileFilterDrawer.vue";
 import Pagination from "./pagination.vue";
 import ProductList from "./productList.vue";
 
@@ -120,4 +128,6 @@ defineProps({
 const selectedSort = defineModel("selectedSort");
 
 const selectedFilters = defineModel("selectedFilters");
+
+const filtersOpen = ref(false);
 </script>

@@ -5,7 +5,7 @@
 
             <!-- Step -->
 
-            <div class="flex flex-col items-center">
+            <div class="flex shrink-0 flex-col items-center">
 
                 <!-- Circle -->
 
@@ -43,7 +43,7 @@
 
             <!-- Connector -->
 
-            <div v-if="index < steps.length - 1" class="relative mx-5 h-1 w-28 rounded-full bg-gray-200">
+            <div v-if="index < steps.length - 1" class="relative mx-2 h-1 min-w-4 flex-1 rounded-full bg-gray-200 sm:mx-5 sm:w-28 sm:flex-none">
 
                 <div v-if="index < currentIndex"
                     class="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-600 to-violet-500">

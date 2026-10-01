@@ -3,7 +3,7 @@
 
     <main class="bg-slate-50">
 
-        <div class="mx-auto max-w-[1850px] px-8 py-8">
+        <div class="mx-auto max-w-[1850px] px-4 py-6 sm:px-8 sm:py-8">
 
             <!-- Initial Load (also the first render, before the request starts) -->
             <section v-if="!checkout && !error"
@@ -42,7 +42,7 @@
             <div v-else class="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_470px]">
 
                 <!-- LEFT COLUMN -->
-                <section class="space-y-6">
+                <section class="min-w-0 space-y-6">
 
                     <checkoutHero />
 
@@ -76,7 +76,7 @@
                 </section>
 
                 <!-- RIGHT COLUMN -->
-                <aside class="sticky top-8" :class="{ 'opacity-60': loading }">
+                <aside class="sticky top-8 min-w-0" :class="{ 'opacity-60': loading }">
 
                     <orderSummary :products="products" :subtotal="summary.subtotal" :discount="summary.discount"
                         :shipping="summary.shipping" :tax="summary.tax" :total="summary.total" :customer="auth.user"

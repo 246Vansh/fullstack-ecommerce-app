@@ -19,17 +19,17 @@
             <div class="space-y-4">
 
                 <label v-for="address in addresses" :key="address.id"
-                    class="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border p-5 transition"
+                    class="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border p-4 transition sm:p-5"
                     :class="address.id === selectedId ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 hover:border-gray-300'">
 
-                    <div class="flex items-start gap-4">
+                    <div class="flex min-w-0 items-start gap-3 sm:gap-4">
 
-                        <input type="radio" name="shipping-address" class="mt-1.5 h-4 w-4" :value="address.id"
+                        <input type="radio" name="shipping-address" class="mt-1.5 h-4 w-4 shrink-0" :value="address.id"
                             :checked="address.id === selectedId" @change="$emit('select', address.id)" />
 
                         <!-- Address -->
 
-                        <div>
+                        <div class="min-w-0">
 
                             <h3 class="text-xl font-semibold text-slate-900">
                                 {{ TYPE_LABELS[address.type] ?? address.type }}

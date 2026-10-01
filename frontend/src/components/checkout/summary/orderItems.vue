@@ -1,6 +1,6 @@
 <template>
 
-    <section class="border-b border-gray-100 px-8 py-7">
+    <section class="border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
 
         <!-- Header -->
 

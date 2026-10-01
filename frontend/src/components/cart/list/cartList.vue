@@ -1,5 +1,5 @@
 <template>
-    <div class="max-h-160 overflow-y-auto pr-2 hide-scrollbar">
+    <div class="hide-scrollbar xl:max-h-160 xl:overflow-y-auto xl:pr-2">
 
         <div class="flex flex-col gap-4">
 

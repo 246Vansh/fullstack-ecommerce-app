@@ -1,6 +1,6 @@
 <template>
 
-    <div class="px-8 py-7">
+    <div class="px-5 py-6 sm:px-8 sm:py-7">
         <!-- Disabled until the server says the cart and address are ready, and while placing. -->
             <button type="button" :disabled="disabled || loading" :aria-busy="loading" @click="$emit('place')"
                 class="disabled:pointer-events-none disabled:opacity-50 group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 px-6 py-5 text-lg font-semibold text-white shadow-lg shadow-indigo-200 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-300 cursor-pointer">

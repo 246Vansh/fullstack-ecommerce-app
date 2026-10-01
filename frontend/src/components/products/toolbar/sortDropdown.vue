@@ -1,5 +1,5 @@
 <template>
-    <Menu as="div" class="relative z-[100] inline-block text-left">
+    <Menu as="div" class="relative z-30 inline-block text-left">
 
         <!-- Button -->
 

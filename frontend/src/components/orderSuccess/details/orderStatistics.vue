@@ -26,7 +26,7 @@
 
             <!-- Payment -->
 
-            <div class="flex items-start gap-3 border-b border-r border-gray-100 p-5">
+            <div class="flex flex-col items-start gap-3 sm:flex-row border-b border-r border-gray-100 p-4 sm:p-5">
 
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50">
 
@@ -34,7 +34,7 @@
 
                 </div>
 
-                <div>
+                <div class="min-w-0">
 
                     <h3 class="text-base font-semibold text-slate-900">
 
@@ -54,7 +54,7 @@
 
             <!-- Delivery -->
 
-            <div class="flex items-start gap-3 border-b border-gray-100 p-5">
+            <div class="flex flex-col items-start gap-3 sm:flex-row border-b border-gray-100 p-4 sm:p-5">
 
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50">
 
@@ -62,7 +62,7 @@
 
                 </div>
 
-                <div>
+                <div class="min-w-0">
 
                     <h3 class="text-base font-semibold text-slate-900">
 
@@ -82,7 +82,7 @@
 
             <!-- Security -->
 
-            <div class="flex items-start gap-3 border-r border-gray-100 p-5">
+            <div class="flex flex-col items-start gap-3 sm:flex-row border-r border-gray-100 p-4 sm:p-5">
 
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-50">
 
@@ -90,7 +90,7 @@
 
                 </div>
 
-                <div>
+                <div class="min-w-0">
 
                     <h3 class="text-base font-semibold text-slate-900">
 
@@ -110,7 +110,7 @@
 
             <!-- Rewards -->
 
-            <div class="flex items-start gap-3 p-5">
+            <div class="flex flex-col items-start gap-3 sm:flex-row p-4 sm:p-5">
 
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-50">
 
@@ -118,7 +118,7 @@
 
                 </div>
 
-                <div>
+                <div class="min-w-0">
 
                     <h3 class="text-base font-semibold text-slate-900">
 

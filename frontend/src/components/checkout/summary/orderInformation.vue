@@ -1,12 +1,12 @@
 <template>
 
-    <section class="space-y-5 border-b border-gray-100 px-8 py-7">
+    <section class="space-y-5 border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
 
         <!-- Customer -->
 
         <div class="flex items-start justify-between">
 
-            <div>
+            <div class="min-w-0">
 
                 <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">
                     Customer
@@ -16,7 +16,7 @@
                     {{ customerName }}
                 </h3>
 
-                <p class="text-sm text-slate-500">
+                <p class="break-all text-sm text-slate-500">
                     {{ customer?.email }}
                 </p>
 

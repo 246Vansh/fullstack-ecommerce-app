@@ -1,5 +1,5 @@
 <template>
-    <aside class="hidden lg:block">
+    <aside>
 
         <form class="divide-y divide-gray-200">
 
