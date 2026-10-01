@@ -16,14 +16,19 @@
             <p v-if="!loading" class="mt-2 text-sm text-gray-500">
 
                 {{ error || (invalidFilter
-                    ? "This link points to a category, subcategory or brand we don't carry."
+                    ? "This link points to a category, brand, color or size we don't carry."
                     : search
                         ? `No products match "${search}". Try a different search term.`
                         : "Try adjusting your filters or search criteria.") }}
 
             </p>
 
-            <RouterLink v-if="(invalidFilter || search) && !loading && !error" :to="{ name: 'products' }"
+            <RouterLink v-if="clearFiltersTo && !invalidFilter && !loading && !error" :to="clearFiltersTo"
+                class="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                Clear filters
+            </RouterLink>
+
+            <RouterLink v-else-if="(invalidFilter || search) && !loading && !error" :to="{ name: 'products' }"
                 class="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
                 Browse all products
             </RouterLink>
@@ -79,6 +84,12 @@ const props = defineProps({
     search: {
         type: String,
         default: "",
+    },
+
+    // The current URL without its filters, when any filter is active.
+    clearFiltersTo: {
+        type: Object,
+        default: null,
     },
 
 });
