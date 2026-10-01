@@ -1,12 +1,13 @@
 <template>
-    <component :is="tag" :href="tag === 'a' ? href : undefined" :type="tag === 'button' ? type : undefined"
-        :disabled="disabled" :class="buttonClasses">
+    <!-- `to` renders a RouterLink for in-app navigation; `href` stays for plain anchors. -->
+    <component :is="to ? RouterLink : tag" v-bind="elementAttrs" :class="buttonClasses">
         <slot />
     </component>
 </template>
 
 <script setup>
 import { computed } from "vue";
+import { RouterLink } from "vue-router";
 
 const props = defineProps({
     tag: {
@@ -17,6 +18,11 @@ const props = defineProps({
     href: {
         type: String,
         default: "#",
+    },
+
+    to: {
+        type: [String, Object],
+        default: null,
     },
 
     type: {
@@ -82,6 +88,16 @@ const sizeClasses = {
     md: "px-6 py-3 text-sm",
     lg: "px-8 py-4 text-base",
 };
+
+// Only the attributes that apply to the rendered element: an explicit
+// `href: undefined` would override the href RouterLink renders.
+const elementAttrs = computed(() => {
+    if (props.to) return { to: props.to };
+
+    return props.tag === "a"
+        ? { href: props.href, disabled: props.disabled }
+        : { type: props.type, disabled: props.disabled };
+});
 
 const buttonClasses = computed(() => [
     "inline-flex items-center justify-center rounded-md",

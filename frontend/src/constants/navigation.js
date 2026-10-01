@@ -1,3 +1,8 @@
+// Links open the catalog pre-filtered via the same query params as
+// GET /api/products. Slugs must match the categories in the database;
+// brand values are the slugs in constants/catalog/brands.js.
+const catalog = (query = {}) => ({ name: "products", query });
+
 // Header Navigation
 export const navigation = {
     categories: [
@@ -7,18 +12,19 @@ export const navigation = {
 
             featured: [
                 {
+                    // The catalog's default sort is newest first.
                     name: "New Arrivals",
-                    href: "#",
+                    to: catalog({ category: "women" }),
                     imageSrc:
                         "https://tailwindcss.com/plus-assets/img/ecommerce-images/mega-menu-category-01.jpg",
                     imageAlt: "New Arrivals",
                 },
                 {
-                    name: "Basic Tees",
-                    href: "#",
+                    name: "Tops",
+                    to: catalog({ subcategory: "women-tops" }),
                     imageSrc:
                         "https://tailwindcss.com/plus-assets/img/ecommerce-images/mega-menu-category-02.jpg",
-                    imageAlt: "Basic Tees",
+                    imageAlt: "Tops",
                 },
             ],
 
@@ -28,13 +34,10 @@ export const navigation = {
                     name: "Clothing",
 
                     items: [
-                        { name: "Tops", href: "#" },
-                        { name: "Dresses", href: "#" },
-                        { name: "Pants", href: "#" },
-                        { name: "Denim", href: "#" },
-                        { name: "Sweaters", href: "#" },
-                        { name: "T-Shirts", href: "#" },
-                        { name: "Jackets", href: "#" },
+                        { name: "Tops", to: catalog({ subcategory: "women-tops" }) },
+                        { name: "Dresses", to: catalog({ subcategory: "women-dresses" }) },
+                        { name: "Jeans", to: catalog({ subcategory: "women-jeans" }) },
+                        { name: "Jackets", to: catalog({ subcategory: "women-jackets" }) },
                     ],
                 },
 
@@ -43,11 +46,10 @@ export const navigation = {
                     name: "Accessories",
 
                     items: [
-                        { name: "Watches", href: "#" },
-                        { name: "Wallets", href: "#" },
-                        { name: "Bags", href: "#" },
-                        { name: "Sunglasses", href: "#" },
-                        { name: "Belts", href: "#" },
+                        { name: "Wallets", to: catalog({ subcategory: "accessories-wallets" }) },
+                        { name: "Bags", to: catalog({ subcategory: "accessories-bags" }) },
+                        { name: "Sunglasses", to: catalog({ subcategory: "accessories-sunglasses" }) },
+                        { name: "Belts", to: catalog({ subcategory: "accessories-belts" }) },
                     ],
                 },
 
@@ -56,11 +58,11 @@ export const navigation = {
                     name: "Brands",
 
                     items: [
-                        { name: "Full Nelson", href: "#" },
-                        { name: "My Way", href: "#" },
-                        { name: "Re-Arranged", href: "#" },
-                        { name: "Counterfeit", href: "#" },
-                        { name: "Significant Other", href: "#" },
+                        { name: "Calvin Klein", to: catalog({ category: "women", brand: "calvin-klein" }) },
+                        { name: "Zara", to: catalog({ category: "women", brand: "zara" }) },
+                        { name: "H&M", to: catalog({ category: "women", brand: "hm" }) },
+                        { name: "Levi's", to: catalog({ category: "women", brand: "levis" }) },
+                        { name: "Uniqlo", to: catalog({ category: "women", brand: "uniqlo" }) },
                     ],
                 },
             ],
@@ -73,17 +75,17 @@ export const navigation = {
             featured: [
                 {
                     name: "New Arrivals",
-                    href: "#",
+                    to: catalog({ category: "men" }),
                     imageSrc:
                         "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-04-detail-product-shot-01.jpg",
                     imageAlt: "New Arrivals",
                 },
                 {
-                    name: "Artwork Tees",
-                    href: "#",
+                    name: "T-Shirts",
+                    to: catalog({ subcategory: "men-t-shirts" }),
                     imageSrc:
                         "https://tailwindcss.com/plus-assets/img/ecommerce-images/category-page-02-image-card-06.jpg",
-                    imageAlt: "Artwork Tees",
+                    imageAlt: "T-Shirts",
                 },
             ],
 
@@ -93,12 +95,10 @@ export const navigation = {
                     name: "Clothing",
 
                     items: [
-                        { name: "Shirts", href: "#" },
-                        { name: "T-Shirts", href: "#" },
-                        { name: "Pants", href: "#" },
-                        { name: "Shorts", href: "#" },
-                        { name: "Jackets", href: "#" },
-                        { name: "Hoodies", href: "#" },
+                        { name: "Shirts", to: catalog({ subcategory: "men-shirts" }) },
+                        { name: "T-Shirts", to: catalog({ subcategory: "men-t-shirts" }) },
+                        { name: "Jeans", to: catalog({ subcategory: "men-jeans" }) },
+                        { name: "Jackets", to: catalog({ subcategory: "men-jackets" }) },
                     ],
                 },
 
@@ -107,10 +107,10 @@ export const navigation = {
                     name: "Accessories",
 
                     items: [
-                        { name: "Caps", href: "#" },
-                        { name: "Belts", href: "#" },
-                        { name: "Wallets", href: "#" },
-                        { name: "Shoes", href: "#" },
+                        { name: "Caps", to: catalog({ subcategory: "accessories-caps" }) },
+                        { name: "Belts", to: catalog({ subcategory: "accessories-belts" }) },
+                        { name: "Wallets", to: catalog({ subcategory: "accessories-wallets" }) },
+                        { name: "Shoes", to: catalog({ subcategory: "men-shoes" }) },
                     ],
                 },
 
@@ -119,66 +119,29 @@ export const navigation = {
                     name: "Brands",
 
                     items: [
-                        { name: "Nike", href: "#" },
-                        { name: "Adidas", href: "#" },
-                        { name: "Puma", href: "#" },
-                        { name: "Levi's", href: "#" },
-                        { name: "Woodland", href: "#" },
+                        { name: "Nike", to: catalog({ category: "men", brand: "nike" }) },
+                        { name: "Adidas", to: catalog({ category: "men", brand: "adidas" }) },
+                        { name: "Levi's", to: catalog({ category: "men", brand: "levis" }) },
+                        { name: "Zara", to: catalog({ category: "men", brand: "zara" }) },
+                        { name: "Tommy Hilfiger", to: catalog({ category: "men", brand: "tommy-hilfiger" }) },
                     ],
                 },
             ],
-        },
-    ],
-
-    pages: [
-        {
-            name: "Company",
-            href: "#",
-        },
-
-        {
-            name: "Stores",
-            href: "#",
         },
     ],
 };
 
 
 // Footer Navigation
+// Only pages that exist are linked. There are no customer service,
+// company or legal pages yet, so those columns are empty and hidden.
 export const footerNavigation = {
     products: [
-        { name: 'Bags', href: '#' },
-        { name: 'Tees', href: '#' },
-        { name: 'Objects', href: '#' },
-        { name: 'Home Goods', href: '#' },
-        { name: 'Accessories', href: '#' },
+        { name: 'Bags', to: catalog({ subcategory: 'accessories-bags' }) },
+        { name: 'Tees', to: catalog({ subcategory: 'men-t-shirts' }) },
+        { name: 'Accessories', to: catalog({ category: 'accessories' }) },
     ],
-    customerService: [
-        { name: 'Contact', href: '#' },
-        { name: 'Shipping', href: '#' },
-        { name: 'Returns', href: '#' },
-        { name: 'Warranty', href: '#' },
-        { name: 'FAQ', href: '#' },
-        { name: 'Find a store', href: '#' },
-    ],
-    company: [
-        { name: 'Who we are', href: '#' },
-        { name: 'Sustainability', href: '#' },
-        { name: 'Press', href: '#' },
-        { name: 'Careers', href: '#' },
-        { name: 'Terms & Conditions', href: '#' },
-        { name: 'Privacy', href: '#' },
-    ],
-    legal: [
-        { name: 'Terms of Service', href: '#' },
-        { name: 'Return Policy', href: '#' },
-        { name: 'Privacy Policy', href: '#' },
-        { name: 'Shipping Policy', href: '#' },
-    ],
-    bottomLinks: [
-        { name: 'Accessibility', href: '#' },
-        { name: 'Privacy', href: '#' },
-        { name: 'Terms', href: '#' },
-    ],
+    customerService: [],
+    company: [],
+    legal: [],
 }
-

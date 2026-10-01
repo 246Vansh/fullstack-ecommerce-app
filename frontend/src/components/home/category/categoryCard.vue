@@ -17,7 +17,7 @@
 
                 <h3 class="font-semibold text-white">
 
-                    <RouterLink to="/">
+                    <RouterLink :to="card.to">
 
                         <span class="absolute inset-0"></span>
 

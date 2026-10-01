@@ -26,12 +26,6 @@
 
             </Popover>
 
-            <!-- Static Navigation Links -->
-            <a v-for="page in navigation.pages" :key="page.name" :href="page.href"
-                class="flex items-center text-sm font-medium text-gray-700 transition-colors duration-200 hover:text-gray-800">
-                {{ page.name }}
-            </a>
-
         </div>
     </PopoverGroup>
 </template>

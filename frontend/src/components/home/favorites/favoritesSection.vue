@@ -4,7 +4,7 @@
 
             <!-- Section Header -->
             <SectionHeader heading-id="favorites-heading" title="Our Favorites" link-text="Shop the collection"
-                link-href="#" />
+                link-href="/products" />
 
             <!-- Product Grid -->
             <FavoriteGrid />

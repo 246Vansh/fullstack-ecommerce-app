@@ -18,7 +18,7 @@
 
                     <div class="mt-10">
 
-                        <PrimaryButton href="#" variant="primary">
+                        <PrimaryButton to="/products" variant="primary">
                             Shop Collection
                         </PrimaryButton>
 

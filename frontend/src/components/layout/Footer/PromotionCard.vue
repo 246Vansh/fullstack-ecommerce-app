@@ -17,9 +17,7 @@
 
                 </h2>
                 <p class="mt-2 text-gray-200">
-                    Did you sign up to the newsletter? If so, use the keyword we sent you to get access. <a href="#"
-                        class="font-bold whitespace-nowrap text-white hover:text-gray-200">Go now<span
-                            aria-hidden="true"> &rarr;</span></a>
+                    Did you sign up to the newsletter? If so, use the keyword we sent you to get access.
                 </p>
 
             </div>

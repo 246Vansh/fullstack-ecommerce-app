@@ -9,15 +9,22 @@
 
             <h3 class="text-lg font-semibold text-gray-900">
 
-                {{ loading ? "Loading products..." : error ? "Could not load products" : "No products found" }}
+                {{ loading ? "Loading products..." : error ? "Could not load products" : invalidFilter ? "Filter not found" : "No products found" }}
 
             </h3>
 
             <p v-if="!loading" class="mt-2 text-sm text-gray-500">
 
-                {{ error || "Try adjusting your filters or search criteria." }}
+                {{ error || (invalidFilter
+                    ? "This link points to a category, subcategory or brand we don't carry."
+                    : "Try adjusting your filters or search criteria.") }}
 
             </p>
+
+            <RouterLink v-if="invalidFilter && !loading" :to="{ name: 'products' }"
+                class="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                Browse all products
+            </RouterLink>
 
         </div>
 
@@ -38,6 +45,7 @@
 <script setup>
 
 import { computed } from "vue";
+import { RouterLink } from "vue-router";
 import ProductGrid from "./productGrid.vue";
 import ProductCard from "./product/productCard.vue";
 
@@ -57,6 +65,12 @@ const props = defineProps({
     error: {
         type: String,
         default: "",
+    },
+
+    // A catalog link with an unknown category, subcategory or brand.
+    invalidFilter: {
+        type: Boolean,
+        default: false,
     },
 
 });

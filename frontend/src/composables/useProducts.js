@@ -50,6 +50,19 @@ export function useProducts() {
 
     });
 
+    // Category slugs from a link (/products?category=women) wait here until
+    // GET /api/categories answers, because the sidebar filters by category id.
+    const pendingSlugs = ref(null);
+
+    let categoriesLoaded = false;
+
+    // A link value that matches no category, subcategory or brand. The
+    // catalog then shows an empty state instead of every product. It clears
+    // when the shopper changes a filter or follows another link.
+    const invalidLinkFilter = ref(false);
+
+    let applyingLink = false;
+
     const searchQuery = ref("");
 
     const debouncedSearch = refDebounced(searchQuery, 300);
@@ -85,8 +98,10 @@ export function useProducts() {
 
         const params = {
             search: debouncedSearch.value.trim() || undefined,
-            category: namesFor(selectedFilters.category, categories.value, "slug").join(",") || undefined,
-            subcategory: namesFor(selectedFilters.subcategory, subcategoryList, "slug").join(",") || undefined,
+            // Pending slugs are sent as-is, so a linked page fetches its
+            // filtered results once instead of all products first.
+            category: (pendingSlugs.value?.category ?? namesFor(selectedFilters.category, categories.value, "slug")).join(",") || undefined,
+            subcategory: (pendingSlugs.value?.subcategory ?? namesFor(selectedFilters.subcategory, subcategoryList, "slug")).join(",") || undefined,
             brand: namesFor(selectedFilters.brand, brands).join(",") || undefined,
             color: namesFor(selectedFilters.color, colors).join(",") || undefined,
             size: namesFor(selectedFilters.size, sizes).join(",") || undefined,
@@ -112,6 +127,15 @@ export function useProducts() {
     async function fetchProducts() {
 
         controller?.abort();
+
+        if (invalidLinkFilter.value) {
+            products.value = [];
+            total.value = 0;
+            serverTotalPages.value = 1;
+            loading.value = false;
+            error.value = "";
+            return;
+        }
 
         const current = new AbortController();
         controller = current;
@@ -149,9 +173,59 @@ export function useProducts() {
 
         try {
             categories.value = await productService.getCategories();
+            categoriesLoaded = true;
+            resolvePendingSlugs();
         } catch {
             // Keep the constants as a fallback so the sidebar still renders.
+            // Pending link slugs stay as-is and go to the API unchecked.
         }
+
+    }
+
+    function resolvePendingSlugs() {
+
+        if (!pendingSlugs.value) return;
+
+        const { category, subcategory } = pendingSlugs.value;
+
+        const subcategoryList = categories.value.flatMap((item) => item.subcategories ?? []);
+
+        const matchedCategories = categories.value.filter((item) => category.includes(item.slug));
+        const matchedSubcategories = subcategoryList.filter((item) => subcategory.includes(item.slug));
+
+        applyingLink = true;
+
+        selectedFilters.category = matchedCategories.map((item) => item.id);
+        selectedFilters.subcategory = matchedSubcategories.map((item) => item.id);
+
+        applyingLink = false;
+
+        if (matchedCategories.length < category.length || matchedSubcategories.length < subcategory.length) {
+            invalidLinkFilter.value = true;
+        }
+
+        pendingSlugs.value = null;
+
+    }
+
+    // One-way: preselects sidebar filters from a navigation link. Nothing
+    // is written back to the URL. Unknown values set invalidLinkFilter.
+    function applyLinkFilters({ category = [], subcategory = [], brand = [] }) {
+
+        const matchedBrands = brands.filter((item) => brand.includes(item.slug));
+
+        applyingLink = true;
+
+        clearFilters();
+        selectedFilters.brand = matchedBrands.map((item) => item.id);
+
+        applyingLink = false;
+
+        invalidLinkFilter.value = matchedBrands.length < brand.length;
+
+        pendingSlugs.value = { category, subcategory };
+
+        if (categoriesLoaded) resolvePendingSlugs();
 
     }
 
@@ -163,8 +237,17 @@ export function useProducts() {
         },
     );
 
+    // Sync so link-driven changes (applyingLink) can be told apart from the shopper's.
+    watch(
+        () => JSON.stringify(selectedFilters),
+        () => {
+            if (!applyingLink) invalidLinkFilter.value = false;
+        },
+        { flush: "sync" },
+    );
+
     // Compared as a string so loading categories alone does not refetch.
-    watch(() => JSON.stringify(query.value), fetchProducts, { immediate: true });
+    watch([() => JSON.stringify(query.value), invalidLinkFilter], fetchProducts, { immediate: true });
 
     fetchCategories();
 
@@ -263,6 +346,7 @@ export function useProducts() {
         categories,
         loading,
         error,
+        invalidLinkFilter,
 
         selectedSort,
         selectedFilters,
@@ -280,6 +364,7 @@ export function useProducts() {
 
         changePage,
         clearFilters,
+        applyLinkFilters,
         refetch: fetchProducts,
 
     };

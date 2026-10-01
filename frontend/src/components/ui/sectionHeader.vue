@@ -7,31 +7,33 @@
         </h2>
 
         <!-- Desktop Link -->
-        <a v-if="linkText" :href="linkHref"
+        <RouterLink v-if="linkText" :to="linkHref"
             class="hidden text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-indigo-500 sm:block">
             {{ linkText }}
 
             <span aria-hidden="true">
                 &rarr;
             </span>
-        </a>
+        </RouterLink>
 
     </div>
 
     <!-- Mobile Link -->
     <div v-if="linkText" class="mt-6 sm:hidden">
-        <a :href="linkHref"
+        <RouterLink :to="linkHref"
             class="block text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-indigo-500">
             {{ linkText }}
 
             <span aria-hidden="true">
                 &rarr;
             </span>
-        </a>
+        </RouterLink>
     </div>
 </template>
 
 <script setup>
+import { RouterLink } from "vue-router";
+
 defineProps({
     headingId: {
         type: String,
@@ -49,8 +51,8 @@ defineProps({
     },
 
     linkHref: {
-        type: String,
-        default: "#",
+        type: [String, Object],
+        default: "/products",
     },
 });
 </script>

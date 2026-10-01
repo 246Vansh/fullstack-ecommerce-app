@@ -27,10 +27,6 @@
                         inevitable heat-death of the universe.
                     </p>
 
-                    <PrimaryButton href="#" variant="light" class="mt-8">
-                        Read our story
-                    </PrimaryButton>
-
                 </div>
 
             </div>
@@ -38,7 +34,3 @@
         </div>
     </section>
 </template>
-
-<script setup>
-import PrimaryButton from "@/components/ui/PrimaryButton.vue";
-</script>

@@ -32,7 +32,7 @@
 
                 <div class="lg:col-span-3 cursor-pointer">
 
-                    <ProductList :products="products" :loading="loading" :error="error" />
+                    <ProductList :products="products" :loading="loading" :error="error" :invalid-filter="invalidFilter" />
 
                     <Pagination class="mt-12" :total-pages="pagination.totalPages" v-model="pagination.currentPage" />
 
@@ -121,6 +121,11 @@ defineProps({
     error: {
         type: String,
         default: "",
+    },
+
+    invalidFilter: {
+        type: Boolean,
+        default: false,
     },
 
 });

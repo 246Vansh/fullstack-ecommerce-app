@@ -2,7 +2,8 @@
   <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 translate-y-2"
     enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-150"
     leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-2">
-    <PopoverPanel class="absolute inset-x-0 top-full z-20 bg-white text-sm text-gray-500 shadow-lg">
+    <!-- z-60: above the catalog toolbar (z-50) so the menu stays usable on /products -->
+    <PopoverPanel v-slot="{ close }" class="absolute inset-x-0 top-full z-60 bg-white text-sm text-gray-500 shadow-lg">
       <!-- Shadow -->
       <div class="absolute inset-0 top-1/2 bg-white shadow-sm" aria-hidden="true"></div>
 
@@ -25,12 +26,12 @@
 
                 </div>
 
-                <a :href="item.href" class="mt-6 block font-medium text-gray-900">
+                <RouterLink :to="item.to" class="mt-6 block font-medium text-gray-900" @click="close()">
                   <span class="absolute inset-0 z-10" aria-hidden="true"></span>
 
                   {{ item.name }}
 
-                </a>
+                </RouterLink>
 
                 <p class="mt-1 text-gray-500">
                   Shop now
@@ -55,9 +56,9 @@
 
                   <li v-for="item in section.items" :key="item.name">
 
-                    <a :href="item.href" class="transition hover:text-gray-900">
+                    <RouterLink :to="item.to" class="transition hover:text-gray-900" @click="close()">
                       {{ item.name }}
-                    </a>
+                    </RouterLink>
 
                   </li>
 
@@ -91,6 +92,7 @@
 <script setup>
 
 import { PopoverPanel } from "@headlessui/vue";
+import { RouterLink } from "vue-router";
 
 defineProps({
 

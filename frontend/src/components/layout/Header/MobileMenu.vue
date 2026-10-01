@@ -81,13 +81,14 @@
 
                                             </div>
 
-                                            <a :href="item.href" class="mt-4 block font-medium text-gray-900">
+                                            <RouterLink :to="item.to" class="mt-4 block font-medium text-gray-900"
+                                                @click="closeMenu">
 
                                                 <span class="absolute inset-0 z-10" aria-hidden="true"></span>
 
                                                 {{ item.name }}
 
-                                            </a>
+                                            </RouterLink>
 
                                             <p class="mt-1">
                                                 Shop now
@@ -110,28 +111,15 @@
 
                                             <li v-for="item in section.items" :key="item.name" class="flow-root">
 
-                                                <a :href="item.href"
-                                                    class="-m-2 block p-2 text-gray-500 hover:text-gray-800">
+                                                <RouterLink :to="item.to"
+                                                    class="-m-2 block p-2 text-gray-500 hover:text-gray-800"
+                                                    @click="closeMenu">
                                                     {{ item.name }}
-                                                </a>
+                                                </RouterLink>
 
                                             </li>
 
                                         </ul>
-
-                                    </div>
-
-                                    <!-- Pages -->
-
-                                    <div class="border-t border-gray-200 pt-6">
-
-                                        <div v-for="page in navigation.pages" :key="page.name" class="flow-root">
-
-                                            <a :href="page.href" class="-m-2 block p-2 font-medium text-gray-900">
-                                                {{ page.name }}
-                                            </a>
-
-                                        </div>
 
                                     </div>
 

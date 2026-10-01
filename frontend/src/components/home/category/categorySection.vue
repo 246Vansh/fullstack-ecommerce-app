@@ -4,7 +4,7 @@
 
       <!-- Section Header -->
       <SectionHeader heading-id="category-heading" title="Shop by Category" link-text="Browse all categories"
-        link-href="/" />
+        link-href="/products" />
 
       <!-- Category Grid -->
       <div class="mt-6 grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:grid-rows-2 sm:gap-x-6 lg:gap-8">
