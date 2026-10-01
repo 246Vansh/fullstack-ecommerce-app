@@ -1,5 +1,4 @@
 import { computed, reactive, ref, watch } from "vue";
-import { refDebounced } from "@vueuse/core";
 import axios from "axios";
 
 import { productService } from "@/services/productService";
@@ -63,9 +62,8 @@ export function useProducts() {
 
     let applyingLink = false;
 
+    // Set from ?search= in the URL, so it is not debounced.
     const searchQuery = ref("");
-
-    const debouncedSearch = refDebounced(searchQuery, 300);
 
     // ==========================
     // Pagination
@@ -97,7 +95,7 @@ export function useProducts() {
         const stockValues = namesFor(selectedFilters.availability, availability, "value");
 
         const params = {
-            search: debouncedSearch.value.trim() || undefined,
+            search: searchQuery.value.trim() || undefined,
             // Pending slugs are sent as-is, so a linked page fetches its
             // filtered results once instead of all products first.
             category: (pendingSlugs.value?.category ?? namesFor(selectedFilters.category, categories.value, "slug")).join(",") || undefined,
@@ -210,7 +208,9 @@ export function useProducts() {
 
     // One-way: preselects sidebar filters from a navigation link. Nothing
     // is written back to the URL. Unknown values set invalidLinkFilter.
-    function applyLinkFilters({ category = [], subcategory = [], brand = [] }) {
+    function applyLinkFilters({ category = [], subcategory = [], brand = [], search = "" }) {
+
+        searchQuery.value = search;
 
         const matchedBrands = brands.filter((item) => brand.includes(item.slug));
 
@@ -231,7 +231,7 @@ export function useProducts() {
 
     // New filters, sort or search start again from page 1.
     watch(
-        [selectedSort, debouncedSearch, () => JSON.stringify(selectedFilters)],
+        [selectedSort, searchQuery, () => JSON.stringify(selectedFilters)],
         () => {
             pagination.currentPage = 1;
         },

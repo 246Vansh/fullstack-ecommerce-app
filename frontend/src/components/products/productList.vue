@@ -17,11 +17,13 @@
 
                 {{ error || (invalidFilter
                     ? "This link points to a category, subcategory or brand we don't carry."
-                    : "Try adjusting your filters or search criteria.") }}
+                    : search
+                        ? `No products match "${search}". Try a different search term.`
+                        : "Try adjusting your filters or search criteria.") }}
 
             </p>
 
-            <RouterLink v-if="invalidFilter && !loading" :to="{ name: 'products' }"
+            <RouterLink v-if="(invalidFilter || search) && !loading && !error" :to="{ name: 'products' }"
                 class="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
                 Browse all products
             </RouterLink>
@@ -71,6 +73,12 @@ const props = defineProps({
     invalidFilter: {
         type: Boolean,
         default: false,
+    },
+
+    // The active ?search= term, if any.
+    search: {
+        type: String,
+        default: "",
     },
 
 });
