@@ -67,6 +67,14 @@ export function useCheckout() {
         return saved;
     }
 
+    // Deletes a saved address; the server then picks the shipping address
+    // (the deleted one is never kept selected). Errors are re-thrown for the card.
+    async function deleteAddress(id) {
+        await addressService.deleteAddress(id);
+
+        await load(id === selectedAddressId.value ? null : selectedAddressId.value);
+    }
+
     const placing = ref(false);
     const placeError = ref("");
 
@@ -109,6 +117,7 @@ export function useCheckout() {
         load,
         selectAddress,
         saveAddress,
+        deleteAddress,
         placing,
         placeError,
         placeOrder,

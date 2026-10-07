@@ -82,33 +82,7 @@
 
             </div>
 
-            <!-- Divider -->
-
-            <div class="border-t border-gray-100"></div>
-
-            <!-- Delivery -->
-
-            <div class="flex items-start gap-3">
-
-                <TruckIcon class="mt-0.5 h-5 w-5 shrink-0 text-slate-900" />
-
-                <div>
-
-                    <p class="text-sm font-bold text-slate-900">
-
-                        Delivery Method
-
-                    </p>
-
-                    <p class="mt-0.5 text-xs font-semibold text-slate-500">
-
-                        Standard Shipping
-
-                    </p>
-
-                </div>
-
-            </div>
+            <!-- No delivery method: orders do not store one yet. -->
 
         </div>
 
@@ -122,7 +96,6 @@ import {
     UserIcon,
     PhoneIcon,
     HomeIcon,
-    TruckIcon,
 } from "@heroicons/vue/24/outline";
 
 // The shipping address snapshot stored on the order.

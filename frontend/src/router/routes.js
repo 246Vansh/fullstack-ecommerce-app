@@ -9,6 +9,8 @@ import SignUpPage from "@/pages/signUpPage.vue";
 import ForgotPasswordPage from "@/pages/forgotPasswordPage.vue";
 import ResetPasswordPage from "@/pages/resetPasswordPage.vue";
 import VerifyEmailPage from "@/pages/verifyEmailPage.vue";
+import OrdersPage from "@/pages/ordersPage.vue";
+import OrderDetailsPage from "@/pages/orderDetailsPage.vue";
 
 export const routes = [
 
@@ -47,6 +49,20 @@ export const routes = [
         path: "/orderSuccess/:id(\\d+)",
         name: "orderSuccess",
         component: OrderSuccess,
+        meta: { requiresAuth: true },
+    },
+
+    {
+        path: "/orders",
+        name: "orders",
+        component: OrdersPage,
+        meta: { requiresAuth: true },
+    },
+
+    {
+        path: "/orders/:id(\\d+)",
+        name: "order-details",
+        component: OrderDetailsPage,
         meta: { requiresAuth: true },
     },
 

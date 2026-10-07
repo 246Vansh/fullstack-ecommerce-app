@@ -23,6 +23,9 @@ function generateOrderNumber(now = new Date()) {
     return `ORD-${date}-${code}`;
 }
 
+// Only orders that have not progressed yet can be cancelled by the customer.
+const CANCELLABLE_STATUSES = ["PENDING"];
+
 const REQUIRED_ADDRESS_FIELDS = ["firstName", "lastName", "phone", "address", "city", "state", "zipCode", "country"];
 
 const orderSelect = {
@@ -37,6 +40,7 @@ const orderSelect = {
     total: true,
     placedAt: true,
     createdAt: true,
+    updatedAt: true,
     shippingEmail: true,
     shippingFirstName: true,
     shippingLastName: true,
@@ -73,7 +77,9 @@ function toOrderResponse(order) {
         orderId: order.id,
         orderNumber: order.orderNumber,
         status: order.status,
+        cancellable: CANCELLABLE_STATUSES.includes(order.status),
         createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
         placedAt: order.placedAt,
         currency: order.currency,
         // The email captured when the order was placed.
@@ -271,4 +277,97 @@ export async function getOrder(userId, id) {
     }
 
     return toOrderResponse(order);
+}
+
+// The signed-in user's orders, newest first, as list rows (no item details).
+export async function listOrders(userId) {
+    const orders = await prisma.order.findMany({
+        where: { userId },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            total: true,
+            createdAt: true,
+            items: { select: { quantity: true } },
+        },
+    });
+
+    return orders.map(({ items, total, ...order }) => ({
+        ...order,
+        total: toMoney(total),
+        itemCount: items.reduce((count, item) => count + item.quantity, 0),
+    }));
+}
+
+/*
+|--------------------------------------------------------------------------
+| Cancellation
+|--------------------------------------------------------------------------
+| One transaction:
+| 1. Conditional UPDATE status -> CANCELLED WHERE id, userId and status is
+|    cancellable. This row-locks the order and re-checks the condition on the
+|    latest committed row, so of two concurrent cancels only one matches; the
+|    other waits for the lock, then matches 0 rows and gets 409.
+| 2. Re-read the order items and give each variant its quantity back, in
+|    variant id order (the same order checkout locks them in).
+| Any failure rolls back both the status change and every stock increment.
+|
+| `hooks.afterStep(name, tx)` is a test seam, as in placeOrder.
+*/
+
+export async function cancelOrder(userId, id, hooks) {
+    const step = async (name) => hooks?.afterStep?.(name, tx);
+    let tx;
+
+    try {
+        const order = await prisma.$transaction(async (transaction) => {
+            tx = transaction;
+
+            const { count } = await tx.order.updateMany({
+                where: { id, userId, status: { in: CANCELLABLE_STATUSES } },
+                data: { status: "CANCELLED" },
+            });
+
+            if (count === 0) {
+                const current = await tx.order.findFirst({ where: { id, userId }, select: { status: true } });
+
+                if (!current) throw new ApiError(404, "Order not found");
+
+                throw new ApiError(409, current.status === "CANCELLED"
+                    ? "This order has already been cancelled"
+                    : "This order can no longer be cancelled");
+            }
+
+            await step("status");
+
+            const items = await tx.orderItem.findMany({
+                where: { orderId: id, variantId: { not: null } },
+                select: { variantId: true, quantity: true },
+                orderBy: { variantId: "asc" },
+            });
+
+            for (const { variantId, quantity } of items) {
+                await tx.productVariant.update({
+                    where: { id: variantId },
+                    data: { stock: { increment: quantity } },
+                });
+
+                await step("restore");
+            }
+
+            return tx.order.findUnique({ where: { id }, select: orderSelect });
+        }, TRANSACTION_OPTIONS);
+
+        return toOrderResponse(order);
+    } catch (err) {
+        if (err instanceof ApiError) throw err;
+
+        if (err instanceof Prisma.PrismaClientKnownRequestError && ["P2028", "P2034"].includes(err.code)) {
+            throw new ApiError(409, "Your order could not be cancelled right now. Please try again.");
+        }
+
+        throw err;
+    }
 }

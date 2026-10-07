@@ -10,6 +10,12 @@
 
       <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
 
+      <RouterLink :to="ROUTES.ORDERS" class="text-sm font-medium text-gray-700 hover:text-gray-800">
+        Orders
+      </RouterLink>
+
+      <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
+
       <button type="button" :disabled="loggingOut"
         class="text-sm font-medium text-gray-700 hover:text-gray-800 cursor-pointer disabled:opacity-50"
         @click="logout">

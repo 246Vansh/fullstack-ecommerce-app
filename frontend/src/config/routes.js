@@ -10,6 +10,8 @@ export const ROUTES = {
 
     CHECKOUT: "/checkout",
 
+    ORDERS: "/orders",
+
     LOGIN: "/login",
 
     REGISTER: "/register",

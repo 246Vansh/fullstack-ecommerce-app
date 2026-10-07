@@ -67,7 +67,7 @@
 
                     <contactCard :customer="auth.user" />
 
-                    <shippingCard :addresses="addresses" :selected-id="selectedAddressId" :save="saveAddress"
+                    <shippingCard :addresses="addresses" :selected-id="selectedAddressId" :save="saveAddress" :remove="deleteAddress"
                         @select="selectAddress" />
 
                     <!-- Delivery methods, coupons and order notes are not implemented, so they are not shown. -->
@@ -135,6 +135,7 @@ const {
     load,
     selectAddress,
     saveAddress,
+    deleteAddress,
     placing,
     placeError,
     placeOrder,

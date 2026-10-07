@@ -141,6 +141,16 @@
 
                                 <div class="flow-root">
 
+                                    <RouterLink :to="ROUTES.ORDERS"
+                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        @click="closeMenu">
+                                        My Orders
+                                    </RouterLink>
+
+                                </div>
+
+                                <div class="flow-root">
+
                                     <button type="button" :disabled="loggingOut"
                                         class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600 cursor-pointer disabled:opacity-50"
                                         @click="logout">

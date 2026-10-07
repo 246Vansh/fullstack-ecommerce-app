@@ -63,7 +63,7 @@
                 <!-- Buttons -->
                 <section class="mt-7">
 
-                    <actionButtons />
+                    <actionButtons :order-id="order.id" />
 
                 </section>
 

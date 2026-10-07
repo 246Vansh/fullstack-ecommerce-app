@@ -31,8 +31,9 @@ export const sessionLimiter = limiter({
     limit: 120,
 });
 
-// Order placement, keyed by user (use after authenticate), so a shared IP
-// does not share the budget and one account cannot flood order creation.
+// Order placement and cancellation (both move stock), keyed by user (use after
+// authenticate), so a shared IP does not share the budget and one account
+// cannot churn inventory with place/cancel loops.
 export const orderMutationLimiter = limiter({
     limit: 10,
     keyGenerator: (req) => `user:${req.user.id}`,
