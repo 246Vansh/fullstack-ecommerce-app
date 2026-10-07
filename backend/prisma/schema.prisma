@@ -21,6 +21,12 @@ enum AddressType {
   OTHER
 }
 
+enum RefreshTokenRevokeReason {
+  ROTATED
+  LOGOUT
+  REUSE
+}
+
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -47,11 +53,33 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  addresses Address[]
-  cart      Cart?
-  orders    Order[]
+  addresses     Address[]
+  cart          Cart?
+  orders        Order[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
+}
+
+// One row per issued refresh token. Only a SHA-256 hash is stored. Tokens
+// from one login share a familyId; rotation revokes the old row (ROTATED),
+// and presenting a revoked token revokes the whole family (REUSE).
+model RefreshToken {
+  id            Int                       @id @default(autoincrement())
+  userId        Int
+  familyId      String                    @db.Char(36)
+  tokenHash     String                    @unique @db.Char(64)
+  persistent    Boolean                   @default(false)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason RefreshTokenRevokeReason?
+  createdAt     DateTime                  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }
 
 model Address {

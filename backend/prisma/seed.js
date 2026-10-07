@@ -1,5 +1,7 @@
 // Development seed data. Safe to run repeatedly: every record is upserted
 // by a unique key (category/product slug, variant sku, user email).
+// Re-running resets the seeded users' passwords and variant stock, so it only
+// runs when NODE_ENV is explicitly development or test (never production).
 //
 // Brand, color and size values must match the names in
 // frontend/src/constants/catalog, because the catalog filters send those names.
@@ -556,6 +558,16 @@ async function main() {
 
     console.log("Seed complete:", { users, categories, products, variants, images });
     console.log("Login: admin@example.com / Admin@12345, customer@example.com / Customer@12345");
+}
+
+const SEED_ENVS = ["development", "test"];
+
+if (!SEED_ENVS.includes(process.env.NODE_ENV)) {
+    console.error(
+        `Refusing to seed: NODE_ENV is "${process.env.NODE_ENV ?? ""}". ` +
+        `The seed overwrites user passwords and stock, and only runs when NODE_ENV is ${SEED_ENVS.join(" or ")}.`,
+    );
+    process.exit(1);
 }
 
 main()

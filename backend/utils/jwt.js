@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
 const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
@@ -21,9 +22,10 @@ export function signAccessToken(user) {
     );
 }
 
-export function signRefreshToken(user) {
+// jti makes every token unique (it is stored hashed); fam is the login session.
+export function signRefreshToken(user, familyId) {
     return jwt.sign(
-        { sub: String(user.id), type: "refresh" },
+        { sub: String(user.id), type: "refresh", fam: familyId, jti: crypto.randomUUID() },
         getSecret("JWT_REFRESH_SECRET"),
         { expiresIn: REFRESH_EXPIRES_IN },
     );

@@ -1,9 +1,14 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 
 const SALT_ROUNDS = 12;
+
+// Compared against when the email is unknown, so both failure paths do the
+// same bcrypt work and response time does not reveal which emails exist.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomUUID(), SALT_ROUNDS);
 
 // Fields that are safe to send to the client. Never includes passwordHash.
 export const safeUserSelect = {
@@ -51,9 +56,7 @@ export async function registerUser({ firstName, lastName, email, password }) {
 export async function loginUser({ email, password }) {
     const user = await prisma.user.findUnique({ where: { email } });
 
-    const passwordMatches = user
-        ? await bcrypt.compare(password, user.passwordHash)
-        : false;
+    const passwordMatches = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
 
     if (!user || !passwordMatches) {
         throw new ApiError(401, "Invalid email or password");

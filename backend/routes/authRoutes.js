@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import rateLimit from "express-rate-limit";
 
 import {
     register,
@@ -11,17 +10,9 @@ import {
 } from "../controllers/authController.js";
 import { authenticate } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
+import { credentialsLimiter, sessionLimiter } from "../middleware/rateLimits.js";
 
 const router = Router();
-
-// Stricter limit on credential endpoints to slow brute-force attempts.
-const credentialsLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 20,
-    standardHeaders: "draft-8",
-    legacyHeaders: false,
-    message: { success: false, message: "Too many attempts, please try again later" },
-});
 
 const registerRules = [
     body("firstName").trim().notEmpty().withMessage("First name is required")
@@ -44,8 +35,8 @@ const loginRules = [
 
 router.post("/register", credentialsLimiter, registerRules, validate, register);
 router.post("/login", credentialsLimiter, loginRules, validate, login);
-router.post("/refresh", refresh);
-router.post("/logout", logout);
+router.post("/refresh", sessionLimiter, refresh);
+router.post("/logout", sessionLimiter, logout);
 router.get("/me", authenticate, me);
 
 export default router;

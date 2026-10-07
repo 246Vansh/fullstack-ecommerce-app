@@ -4,6 +4,7 @@ import { body, param } from "express-validator";
 import { createMyOrder, getMyOrder } from "../controllers/orderController.js";
 import { authenticate } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
+import { orderMutationLimiter } from "../middleware/rateLimits.js";
 
 const router = Router();
 
@@ -17,7 +18,7 @@ const idRules = [
 
 router.use(authenticate);
 
-router.post("/", createRules, validate, createMyOrder);
+router.post("/", orderMutationLimiter, createRules, validate, createMyOrder);
 router.get("/:id", idRules, validate, getMyOrder);
 
 export default router;

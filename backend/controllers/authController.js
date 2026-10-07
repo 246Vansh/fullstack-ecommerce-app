@@ -1,15 +1,11 @@
 import { ApiError } from "../utils/ApiError.js";
-import {
-    signAccessToken,
-    signRefreshToken,
-    verifyRefreshToken,
-    getTokenMaxAge,
-} from "../utils/jwt.js";
+import { signAccessToken, getTokenMaxAge } from "../utils/jwt.js";
 import {
     registerUser,
     loginUser,
     getUserById,
 } from "../services/authService.js";
+import { createSession, rotateSession, revokeSession } from "../services/refreshTokenService.js";
 
 const REFRESH_COOKIE = "refreshToken";
 
@@ -25,13 +21,11 @@ function cookieOptions() {
     };
 }
 
-// remember=false gives a session cookie that ends when the browser closes.
-function setRefreshCookie(res, user, remember) {
-    const token = signRefreshToken(user);
-
+// persistent=false gives a session cookie that ends when the browser closes.
+function setRefreshCookie(res, { token, persistent }) {
     res.cookie(REFRESH_COOKIE, token, {
         ...cookieOptions(),
-        ...(remember && { maxAge: getTokenMaxAge(token) }),
+        ...(persistent && { maxAge: getTokenMaxAge(token) }),
     });
 }
 
@@ -48,7 +42,7 @@ export async function login(req, res) {
 
     const user = await loginUser({ email, password });
 
-    setRefreshCookie(res, user, Boolean(remember));
+    setRefreshCookie(res, await createSession(user.id, Boolean(remember)));
 
     res.json({
         success: true,
@@ -58,6 +52,7 @@ export async function login(req, res) {
 }
 
 // Exchanges the refresh cookie for a new access token (used on page load).
+// The refresh token is rotated: the old one is revoked and a new one is set.
 export async function refresh(req, res) {
     const token = req.cookies?.[REFRESH_COOKIE];
 
@@ -65,16 +60,18 @@ export async function refresh(req, res) {
         throw new ApiError(401, "No active session");
     }
 
-    let payload;
+    let session;
 
     try {
-        payload = verifyRefreshToken(token);
-    } catch {
-        res.clearCookie(REFRESH_COOKIE, cookieOptions());
-        throw new ApiError(401, "Session expired");
+        session = await rotateSession(token);
+    } catch (error) {
+        if (error.statusCode === 401) res.clearCookie(REFRESH_COOKIE, cookieOptions());
+        throw error;
     }
 
-    const user = await getUserById(Number(payload.sub));
+    const user = await getUserById(session.userId);
+
+    setRefreshCookie(res, session);
 
     res.json({
         success: true,
@@ -83,8 +80,13 @@ export async function refresh(req, res) {
     });
 }
 
-export function logout(req, res) {
+// Revokes the whole login session server-side, not just the cookie.
+export async function logout(req, res) {
+    const token = req.cookies?.[REFRESH_COOKIE];
+
     res.clearCookie(REFRESH_COOKIE, cookieOptions());
+
+    if (token) await revokeSession(token);
 
     res.json({ success: true });
 }
