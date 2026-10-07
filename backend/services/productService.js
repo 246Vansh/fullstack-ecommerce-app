@@ -131,7 +131,9 @@ export async function listProducts(filters) {
     const where = buildWhere(filters);
     const { page, limit } = filters;
 
-    const [total, products] = await prisma.$transaction([
+    // Independent reads: run them side by side instead of in one transaction,
+    // which holds a single pooled connection for both.
+    const [total, products] = await Promise.all([
         prisma.product.count({ where }),
         prisma.product.findMany({
             where,

@@ -70,7 +70,8 @@
 
                             Thank you for shopping with us.
 
-                            We've received your order and it is now being processed.
+                            We've received your order. Its status is Pending and no
+                            payment has been taken yet.
 
                         </p>
 

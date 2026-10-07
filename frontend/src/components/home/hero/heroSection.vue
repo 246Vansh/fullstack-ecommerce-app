@@ -8,12 +8,12 @@
                 <div class="max-w-xl">
 
                     <h1 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-                        Summer styles are finally here
+                        Find your next favorite piece
                     </h1>
 
                     <p class="mt-6 text-lg leading-8 text-gray-600">
-                        This year, our new summer collection will shelter you from the
-                        harsh elements of a world that doesn't care if you live or die.
+                        Browse our catalog by category, brand, size, color and price,
+                        then check out in a few steps.
                     </p>
 
                     <div class="mt-10">

@@ -13,8 +13,6 @@
 
             <ProductShipping v-else-if="activeTab === 'shipping'" />
 
-            <ProductReturns v-else-if="activeTab === 'returns'" />
-
         </div>
 
     </section>
@@ -27,7 +25,6 @@ import TabNavigation from "./sections/tabNavigation.vue";
 import ProductDescription from "./sections/productDescription.vue";
 import ProductSpecifications from "./sections/productSpecifications.vue";
 import ProductShipping from "./sections/productShipping.vue";
-import ProductReturns from "./sections/productReturns.vue";
 
 defineProps({
     product: {
@@ -51,10 +48,7 @@ const tabs = [
         id: "shipping",
         label: "Shipping",
     },
-    {
-        id: "returns",
-        label: "Returns",
-    },
+    // No Returns tab: there is no return policy or return flow yet.
     // No Reviews tab: there is no review system yet.
 ];
 

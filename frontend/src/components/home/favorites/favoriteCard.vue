@@ -2,8 +2,8 @@
     <div class="group relative">
 
         <!-- Product Image -->
-        <div class="aspect-rectangle w-full overflow-hidden rounded-lg bg-gray-100">
-            <img :src="product.image" :alt="product.alt"
+        <div class="aspect-[4/5] w-full overflow-hidden rounded-lg bg-gray-100">
+            <img :src="product.image" :alt="product.alt ?? product.name" loading="lazy"
                 class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-75" />
         </div>
 
@@ -13,7 +13,7 @@
             <div>
 
                 <h3 class="text-sm font-medium text-gray-900">
-                    <RouterLink to="/products">
+                    <RouterLink :to="{ name: 'product-details', params: { id: product.id } }">
 
                         <span aria-hidden="true" class="absolute inset-0"></span>
 
@@ -25,7 +25,7 @@
             </div>
 
             <p class="text-sm font-medium text-gray-900">
-                {{ product.price }}
+                {{ formatPrice(product.price) }}
             </p>
 
         </div>
@@ -35,6 +35,7 @@
 
 <script setup>
 import { RouterLink } from 'vue-router';
+import { formatPrice } from "@/composables/useOrderSuccess";
 
 defineProps({
     product: {

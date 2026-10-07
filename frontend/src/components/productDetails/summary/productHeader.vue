@@ -6,7 +6,7 @@
 
         <ProductTitle :title="product.name" :brand="product.brand" />
 
-        <ProductMeta :product="product" />
+        <ProductMeta :product="product" :selected-variant="selectedVariant" />
 
     </div>
 
@@ -21,6 +21,11 @@ defineProps({
     product: {
         type: Object,
         required: true,
+    },
+
+    selectedVariant: {
+        type: Object,
+        default: null,
     },
 });
 </script>

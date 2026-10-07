@@ -58,7 +58,7 @@
 
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50">
 
-                    <TruckIcon class="h-6 w-6 text-blue-600" />
+                    <ClockIcon class="h-6 w-6 text-blue-600" />
 
                 </div>
 
@@ -66,13 +66,13 @@
 
                     <h3 class="text-base font-semibold text-slate-900">
 
-                        Shipping Updates
+                        Status: Pending
 
                     </h3>
 
                     <p class="mt-1 text-xs leading-5 text-slate-500">
 
-                        We'll let you know when your order ships.
+                        This order has not been paid or shipped yet.
 
                     </p>
 
@@ -94,7 +94,7 @@
 
                     <h3 class="text-base font-semibold text-slate-900">
 
-                        Secure Checkout
+                        Verified Prices
 
                     </h3>
 
@@ -114,7 +114,7 @@
 
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-50">
 
-                    <GiftTopIcon class="h-6 w-6 text-amber-500" />
+                    <MapPinIcon class="h-6 w-6 text-amber-500" />
 
                 </div>
 
@@ -122,13 +122,13 @@
 
                     <h3 class="text-base font-semibold text-slate-900">
 
-                        Easy Returns
+                        Address Saved
 
                     </h3>
 
                     <p class="mt-1 text-xs leading-5 text-slate-500">
 
-                        30-day hassle-free returns.
+                        Your shipping address is stored with this order.
 
                     </p>
 
@@ -146,8 +146,8 @@
 import {
     StarIcon,
     CheckCircleIcon,
-    TruckIcon,
+    ClockIcon,
     ShieldCheckIcon,
-    GiftTopIcon,
+    MapPinIcon,
 } from "@heroicons/vue/24/outline";
 </script>

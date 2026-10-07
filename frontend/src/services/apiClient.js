@@ -8,6 +8,7 @@ export const apiClient = axios.create(API_CONFIG);
 
 let accessToken = null;
 let refreshHandler = null;
+let sessionExpiredHandler = null;
 let refreshPromise = null;
 
 export function setAccessToken(token) {
@@ -17,6 +18,11 @@ export function setAccessToken(token) {
 // The auth store registers how to refresh, avoiding a circular import.
 export function setRefreshHandler(handler) {
     refreshHandler = handler;
+}
+
+// The router registers what to do when a refresh fails mid-session.
+export function setSessionExpiredHandler(handler) {
+    sessionExpiredHandler = handler;
 }
 
 apiClient.interceptors.request.use((config) => {
@@ -40,9 +46,15 @@ apiClient.interceptors.response.use(
 
         original._retry = true;
 
-        refreshPromise ??= refreshHandler().finally(() => {
-            refreshPromise = null;
-        });
+        // Concurrent 401s share one refresh, so a failed refresh reports once.
+        refreshPromise ??= refreshHandler()
+            .then((refreshed) => {
+                if (!refreshed) sessionExpiredHandler?.();
+                return refreshed;
+            })
+            .finally(() => {
+                refreshPromise = null;
+            });
 
         const refreshed = await refreshPromise;
 

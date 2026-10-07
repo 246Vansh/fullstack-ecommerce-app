@@ -38,12 +38,6 @@
             Create Account
         </authButton>
 
-        <!-- Divider -->
-        <authDivider />
-
-        <!-- Social Login -->
-        <socialLogin :providers="socialProviders" />
-
         <!-- Footer -->
         <authFooter text="Already have an account?" link-text="Sign In" :to="ROUTES.LOGIN" />
 
@@ -57,11 +51,7 @@ import authInput from "../fields/authInput.vue";
 import passwordInput from "../fields/passwordInput.vue";
 import checkboxField from "../fields/checkboxField.vue";
 import authButton from "../ui/authButton.vue";
-import authDivider from "../ui/authDivider.vue";
 import authFooter from "../ui/authFooter.vue";
-import socialButton from "../ui/socialButton.vue";
-import socialLogin from "../ui/socialLogin.vue";
-import { socialProviders } from "@/constants/auth/socialProviders";
 import {ROUTES} from "@/config";
 
 defineProps({

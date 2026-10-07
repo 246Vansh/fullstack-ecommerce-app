@@ -50,6 +50,8 @@ const props = defineProps({
     },
 });
 
+const emit = defineEmits(["variant-change"]);
+
 const cart = useCartStore();
 
 // ==================================================
@@ -126,6 +128,9 @@ const canPurchase = computed(() => {
 watch([selectedColor, selectedSize, quantity], () => {
     feedback.value = null;
 });
+
+// The summary shows the selected variant's price (null when no variant matches).
+watch(selectedVariant, (variant) => emit("variant-change", variant), { immediate: true });
 
 // ==================================================
 // Methods

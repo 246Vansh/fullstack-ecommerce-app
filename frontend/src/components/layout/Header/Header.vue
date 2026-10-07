@@ -7,12 +7,6 @@
     <!-- Header -->
     <header class="relative bg-white">
 
-      <!-- Announcement Bar -->
-      <p
-        class="flex h-10 items-center justify-center bg-indigo-600 px-4 text-sm font-medium text-white sm:px-6 lg:px-8">
-        Get free delivery on orders over $100
-      </p>
-
       <!-- Navigation -->
       <nav aria-label="Top" class="mx-auto max-w-9xl px-4 sm:px-6 lg:px-8">
           <div class="flex h-16 items-center border-b border-gray-200">

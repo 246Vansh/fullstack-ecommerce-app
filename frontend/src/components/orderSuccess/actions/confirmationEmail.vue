@@ -14,13 +14,13 @@
 
                 <h3 class="text-lg font-semibold text-slate-900">
 
-                    Order Updates
+                    Contact Email
 
                 </h3>
 
                 <p class="mt-1 text-slate-600">
 
-                    Updates about this order will be sent to
+                    The contact email on this order is
                     <strong class="break-all">{{ email }}</strong>.
 
                 </p>

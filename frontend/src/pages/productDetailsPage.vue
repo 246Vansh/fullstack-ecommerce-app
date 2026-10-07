@@ -45,7 +45,7 @@ import Footer from "@/components/layout/Footer/Footer.vue";
 import ProductDetails from "@/components/productDetails/ProductDetails.vue";
 import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
 
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import { productService } from "@/services/productService";
@@ -61,7 +61,17 @@ const loading = ref(false);
 
 const error = ref("");
 
+// Only the latest navigation may write state: each load aborts the previous
+// one, and the id check drops any response that still settles afterwards.
+let requestId = 0;
+let controller = null;
+
 async function loadProduct(id) {
+
+    const current = ++requestId;
+    controller?.abort();
+    controller = new AbortController();
+    const { signal } = controller;
 
     loading.value = true;
     error.value = "";
@@ -70,13 +80,17 @@ async function loadProduct(id) {
 
     try {
 
-        const product = await productService.getProduct(id);
+        const product = await productService.getProduct(id, { signal });
+
+        if (current !== requestId) return;
 
         productDetails.value = product;
 
-        loadRelated(product);
+        loadRelated(product, current, signal);
 
     } catch (err) {
+
+        if (current !== requestId) return;
 
         const { status, message } = parseApiError(err);
 
@@ -84,14 +98,14 @@ async function loadProduct(id) {
 
     } finally {
 
-        loading.value = false;
+        if (current === requestId) loading.value = false;
 
     }
 
 }
 
 // Related products are optional; a failure leaves the section empty.
-async function loadRelated(product) {
+async function loadRelated(product, current, signal) {
 
     if (!product.category?.slug) return;
 
@@ -100,17 +114,24 @@ async function loadRelated(product) {
         const { products } = await productService.listProducts({
             category: product.category.slug,
             limit: 5,
-        });
+        }, { signal });
+
+        if (current !== requestId) return;
 
         relatedProducts.value = products
             .filter(item => item.id !== product.id)
             .slice(0, 4);
 
     } catch {
-        relatedProducts.value = [];
+        if (current === requestId) relatedProducts.value = [];
     }
 
 }
+
+onBeforeUnmount(() => {
+    requestId++;
+    controller?.abort();
+});
 
 watch(() => route.params.id, (id) => {
     if (id) loadProduct(id);

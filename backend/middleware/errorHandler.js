@@ -13,11 +13,14 @@ export function errorHandler(err, req, res, next) {
         console.error(err);
     }
 
+    // Unexpected 5xx errors (database/Prisma, bugs) never send their raw
+    // message; outside production an ApiError's own message is still shown.
+    const exposeMessage = !isServerError
+        || (err instanceof ApiError && process.env.NODE_ENV !== "production");
+
     res.status(statusCode).json({
         success: false,
-        message: isServerError && process.env.NODE_ENV === "production"
-            ? "Internal server error"
-            : err.message,
-        ...(err.details && { details: err.details }),
+        message: exposeMessage ? err.message : "Internal server error",
+        ...(exposeMessage && err.details && { details: err.details }),
     });
 }

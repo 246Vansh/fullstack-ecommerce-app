@@ -5,7 +5,7 @@
         <!-- Date (there is no delivery estimate yet) -->
 
         <successOverviewCard :icon="TruckIcon" title="Order Date" :value="formatDate(order.createdAt)"
-            subtitle="We'll let you know when it ships" icon-background="bg-green-100" icon-color="text-green-600"
+            subtitle="The date this order was placed" icon-background="bg-green-100" icon-color="text-green-600"
             value-color="text-green-700" />
 
         <!-- Items -->

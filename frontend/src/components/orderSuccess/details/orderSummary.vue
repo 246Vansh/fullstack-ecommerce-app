@@ -104,7 +104,7 @@
 
                         <p class="mt-0.5 text-xs font-medium text-green-600">
 
-                            We'll let you know when it ships
+                            Not yet paid or shipped
 
                         </p>
 

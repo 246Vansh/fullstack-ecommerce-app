@@ -7,7 +7,7 @@
                 <!-- Background -->
                 <div class="absolute inset-0">
                     <img src="https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-feature-section-full-width.jpg"
-                        alt="Long-term thinking" class="h-full w-full object-cover object-center" />
+                        alt="" class="h-full w-full object-cover object-center" />
                 </div>
 
                 <!-- Overlay -->
@@ -17,14 +17,13 @@
                 <div
                     class="relative mx-auto flex max-w-3xl flex-col items-center px-6 py-32 text-center sm:px-12 sm:py-40">
                     <h2 id="cause-heading" class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Long-term thinking
+                        Search the whole catalog
                     </h2>
 
                     <p class="mt-4 text-xl leading-8 text-white">
-                        We're committed to responsible, sustainable, and ethical
-                        manufacturing. Our small-scale approach allows us to focus on
-                        quality and reduce our impact. We're doing our best to delay the
-                        inevitable heat-death of the universe.
+                        Use the search in the header to find products by name, brand
+                        or description, and sort results by newest, best selling or
+                        price.
                     </p>
 
                 </div>

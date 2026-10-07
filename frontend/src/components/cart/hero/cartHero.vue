@@ -16,7 +16,7 @@
                 </h1>
 
                 <p class="mt-4 text-[22px] leading-7 text-slate-600">
-                    Review your selected items before proceeding to secure checkout.
+                    Review your selected items before proceeding to checkout.
                 </p>
 
                 <!-- Features -->
@@ -29,18 +29,6 @@
 
                         <span class="text-[17px] font-semibold text-slate-800">
                             {{ itemCount }} {{ itemCount === 1 ? "Item" : "Items" }}
-                        </span>
-
-                    </div>
-
-                    <!-- Feature Pills -->
-                    <div v-for="feature in features" :key="feature.title"
-                        class="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-3 transition hover:border-violet-300 hover:shadow-sm">
-
-                        <component :is="feature.icon" class="h-5 w-5" :class="feature.color" />
-
-                        <span class="text-[17px] font-medium text-slate-700">
-                            {{ feature.title }}
                         </span>
 
                     </div>
@@ -70,12 +58,7 @@
 </template>
 
 <script setup>
-import {
-    ArrowPathRoundedSquareIcon,
-    ShieldCheckIcon,
-    ShoppingBagIcon,
-    TruckIcon,
-} from "@heroicons/vue/24/outline";
+import { ShoppingBagIcon } from "@heroicons/vue/24/outline";
 
 defineProps({
     itemCount: {
@@ -83,22 +66,4 @@ defineProps({
         default: 0,
     },
 });
-
-const features = [
-    {
-        title: "Secure Checkout",
-        icon: ShieldCheckIcon,
-        color: "text-violet-600",
-    },
-    {
-        title: "Fast Delivery",
-        icon: TruckIcon,
-        color: "text-emerald-600",
-    },
-    {
-        title: "30-Day Returns",
-        icon: ArrowPathRoundedSquareIcon,
-        color: "text-green-600",
-    },
-];
 </script>

@@ -22,10 +22,6 @@
             Sign In
         </authButton>
 
-        <authDivider />
-
-        <socialLogin :providers="socialProviders" />
-
         <authFooter text="Don't have an account?" link-text="Create one" :to="ROUTES.REGISTER" />
 
     </form>
@@ -38,10 +34,7 @@ import authInput from "../fields/authInput.vue";
 import passwordInput from "../fields/passwordInput.vue";
 import checkboxField from "../fields/checkboxField.vue";
 import authButton from "../ui/authButton.vue";
-import authDivider from "../ui/authDivider.vue";
 import authFooter from "../ui/authFooter.vue";
-import socialLogin from "../ui/socialLogin.vue";
-import { socialProviders } from "@/constants/auth/socialProviders";
 import { ROUTES } from "@/config";
 
 defineProps({
