@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* Programmatic focus targets (skip link, route changes) are not controls, so
+   they get no focus ring. */
+#main-content:focus,
+#main-content h1:focus {
+    outline: none;
+}

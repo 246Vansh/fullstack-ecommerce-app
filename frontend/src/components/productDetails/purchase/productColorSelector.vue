@@ -4,9 +4,9 @@
         <div class="mb-5 flex items-center justify-between">
 
             <div>
-                <h3 class="text-base font-semibold text-gray-900">
+                <h2 class="text-base font-semibold text-gray-900">
                     Color
-                </h3>
+                </h2>
 
                 <p class="mt-1 text-sm text-gray-500">
                     Choose your preferred color
@@ -20,7 +20,7 @@
 
         </div>
 
-        <div class="flex flex-wrap gap-4">
+        <div class="flex flex-wrap gap-4" role="group" aria-label="Color">
 
             <ProductColorOption v-for="color in colors" :key="color.id" :color="color"
                 :is-selected="selectedColor?.id === color.id" @select="$emit('select-color', $event)" />

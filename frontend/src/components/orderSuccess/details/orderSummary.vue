@@ -96,11 +96,11 @@
 
                     <div class="text-right">
 
-                        <h3 class="text-sm font-bold text-slate-900">
+                        <p class="text-sm font-bold text-slate-900">
 
                             {{ statusLabel(order.status) }}
 
-                        </h3>
+                        </p>
 
                         <p class="mt-0.5 text-xs font-medium text-green-600">
 

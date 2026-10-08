@@ -37,6 +37,7 @@
                             {{ option.label }}
 
                             <CheckIcon v-if="selectedSort === option.value" class="h-5 w-5 text-indigo-600" />
+                            <span v-if="selectedSort === option.value" class="sr-only">(selected)</span>
                         </button>
 
                     </MenuItem>

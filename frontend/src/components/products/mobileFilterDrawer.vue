@@ -1,5 +1,6 @@
 <template>
-    <TransitionRoot as="template" :show="open">
+    <!-- Filters only change the query, so focus always returns to the Filters button. -->
+    <TransitionRoot as="template" :show="open" @after-leave="restoreFocusAfterDialog('mobile-filters-button', false)">
         <Dialog class="relative z-40 lg:hidden" @close="$emit('close')">
 
             <!-- Backdrop -->
@@ -37,7 +38,7 @@
                         <!-- Same sidebar as desktop; filters apply as they change -->
                         <div class="flex-1 overflow-y-auto px-4">
 
-                            <FilterSidebar :filters="filters" :filter-data="filterData" v-model="model" />
+                            <FilterSidebar :filters="filters" :filter-data="filterData" :heading="false" v-model="model" />
 
                         </div>
 
@@ -73,6 +74,7 @@ import {
 import { XMarkIcon } from "@heroicons/vue/24/outline";
 
 import FilterSidebar from "./filterSidebar.vue";
+import { restoreFocusAfterDialog } from "@/router/pageFocus";
 
 defineProps({
 

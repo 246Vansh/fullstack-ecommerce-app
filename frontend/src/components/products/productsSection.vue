@@ -32,6 +32,11 @@
 
                 <div class="lg:col-span-3 cursor-pointer">
 
+                    <h2 class="sr-only">Product results</h2>
+
+                    <!-- Announces the result count once a filter, sort or page change has loaded. -->
+                    <p role="status" class="sr-only">{{ resultStatus }}</p>
+
                     <ProductList :products="products" :loading="loading" :error="error" :invalid-filter="invalidFilter" :search="search"
                         :clear-filters-to="activeFilterCount > 0 ? clearFiltersTo : null" />
 
@@ -52,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 
 import Breadcrumb from "./breadcrumb.vue";
 import ProductsHeader from "./productsHeader.vue";
@@ -62,7 +67,7 @@ import MobileFilterDrawer from "./mobileFilterDrawer.vue";
 import Pagination from "./pagination.vue";
 import ProductList from "./productList.vue";
 
-defineProps({
+const props = defineProps({
 
     title: {
         type: String,
@@ -146,4 +151,15 @@ const selectedSort = defineModel("selectedSort");
 const selectedFilters = defineModel("selectedFilters");
 
 const filtersOpen = ref(false);
+
+// Updated only when a load settles, so each change is announced once.
+const resultStatus = ref("");
+
+watch(() => [props.loading, props.error, props.totalProducts], () => {
+    if (props.loading) return;
+
+    resultStatus.value = props.error
+        ? "Could not load products"
+        : `${props.totalProducts} ${props.totalProducts === 1 ? "product" : "products"} found`;
+}, { immediate: true });
 </script>

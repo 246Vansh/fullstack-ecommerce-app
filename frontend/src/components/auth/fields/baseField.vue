@@ -6,7 +6,8 @@
         <label v-if="label" :for="id" class="block text-sm font-medium text-gray-900">
             {{ label }}
 
-            <span v-if="required" class="ml-1 text-red-500">
+            <!-- The input itself is marked required; the asterisk is visual only. -->
+            <span v-if="required" class="ml-1 text-red-500" aria-hidden="true">
                 *
             </span>
 
@@ -18,13 +19,13 @@
 
         <!-- Helper -->
 
-        <p v-if="helper && !error" class="text-xs text-gray-500">
+        <p v-if="helper && !error" :id="`${id}-helper`" class="text-xs text-gray-500">
             {{ helper }}
         </p>
 
         <!-- Error -->
 
-        <p v-if="error" class="text-xs font-medium text-red-600">
+        <p v-if="error" :id="`${id}-error`" class="text-xs font-medium text-red-600">
             {{ error }}
         </p>
 

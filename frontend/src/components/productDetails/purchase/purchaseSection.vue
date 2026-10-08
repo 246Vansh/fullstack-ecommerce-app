@@ -21,8 +21,11 @@
 
             <PurchaseActions :disabled="!canPurchase" @add-to-cart="handleAddToCart" />
 
-            <p v-if="message.text" class="mt-3 text-sm font-medium"
-                :class="message.type === 'error' ? 'text-red-600' : 'text-emerald-600'">
+            <!-- Always rendered so screen readers announce each new message. -->
+            <p role="status" class="text-sm font-medium" :class="[
+                message.text ? 'mt-3' : '',
+                message.type === 'error' ? 'text-red-600' : 'text-emerald-600',
+            ]">
                 {{ message.text }}
             </p>
 

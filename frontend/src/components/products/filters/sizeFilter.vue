@@ -6,7 +6,8 @@
         </legend>
 
         <div class="flex flex-wrap gap-3">
-            <button v-for="size in options" :key="size.id" type="button" @click="toggleSize(size.id)" :class="[
+            <button v-for="size in options" :key="size.id" type="button" :aria-pressed="modelValue.includes(size.id)"
+                @click="toggleSize(size.id)" :class="[
                 'flex h-10 min-w-12 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-all duration-200 cursor-pointer',
 
                 modelValue.includes(size.id)

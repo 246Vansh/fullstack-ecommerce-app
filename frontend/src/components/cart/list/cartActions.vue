@@ -1,23 +1,27 @@
 <template>
     <div class="flex flex-col items-center justify-center">
 
-        <div class="flex items-center overflow-hidden rounded-2xl border border-gray-200">
-            <button class="flex h-12 w-12 items-center justify-center text-gray-500 transition hover:bg-gray-100 cursor-pointer"
+        <div class="flex items-center overflow-hidden rounded-2xl border border-gray-200" role="group"
+            :aria-label="`Quantity for ${product.name}`">
+            <button type="button" :aria-label="`Decrease quantity for ${product.name}`"
+                class="flex h-12 w-12 items-center justify-center text-gray-500 transition hover:bg-gray-100 cursor-pointer"
                 @click="decreaseQuantity">
                 <MinusIcon class="h-5 w-5" />
             </button>
 
             <span class="flex w-12 justify-center font-semibold">
-                {{ product.quantity }}
+                <span class="sr-only">Quantity </span>{{ product.quantity }}
             </span>
 
-            <button class="flex h-12 w-12 items-center justify-center text-gray-500 transition hover:bg-gray-100 cursor-pointer"
+            <button type="button" :aria-label="`Increase quantity for ${product.name}`"
+                class="flex h-12 w-12 items-center justify-center text-gray-500 transition hover:bg-gray-100 cursor-pointer"
                 @click="increaseQuantity">
                 <PlusIcon class="h-5 w-5" />
             </button>
         </div>
 
-        <button class="mt-5 flex items-center gap-2 font-medium text-red-500 transition hover:text-red-600 cursor-pointer"
+        <button type="button" :aria-label="`Remove ${product.name} from cart`"
+            class="mt-5 flex items-center gap-2 font-medium text-red-500 transition hover:text-red-600 cursor-pointer"
             @click="$emit('removeProduct')">
             <TrashIcon class="h-5 w-5" />
             Remove

@@ -2,20 +2,20 @@
 
     <Header />
 
-    <main class="bg-slate-50">
+    <main id="main-content" tabindex="-1" class="bg-slate-50">
 
         <div class="mx-auto max-w-[1700px] px-4 py-4 sm:px-6">
 
             <!-- Loading -->
             <section v-if="loading && !order"
                 class="flex min-h-100 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white">
-                <LoadingSpinner class="text-gray-400" />
+                <LoadingSpinner class="text-gray-400" label="Loading your order" />
             </section>
 
             <!-- Error: never fall back to placeholder order data -->
             <section v-else-if="!order"
                 class="flex min-h-100 flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-center">
-                <h2 class="text-2xl font-bold text-gray-900">Order unavailable</h2>
+                <h1 class="text-2xl font-bold text-gray-900">Order unavailable</h1>
                 <p class="mt-2 text-gray-500">{{ error }}</p>
                 <div class="mt-6 flex gap-4">
                     <button type="button"
@@ -84,6 +84,7 @@
 </template>
 
 <script setup>
+import { watch } from "vue";
 import { RouterLink } from "vue-router";
 
 import Header from "@/components/layout/Header/Header.vue";
@@ -103,6 +104,7 @@ import confirmationEmail from "@/components/orderSuccess/actions/confirmationEma
 import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
 
 import { useOrderSuccess } from "@/composables/useOrderSuccess";
+import { focusHeadingAfterLoad } from "@/router/pageFocus";
 
 const {
     order,
@@ -112,5 +114,8 @@ const {
     totalQuantity,
     load,
 } = useOrderSuccess();
+
+// The success (or "Order unavailable") heading appears once loading ends.
+watch(loading, (isLoading) => { if (!isLoading) focusHeadingAfterLoad(); });
 
 </script>

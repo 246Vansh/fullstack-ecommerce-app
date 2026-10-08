@@ -2,7 +2,7 @@
 
     <Header />
 
-    <main class="bg-slate-50">
+    <main id="main-content" tabindex="-1" class="bg-slate-50">
 
         <div class="mx-auto max-w-5xl px-4 py-8 sm:px-6">
 
@@ -13,7 +13,7 @@
             <!-- Loading -->
             <section v-if="loading"
                 class="mt-6 flex min-h-60 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white">
-                <LoadingSpinner class="text-gray-400" />
+                <LoadingSpinner class="text-gray-400" label="Loading your orders" />
             </section>
 
             <!-- Error -->

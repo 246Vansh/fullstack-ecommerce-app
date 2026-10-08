@@ -4,9 +4,9 @@
 
         <ShoppingCartIcon class="h-20 w-20 text-gray-300" />
 
-        <h2 class="mt-8 text-3xl font-bold text-slate-900">
+        <h1 class="mt-8 text-3xl font-bold text-slate-900">
             Your cart is empty
-        </h2>
+        </h1>
 
         <p class="mt-3 max-w-md text-gray-500">
 

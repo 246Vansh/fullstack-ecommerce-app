@@ -5,7 +5,8 @@
         <TabNavigation :tabs="tabs" :active-tab="activeTab" @change-tab="changeTab" />
 
         <!-- Tab Content -->
-        <div class="mt-10">
+        <div :id="`product-panel-${activeTab}`" role="tabpanel" tabindex="0" :aria-labelledby="`product-tab-${activeTab}`"
+            class="mt-10">
 
             <ProductDescription v-if="activeTab === 'description'" :product="product" />
 

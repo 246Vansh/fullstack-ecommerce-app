@@ -24,46 +24,49 @@ export const routes = [
         path: "/products",
         name: "products",
         component: ProductsPage,
+        meta: { title: "Products" },
     },
 
     {
         path: "/products/:id",
         name: "product-details",
         component: ProductDetailsPage,
+        meta: { title: "Product" },
     },
 
     {
         path: "/cart",
         name: "cart",
         component: CartPage,
+        meta: { title: "Cart" },
     },
 
     {
         path: "/checkout",
         name: "checkout",
         component: CheckoutPage,
-        meta: { requiresAuth: true },
+        meta: { title: "Checkout", requiresAuth: true },
     },
 
     {
         path: "/orderSuccess/:id(\\d+)",
         name: "orderSuccess",
         component: OrderSuccess,
-        meta: { requiresAuth: true },
+        meta: { title: "Order Confirmed", requiresAuth: true },
     },
 
     {
         path: "/orders",
         name: "orders",
         component: OrdersPage,
-        meta: { requiresAuth: true },
+        meta: { title: "Orders", requiresAuth: true },
     },
 
     {
         path: "/orders/:id(\\d+)",
         name: "order-details",
         component: OrderDetailsPage,
-        meta: { requiresAuth: true },
+        meta: { title: "Order", requiresAuth: true },
     },
 
     // /trackOrder and /invoice are not registered until tracking and invoices
@@ -73,38 +76,42 @@ export const routes = [
         path: "/login",
         name: "login",
         component: SignInPage,
-        meta: { guestOnly: true },
+        meta: { title: "Sign In", guestOnly: true },
     },
 
     {
         path: "/register",
         name: "register",
         component: SignUpPage,
-        meta: { guestOnly: true },
+        meta: { title: "Create Account", guestOnly: true },
     },
 
     {
         path: "/forgot-password",
         name: "forgot-password",
         component: ForgotPasswordPage,
+        meta: { title: "Forgot Password" },
     },
 
     {
         path: "/reset-password",
         name: "reset-password",
         component: ResetPasswordPage,
+        meta: { title: "Reset Password" },
     },
 
     {
         path: "/verify-email",
         name: "verify-email",
         component: VerifyEmailPage,
+        meta: { title: "Verify Email" },
     },
 
     {
         path: "/:pathMatch(.*)*",
         name: "not-found",
         component: () => import("@/pages/notFoundPage.vue"),
+        meta: { title: "Page Not Found" },
     },
 
 ];

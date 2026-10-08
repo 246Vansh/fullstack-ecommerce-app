@@ -1,7 +1,7 @@
 <template>
     <Header />
 
-    <main class="bg-white">
+    <main id="main-content" tabindex="-1" class="bg-white">
         <div class="mx-auto flex max-w-7xl flex-col items-center px-4 py-24 text-center sm:px-6 sm:py-32 lg:px-8">
 
             <p class="text-sm font-semibold text-indigo-600">404</p>

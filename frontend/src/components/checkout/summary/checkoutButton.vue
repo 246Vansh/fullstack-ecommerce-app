@@ -20,14 +20,7 @@
 
             </button>
 
-        <p class="mt-4 text-center text-sm text-slate-500">
-
-            By placing your order, you agree to our
-            <span class="font-medium text-indigo-600">
-                Terms & Conditions
-            </span>
-
-        </p>
+        <!-- No "agree to our Terms & Conditions" line: the store has no terms page. -->
 
     </div>
 

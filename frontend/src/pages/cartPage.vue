@@ -1,9 +1,12 @@
 <template>
     <Header />
 
-    <main class="bg-slate-50">
+    <main id="main-content" tabindex="-1" class="bg-slate-50">
 
         <div class="mx-auto max-w-[1850px] px-2 py-2">
+
+            <!-- Announces quantity changes and removals (outside the v-if branches so it persists). -->
+            <p role="status" class="sr-only">{{ announcement }}</p>
 
             <!-- Guest items the server rejected while merging after login -->
             <section v-if="cart.mergeIssues.length"
@@ -25,13 +28,13 @@
             <!-- Initial Load -->
             <section v-if="cart.loading && !products.length"
                 class="flex min-h-100 items-center justify-center rounded-4xl border border-dashed border-gray-300 bg-white">
-                <LoadingSpinner class="text-gray-400" />
+                <LoadingSpinner class="text-gray-400" label="Loading your cart" />
             </section>
 
             <!-- Load Error (nothing to show yet) -->
             <section v-else-if="cart.error && !products.length"
                 class="flex min-h-100 flex-col items-center justify-center rounded-4xl border border-dashed border-gray-300 bg-white text-center">
-                <h2 class="text-lg font-semibold text-gray-900">Could not load your cart</h2>
+                <h1 class="text-lg font-semibold text-gray-900">Could not load your cart</h1>
                 <p class="mt-2 text-sm text-gray-500">{{ cart.error }}</p>
                 <button type="button" class="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-500 cursor-pointer"
                     @click="cart.loadCart()">
@@ -70,7 +73,9 @@
 
                         <section class="min-w-0 p-4 sm:p-8">
 
-                            <p v-if="cart.error" class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            <h2 class="sr-only">Items in your cart</h2>
+
+                            <p v-if="cart.error" role="alert" class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                                 {{ cart.error }}
                             </p>
 
@@ -134,12 +139,13 @@ import emptyCart from "@/components/cart/empty/emptyCart.vue";
 
 import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
 
-import { computed, onMounted } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { TrashIcon } from "@heroicons/vue/24/outline";
 
 import { useAuthStore } from "@/stores/authStore";
 import { useCartStore } from "@/stores/cartStore";
+import { focusMainContent } from "@/router/pageFocus";
 
 const auth = useAuthStore();
 const cart = useCartStore();
@@ -185,15 +191,48 @@ onMounted(() => {
 
 const ignore = () => {};
 
+const announcement = ref("");
+
+// Cleared first so repeating the same change is announced again.
+async function announce(text) {
+    announcement.value = "";
+    await nextTick();
+    announcement.value = text;
+}
+
+const nameOf = (itemId) => products.value.find((product) => product.id === itemId)?.name ?? "Item";
+
+// The pressed button is gone once its item is removed; keep keyboard users on the page.
+async function keepFocus() {
+    await nextTick();
+    if (!document.activeElement || document.activeElement === document.body) focusMainContent();
+}
+
 function updateQuantity({ productId, quantity }) {
-    cart.updateItem(productId, quantity).catch(ignore);
+    const name = nameOf(productId);
+
+    cart.updateItem(productId, quantity)
+        .then(() => announce(`Quantity for ${name} updated to ${quantity}`))
+        .catch(ignore);
 }
 
 function removeProduct(itemId) {
-    cart.removeItem(itemId).catch(ignore);
+    const name = nameOf(itemId);
+
+    cart.removeItem(itemId)
+        .then(() => {
+            announce(`${name} removed from your cart`);
+            keepFocus();
+        })
+        .catch(ignore);
 }
 
 function clearCart() {
-    cart.clearCart().catch(ignore);
+    cart.clearCart()
+        .then(() => {
+            announce("Your cart is now empty");
+            keepFocus();
+        })
+        .catch(ignore);
 }
 </script>

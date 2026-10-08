@@ -10,9 +10,11 @@ import Footer from "../components/layout/Footer/Footer.vue"
 
 <template>
     <Header />
-    <Hero />
-    <Category />
-    <Featured />
-    <Favorites />
+    <main id="main-content" tabindex="-1">
+        <Hero />
+        <Category />
+        <Featured />
+        <Favorites />
+    </main>
     <Footer />
 </template>

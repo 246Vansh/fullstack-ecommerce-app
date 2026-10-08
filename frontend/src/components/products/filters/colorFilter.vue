@@ -8,6 +8,7 @@
         <div class="flex flex-wrap gap-3">
 
             <button v-for="color in options" :key="color.id" type="button" :aria-label="color.name" :title="color.name"
+                :aria-pressed="modelValue.includes(color.id)"
                 @click="selectColor(color.id)" :class="[
                     'relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 cursor-pointer',
 

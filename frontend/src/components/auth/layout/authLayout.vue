@@ -1,5 +1,5 @@
 <template>
-    <main class="min-h-screen bg-gray-50">
+    <main id="main-content" tabindex="-1" class="min-h-screen bg-gray-50">
 
         <section class=" mx-auto flex min-h-screen max-w-7xl items-center px-4 py-10 sm:px-6 lg:px-8">
 

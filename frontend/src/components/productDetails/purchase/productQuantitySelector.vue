@@ -4,9 +4,9 @@
         <div class="mb-5 flex items-center justify-between">
 
             <div>
-                <h3 class="text-base font-semibold text-gray-900">
+                <h2 class="text-base font-semibold text-gray-900">
                     Quantity
-                </h3>
+                </h2>
 
                 <p class="mt-1 text-sm text-gray-500">
                     Select the quantity
@@ -19,20 +19,22 @@
 
         </div>
 
-        <div class="inline-flex overflow-hidden rounded-xl border border-gray-300 bg-white shadow-sm">
+        <div class="inline-flex overflow-hidden rounded-xl border border-gray-300 bg-white shadow-sm" role="group"
+            aria-label="Quantity">
 
-            <button type="button"
+            <button type="button" aria-label="Decrease quantity"
                 class="flex h-12 w-12 items-center justify-center text-xl font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 hover:text-black active:scale-95 cursor-pointer"
                 @click="$emit('decrease')">
                 −
             </button>
 
-            <span
+            <!-- Announces the new value after a +/- press. -->
+            <span aria-live="polite" aria-atomic="true"
                 class="flex h-12 min-w-[72px] items-center justify-center border-x border-gray-200 text-base font-semibold text-gray-900">
-                {{ quantity }}
+                <span class="sr-only">Quantity </span>{{ quantity }}
             </span>
 
-            <button type="button"
+            <button type="button" aria-label="Increase quantity"
                 class="flex h-12 w-12 items-center justify-center text-xl font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 hover:text-black active:scale-95 cursor-pointer"
                 @click="$emit('increase')">
                 +

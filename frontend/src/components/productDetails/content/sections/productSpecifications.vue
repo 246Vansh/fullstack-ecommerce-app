@@ -58,11 +58,11 @@
 
                     </p>
 
-                    <h3 class="mt-2 text-xl font-bold" :class="item.class">
+                    <p class="mt-2 text-xl font-bold" :class="item.class">
 
                         {{ item.value }}
 
-                    </h3>
+                    </p>
 
                 </div>
 
@@ -115,11 +115,11 @@
 
                     </p>
 
-                    <h2 class="mt-3 text-2xl font-bold text-blue-600">
+                    <p class="mt-3 text-2xl font-bold text-blue-600">
 
                         ${{ formattedPrice }}
 
-                    </h2>
+                    </p>
 
                     <p class="mt-2 text-sm text-gray-500">
 
@@ -139,11 +139,11 @@
 
                     </p>
 
-                    <h2 class="mt-3 text-2xl font-bold text-gray-400 line-through">
+                    <p class="mt-3 text-2xl font-bold text-gray-400 line-through">
 
                         ${{ formattedOriginalPrice }}
 
-                    </h2>
+                    </p>
 
                     <p class="mt-2 text-sm text-gray-500">
 
@@ -163,11 +163,11 @@
 
                     </p>
 
-                    <h2 class="mt-3 text-2xl font-bold text-green-600">
+                    <p class="mt-3 text-2xl font-bold text-green-600">
 
                         ${{ savedAmount }}
 
-                    </h2>
+                    </p>
 
                     <p class="mt-2 text-sm font-medium text-green-700">
 

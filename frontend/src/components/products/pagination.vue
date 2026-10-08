@@ -13,7 +13,8 @@
 
         <div class="hidden md:flex">
 
-            <button v-for="page in visiblePages" :key="page" type="button" @click="changePage(page)" :class="[
+            <button v-for="page in visiblePages" :key="page" type="button" :aria-label="`Page ${page}`"
+                :aria-current="page === modelValue ? 'page' : undefined" @click="changePage(page)" :class="[
                 page === modelValue
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',

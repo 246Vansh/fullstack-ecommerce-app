@@ -1,5 +1,6 @@
 <template>
     <button
+        id="mobile-filters-button"
         type="button"
         @click="$emit('open-filters')"
         class="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-50 lg:hidden">
@@ -12,6 +13,7 @@
         <span v-if="activeCount > 0"
             class="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-xs font-semibold text-white">
             {{ activeCount }}
+            <span class="sr-only">active</span>
         </span>
     </button>
 </template>

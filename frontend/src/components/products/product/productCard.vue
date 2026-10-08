@@ -11,7 +11,8 @@
 
             <div class="relative">
 
-                <ProductImage :src="product.image" :alt="product.name" />
+                <!-- The link already reads the product name, so the image is not announced again. -->
+                <ProductImage :src="product.image" alt="" />
 
                 <!-- Product Badge -->
 

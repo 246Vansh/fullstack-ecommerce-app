@@ -91,6 +91,7 @@
                             </div>
 
                             <button type="button" :title="copied ? 'Copied' : 'Copy order number'"
+                                aria-label="Copy order number"
                                 class="flex shrink-0 items-center justify-center border-l border-gray-200 px-5 transition sm:px-6 hover:bg-slate-50 cursor-pointer"
                                 @click="copyOrderNumber">
 
@@ -98,6 +99,8 @@
                                 <DocumentDuplicateIcon v-else class="h-6 w-6 text-slate-500" />
 
                             </button>
+
+                            <span role="status" class="sr-only">{{ copied ? "Order number copied" : "" }}</span>
 
                         </div>
 
@@ -116,7 +119,7 @@
 
                     <!-- Illustration -->
 
-                    <img src="@/assets/images/orderSuccess/order-success.png" alt="Order Success"
+                    <img src="@/assets/images/orderSuccess/order-success.png" alt=""
                         class="relative z-10 w-[560px] max-w-full object-contain" />
 
                 </div>

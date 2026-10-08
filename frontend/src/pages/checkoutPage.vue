@@ -1,20 +1,20 @@
 <template>
     <Header />
 
-    <main class="bg-slate-50">
+    <main id="main-content" tabindex="-1" class="bg-slate-50">
 
         <div class="mx-auto max-w-[1850px] px-4 py-6 sm:px-8 sm:py-8">
 
             <!-- Initial Load (also the first render, before the request starts) -->
             <section v-if="!checkout && !error"
                 class="flex min-h-100 items-center justify-center rounded-4xl border border-dashed border-gray-300 bg-white">
-                <LoadingSpinner class="text-gray-400" />
+                <LoadingSpinner class="text-gray-400" label="Loading checkout" />
             </section>
 
             <!-- Load Error (nothing to show yet) -->
             <section v-else-if="error && !checkout"
                 class="flex min-h-100 flex-col items-center justify-center rounded-4xl border border-dashed border-gray-300 bg-white text-center">
-                <h2 class="text-lg font-semibold text-gray-900">Could not load checkout</h2>
+                <h1 class="text-lg font-semibold text-gray-900">Could not load checkout</h1>
                 <p class="mt-2 text-sm text-gray-500">{{ error }}</p>
                 <button type="button" class="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-500 cursor-pointer"
                     @click="load()">
@@ -25,7 +25,7 @@
             <!-- Empty Cart: no order summary, nothing to proceed with -->
             <section v-else-if="validation?.isEmpty"
                 class="flex min-h-100 flex-col items-center justify-center rounded-4xl border border-dashed border-gray-300 bg-white text-center">
-                <h2 class="text-2xl font-bold text-gray-900">Your cart is empty</h2>
+                <h1 class="text-2xl font-bold text-gray-900">Your cart is empty</h1>
                 <p class="mt-2 text-gray-500">Add some items to your cart before checking out.</p>
                 <div class="mt-6 flex gap-4">
                     <RouterLink to="/products"
@@ -47,12 +47,12 @@
                     <checkoutHero />
 
                     <!-- Refresh error while data is already shown -->
-                    <p v-if="error" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    <p v-if="error" role="alert" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                         {{ error }}
                     </p>
 
                     <!-- Items the server says need attention; the cart is not changed for the user -->
-                    <section v-if="validation?.issues.length"
+                    <section v-if="validation?.issues.length" role="alert"
                         class="rounded-2xl border border-red-200 bg-red-50 px-6 py-5 text-sm text-red-800">
                         <p class="font-semibold">Some items in your cart need attention before you can check out:</p>
                         <ul class="mt-2 list-disc space-y-1 pl-5">

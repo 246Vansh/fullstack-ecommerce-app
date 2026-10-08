@@ -2,18 +2,18 @@
 
     <Header />
 
-    <main class="bg-slate-50">
+    <main id="main-content" tabindex="-1" class="bg-slate-50">
 
         <div class="mx-auto max-w-[1700px] px-4 py-6 sm:px-6">
 
             <RouterLink :to="{ name: 'orders' }" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">
-                ← My Orders
+                <span aria-hidden="true">←</span> My Orders
             </RouterLink>
 
             <!-- Loading -->
             <section v-if="loading && !order"
                 class="mt-4 flex min-h-100 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white">
-                <LoadingSpinner class="text-gray-400" />
+                <LoadingSpinner class="text-gray-400" label="Loading order" />
             </section>
 
             <!-- Error / not found (another user's order looks the same) -->
@@ -69,16 +69,16 @@
                     <!-- Cancellation -->
                     <div v-if="order.cancellable" class="mt-6 border-t border-gray-100 pt-5">
 
-                        <button v-if="!confirming" type="button"
+                        <button v-if="!confirming" id="cancel-order" type="button"
                             class="rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 cursor-pointer"
-                            @click="confirming = true; cancelError = ''">
+                            @click="openConfirm">
                             Cancel Order
                         </button>
 
-                        <div v-else role="alertdialog" aria-labelledby="cancel-heading"
+                        <div v-else role="alertdialog" aria-labelledby="cancel-heading" aria-describedby="cancel-note"
                             class="rounded-xl border border-red-200 bg-red-50 p-4">
                             <p id="cancel-heading" class="font-semibold text-slate-900">Cancel this order?</p>
-                            <p class="mt-1 text-sm text-slate-600">
+                            <p id="cancel-note" class="mt-1 text-sm text-slate-600">
                                 The items will be released back to stock. This cannot be undone.
                             </p>
                             <div class="mt-4 flex flex-wrap gap-3">
@@ -87,9 +87,9 @@
                                     @click="cancel">
                                     {{ cancelling ? "Cancelling..." : "Yes, cancel order" }}
                                 </button>
-                                <button type="button" :disabled="cancelling"
+                                <button id="keep-order" type="button" :disabled="cancelling"
                                     class="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
-                                    @click="confirming = false">
+                                    @click="closeConfirm">
                                     Keep order
                                 </button>
                             </div>
@@ -120,7 +120,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
 import Header from "@/components/layout/Header/Header.vue";
@@ -133,6 +133,7 @@ import shippingCard from "@/components/orderSuccess/details/shippingCard.vue";
 import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
 import { formatDate, formatPrice, paymentStatusLabel } from "@/composables/useOrderSuccess";
+import { focusHeadingAfterLoad, focusMainContent, setPageTitle } from "@/router/pageFocus";
 
 const route = useRoute();
 
@@ -165,14 +166,39 @@ async function load(id) {
 
     try {
         const data = await orderService.getOrder(id);
-        if (current === requestId) order.value = data;
+        if (current === requestId) {
+            order.value = data;
+            setPageTitle(`Order #${data.orderNumber}`);
+            focusHeadingAfterLoad();
+        }
     } catch (err) {
         if (current !== requestId) return;
         const { status, message } = parseApiError(err);
         error.value = status === 404 ? "We couldn't find this order." : message;
+        focusHeadingAfterLoad();
     } finally {
         if (current === requestId) loading.value = false;
     }
+}
+
+// The confirmation is inline, not modal: focus starts on the safe choice
+// (Keep order) and returns to "Cancel Order", or to the heading once the
+// order is cancelled and that button is gone.
+async function focusAfterUpdate(id) {
+    await nextTick();
+    if (document.getElementById(id)) document.getElementById(id).focus();
+    else focusMainContent();
+}
+
+function openConfirm() {
+    confirming.value = true;
+    cancelError.value = "";
+    focusAfterUpdate("keep-order");
+}
+
+function closeConfirm() {
+    confirming.value = false;
+    focusAfterUpdate("cancel-order");
 }
 
 // `cancelling` is set before the request, so a double click sends one request.
@@ -196,6 +222,7 @@ async function cancel() {
         }
     } finally {
         cancelling.value = false;
+        focusAfterUpdate("cancel-order");
     }
 }
 

@@ -2,7 +2,7 @@
     <aside class="relative hidden overflow-hidden bg-gray-900 lg:flex lg:flex-col">
 
         <!-- Background Image -->
-        <img :src="image" :alt="title" class="absolute inset-0 h-full w-full object-cover" />
+        <img :src="image" alt="" class="absolute inset-0 h-full w-full object-cover" />
 
         <!-- Overlay -->
         <div class="absolute inset-0 bg-linear-to-br from-black/70 via-black/55 to-black/70" />
@@ -25,9 +25,10 @@
 
             <div class="max-w-md">
 
-                <h1 class="text-4xl font-bold leading-tight text-white">
+                <!-- Not a heading: the form's title is the page's h1. -->
+                <p class="text-4xl font-bold leading-tight text-white">
                     {{ title }}
-                </h1>
+                </p>
 
                 <p class="mt-6 text-lg leading-8 text-gray-200">
                     {{ description }}

@@ -5,9 +5,9 @@
 
             <div>
 
-                <h3 class="text-base font-semibold text-gray-900">
+                <h2 class="text-base font-semibold text-gray-900">
                     Size
-                </h3>
+                </h2>
 
                 <p class="mt-1 text-sm text-gray-500">
                     Select your preferred size
@@ -22,7 +22,7 @@
 
         </div>
 
-        <div class="flex flex-wrap gap-3">
+        <div class="flex flex-wrap gap-3" role="group" aria-label="Size">
 
             <ProductSizeOption v-for="size in sizes" :key="size.id" :size="size"
                 :is-selected="selectedSize?.id === size.id" @select="$emit('select-size', $event)" />

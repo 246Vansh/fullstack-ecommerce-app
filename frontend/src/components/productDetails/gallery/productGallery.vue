@@ -3,10 +3,10 @@
 
         <div class="grid gap-6 lg:grid-cols-[90px_1fr]">
 
-            <ThumbnailList :images="product.images" :active-image-index="activeImageIndex"
+            <ThumbnailList :images="product.images" :active-image-index="activeImageIndex" :product-name="product.name"
                 @select-image="setActiveImage" />
 
-            <ProductImage :image="activeImage" />
+            <ProductImage :image="activeImage" :alt="product.name" />
 
         </div>
 

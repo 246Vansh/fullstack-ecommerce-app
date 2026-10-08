@@ -1,11 +1,12 @@
 <template>
-    <div class="flex items-center">
+    <div class="flex items-center" role="list" aria-label="Checkout progress">
 
         <template v-for="(step, index) in steps" :key="step.id">
 
             <!-- Step -->
 
-            <div class="flex shrink-0 flex-col items-center">
+            <div class="flex shrink-0 flex-col items-center" role="listitem"
+                :aria-current="isCurrent(step.id) ? 'step' : undefined">
 
                 <!-- Circle -->
 
@@ -37,13 +38,15 @@
 
                     {{ step.label }}
 
+                    <span v-if="isCompleted(step.id)" class="sr-only">(completed)</span>
+
                 </span>
 
             </div>
 
             <!-- Connector -->
 
-            <div v-if="index < steps.length - 1" class="relative mx-2 h-1 min-w-4 flex-1 rounded-full bg-gray-200 sm:mx-5 sm:w-28 sm:flex-none">
+            <div v-if="index < steps.length - 1" aria-hidden="true" class="relative mx-2 h-1 min-w-4 flex-1 rounded-full bg-gray-200 sm:mx-5 sm:w-28 sm:flex-none">
 
                 <div v-if="index < currentIndex"
                     class="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-600 to-violet-500">

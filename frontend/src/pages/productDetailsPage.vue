@@ -1,7 +1,7 @@
 <template>
     <Header />
 
-    <main>
+    <main id="main-content" tabindex="-1">
 
         <ProductDetails v-if="productDetails" :product="productDetails" :related-products="relatedProducts"
             :breadcrumb-items="breadcrumbItems" />
@@ -14,13 +14,13 @@
 
                 <div class="flex flex-col items-center text-center">
 
-                    <LoadingSpinner v-if="loading" class="text-gray-400" />
+                    <LoadingSpinner v-if="loading" class="text-gray-400" label="Loading product" />
 
-                    <h3 v-else class="text-lg font-semibold text-gray-900">
+                    <h1 v-else class="text-lg font-semibold text-gray-900">
 
                         {{ error }}
 
-                    </h3>
+                    </h1>
 
                     <RouterLink v-if="!loading" to="/products" class="mt-2 text-sm text-indigo-600 hover:text-indigo-500">
 
@@ -50,6 +50,7 @@ import { useRoute } from "vue-router";
 
 import { productService } from "@/services/productService";
 import { parseApiError } from "@/services/apiClient";
+import { focusHeadingAfterLoad, setPageTitle } from "@/router/pageFocus";
 
 const route = useRoute();
 
@@ -86,6 +87,9 @@ async function loadProduct(id) {
 
         productDetails.value = product;
 
+        setPageTitle(product.name);
+        focusHeadingAfterLoad();
+
         loadRelated(product, current, signal);
 
     } catch (err) {
@@ -95,6 +99,9 @@ async function loadProduct(id) {
         const { status, message } = parseApiError(err);
 
         error.value = status === 404 || status === 422 ? "Product not found" : message;
+
+        setPageTitle(error.value === "Product not found" ? "Product Not Found" : "Product");
+        focusHeadingAfterLoad();
 
     } finally {
 

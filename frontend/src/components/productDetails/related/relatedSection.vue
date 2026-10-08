@@ -1,5 +1,6 @@
 <template>
-    <section class="space-y-8">
+    <!-- Nothing to show (none found or the request failed): no empty heading. -->
+    <section v-if="products.length" class="space-y-8">
 
         <div>
 

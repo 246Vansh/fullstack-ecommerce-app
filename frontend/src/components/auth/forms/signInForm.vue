@@ -1,6 +1,6 @@
 <template>
 
-    <form class="space-y-6" @submit.prevent="$emit('submit')">
+    <form ref="formEl" class="space-y-6" @submit.prevent="$emit('submit')">
 
         <authHeader title="Welcome Back" description="Sign in to your account to continue shopping." />
 
@@ -29,6 +29,8 @@
 </template>
 
 <script setup>
+import { ref } from "vue";
+
 import authHeader from "../ui/authHeader.vue";
 import authInput from "../fields/authInput.vue";
 import passwordInput from "../fields/passwordInput.vue";
@@ -36,8 +38,9 @@ import checkboxField from "../fields/checkboxField.vue";
 import authButton from "../ui/authButton.vue";
 import authFooter from "../ui/authFooter.vue";
 import { ROUTES } from "@/config";
+import { useFocusFirstError } from "@/composables/useFocusFirstError";
 
-defineProps({
+const props = defineProps({
 
     errors: {
         type: Object,
@@ -63,4 +66,9 @@ const remember = defineModel("remember", {
 defineEmits([
     "submit",
 ]);
+
+// After a failed submit, focus goes to the first field with an error.
+const formEl = ref(null);
+
+useFocusFirstError(formEl, () => props.errors);
 </script>

@@ -9,7 +9,7 @@
 
                 <!-- Number -->
 
-                <div
+                <div aria-hidden="true"
                     class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-base sm:h-14 sm:w-14 sm:text-lg font-bold text-indigo-600">
 
                     {{ number }}
@@ -46,7 +46,7 @@
 
             <!-- Edit -->
 
-            <button v-if="editable"
+            <button v-if="editable" type="button"
                 class="flex shrink-0 items-center gap-2 font-medium text-indigo-600 transition hover:text-indigo-700 cursor-pointer">
 
                 <PencilSquareIcon class="h-5 w-5" />

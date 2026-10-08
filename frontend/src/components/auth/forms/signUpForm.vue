@@ -1,6 +1,6 @@
 <template>
 
-    <form class="space-y-6" @submit.prevent="$emit('submit')">
+    <form ref="formEl" class="space-y-6" @submit.prevent="$emit('submit')">
 
         <!-- Header -->
         <authHeader title="Create Your Account"
@@ -29,9 +29,7 @@
         <passwordInput id="confirm-password" v-model="confirmPassword" label="Confirm Password"
             placeholder="Re-enter your password" autocomplete="new-password" required :error="errors.confirmPassword" />
 
-        <!-- Terms -->
-        <checkboxField id="terms" v-model="acceptTerms" label="I agree to the Terms & Conditions and Privacy Policy"
-            required :error="errors.acceptTerms" />
+        <!-- No terms checkbox: the store has no Terms & Conditions or Privacy Policy to agree to. -->
 
         <!-- Submit -->
         <authButton type="submit" :loading="loading">
@@ -46,15 +44,17 @@
 </template>
 
 <script setup>
+import { ref } from "vue";
+
 import authHeader from "../ui/authHeader.vue";
 import authInput from "../fields/authInput.vue";
 import passwordInput from "../fields/passwordInput.vue";
-import checkboxField from "../fields/checkboxField.vue";
 import authButton from "../ui/authButton.vue";
 import authFooter from "../ui/authFooter.vue";
-import {ROUTES} from "@/config";
+import { ROUTES } from "@/config";
+import { useFocusFirstError } from "@/composables/useFocusFirstError";
 
-defineProps({
+const props = defineProps({
 
     errors: {
         type: Object,
@@ -78,12 +78,12 @@ const password = defineModel("password");
 
 const confirmPassword = defineModel("confirmPassword");
 
-const acceptTerms = defineModel("acceptTerms", {
-    type: Boolean,
-    default: false,
-});
-
 defineEmits([
     "submit",
 ]);
+
+// After a failed submit, focus goes to the first field with an error.
+const formEl = ref(null);
+
+useFocusFirstError(formEl, () => props.errors);
 </script>

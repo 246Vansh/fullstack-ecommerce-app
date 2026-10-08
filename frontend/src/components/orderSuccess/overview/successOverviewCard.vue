@@ -21,11 +21,11 @@
 
             </p>
 
-            <h3 class="mt-1 text-xl font-bold" :class="valueColor">
+            <p class="mt-1 text-xl font-bold" :class="valueColor">
 
                 {{ value }}
 
-            </h3>
+            </p>
 
             <p class="mt-1 text-sm text-slate-500">
 

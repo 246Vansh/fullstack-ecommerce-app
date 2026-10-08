@@ -1,11 +1,13 @@
 <template>
     <Header />
 
-    <ProductsSection :title="pageData.title" :description="pageData.description" :products="paginatedProducts"
-        :total-products="totalProducts" :pagination="paginationInfo" :filters="filters" :filter-data="filterData"
-        :active-filter-count="activeFilterCount" v-model:selected-sort="selectedSort"
-        v-model:selected-filters="selectedFilters" :sort-options="sortOptions" :loading="loading" :error="error"
-        :invalid-filter="invalidLinkFilter" :search="searchQuery" :clear-filters-to="clearFiltersTo" />
+    <main id="main-content" tabindex="-1">
+        <ProductsSection :title="pageData.title" :description="pageData.description" :products="paginatedProducts"
+            :total-products="totalProducts" :pagination="paginationInfo" :filters="filters" :filter-data="filterData"
+            :active-filter-count="activeFilterCount" v-model:selected-sort="selectedSort"
+            v-model:selected-filters="selectedFilters" :sort-options="sortOptions" :loading="loading" :error="error"
+            :invalid-filter="invalidLinkFilter" :search="searchQuery" :clear-filters-to="clearFiltersTo" />
+    </main>
 
     <Footer />
 </template>

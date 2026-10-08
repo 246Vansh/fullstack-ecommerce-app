@@ -1,5 +1,7 @@
 <template>
-    <aside>
+    <aside :aria-labelledby="heading ? 'filters-heading' : undefined">
+
+        <h2 v-if="heading" id="filters-heading" class="sr-only">Filters</h2>
 
         <form class="divide-y divide-gray-200">
 
@@ -26,6 +28,11 @@ const props = defineProps({
     filterData: {
         type: Object,
         required: true,
+    },
+
+    heading: {
+        type: Boolean,
+        default: true,
     },
 
 });

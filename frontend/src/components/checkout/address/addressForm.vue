@@ -1,5 +1,5 @@
 <template>
-    <form class="grid gap-4 sm:grid-cols-2" novalidate @submit.prevent="submit">
+    <form ref="formEl" class="grid gap-4 sm:grid-cols-2" novalidate @submit.prevent="submit">
 
         <label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
             Address Type
@@ -15,10 +15,12 @@
             :class="{ 'sm:col-span-2': field.wide }">
             {{ field.label }}
             <input v-model="form[field.name]" :name="field.name" :autocomplete="field.autocomplete"
-                :type="field.name === 'phone' ? 'tel' : 'text'"
+                :type="field.name === 'phone' ? 'tel' : 'text'" :required="REQUIRED.includes(field.name)"
+                :aria-invalid="errors[field.name] ? 'true' : undefined"
+                :aria-describedby="errors[field.name] ? `${uid}-${field.name}-error` : undefined"
                 class="rounded-xl border px-4 py-3 font-normal text-slate-900 focus:border-indigo-500 focus:outline-none"
                 :class="errors[field.name] ? 'border-red-400' : 'border-gray-200'" />
-            <span v-if="errors[field.name]" class="text-xs font-normal text-red-600">{{ errors[field.name] }}</span>
+            <span v-if="errors[field.name]" :id="`${uid}-${field.name}-error`" class="text-xs font-normal text-red-600">{{ errors[field.name] }}</span>
         </label>
 
         <label class="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
@@ -26,7 +28,7 @@
             Use as my default {{ typeLabel.toLowerCase() }} address
         </label>
 
-        <p v-if="message" class="text-sm font-medium text-red-600 sm:col-span-2">{{ message }}</p>
+        <p v-if="message" role="alert" class="text-sm font-medium text-red-600 sm:col-span-2">{{ message }}</p>
 
         <div class="flex gap-3 sm:col-span-2">
             <button type="submit" :disabled="saving"
@@ -44,7 +46,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from "vue";
+import { computed, nextTick, onMounted, reactive, ref, useId } from "vue";
 
 import { parseApiError } from "@/services/apiClient";
 
@@ -94,6 +96,18 @@ const errors = reactive({});
 const message = ref("");
 const saving = ref(false);
 
+const uid = useId();
+
+const formEl = ref(null);
+
+// Keyboard users land in the form when it opens, and on the first field to fix after a failed save.
+onMounted(() => formEl.value?.querySelector("select, input")?.focus());
+
+async function focusFirstError() {
+    await nextTick();
+    formEl.value?.querySelector("[aria-invalid='true']")?.focus();
+}
+
 const typeLabel = computed(() => TYPES.find((option) => option.value === form.type)?.label ?? "");
 
 async function submit() {
@@ -104,7 +118,10 @@ async function submit() {
         if (!String(form[name]).trim()) errors[name] = "This field is required";
     }
 
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+        focusFirstError();
+        return;
+    }
 
     saving.value = true;
 
@@ -115,6 +132,7 @@ async function submit() {
 
         Object.assign(errors, fields);
         message.value = Object.keys(fields).length ? "" : text;
+        focusFirstError();
     } finally {
         saving.value = false;
     }

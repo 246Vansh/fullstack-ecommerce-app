@@ -5,9 +5,10 @@
 
             <baseInput v-model="model" :id="id" :type="showPassword ? 'text' : 'password'" :name="name"
                 :placeholder="placeholder" :autocomplete="autocomplete" :required="required" :disabled="disabled"
-                :autofocus="autofocus" :error="error" class="pr-12" />
+                :autofocus="autofocus" :error="error" :described-by="describedBy" class="pr-12" />
 
-            <button type="button" :disabled="disabled"
+            <button type="button" :disabled="disabled" :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                :aria-controls="id"
                 class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 transition-colors hover:text-gray-700"
                 @click="showPassword = !showPassword">
 
@@ -23,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 import {
     EyeIcon,
@@ -37,7 +38,7 @@ const model = defineModel();
 
 const showPassword = ref(false);
 
-defineProps({
+const props = defineProps({
 
     id: String,
 
@@ -63,4 +64,7 @@ defineProps({
     autofocus: Boolean,
 
 });
+
+// The error replaces the helper while it is shown (see baseField).
+const describedBy = computed(() => props.error ? `${props.id}-error` : props.helper ? `${props.id}-helper` : undefined);
 </script>

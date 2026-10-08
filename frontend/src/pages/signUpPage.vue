@@ -4,7 +4,7 @@
 
         <signUpForm v-model:first-name="signUp.firstName" v-model:last-name="signUp.lastName"
             v-model:email="signUp.email" v-model:password="signUp.password"
-            v-model:confirm-password="signUp.confirmPassword" v-model:accept-terms="signUp.acceptTerms"
+            v-model:confirm-password="signUp.confirmPassword"
             :errors="signUp.errors" :loading="loading" @submit="handleSignUp" />
 
     </authLayout>

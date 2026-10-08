@@ -1,6 +1,6 @@
 <template>
 
-    <button type="button" @click="$emit('select', size)"
+    <button type="button" :aria-pressed="isSelected" @click="$emit('select', size)"
         class="group relative overflow-hidden rounded-xl transition-all duration-300 cursor-pointer" :class="[
             isSelected
                 ? 'bg-gray-900 text-white shadow-lg'
@@ -11,7 +11,7 @@
             {{ size.name }}
         </span>
 
-        <span v-if="isSelected" class="absolute right-2 top-2 h-2 w-2 rounded-full bg-green-400" />
+        <span v-if="isSelected" class="absolute right-2 top-2 h-2 w-2 rounded-full bg-green-400" aria-hidden="true" />
 
     </button>
 

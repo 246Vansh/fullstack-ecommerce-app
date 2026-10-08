@@ -1,5 +1,5 @@
 <template>
-    <TransitionRoot as="template" :show="open">
+    <TransitionRoot as="template" :show="open" @after-leave="afterLeave">
         <Dialog class="relative z-40 lg:hidden" @close="closeMenu">
 
             <!-- Backdrop -->
@@ -76,7 +76,7 @@
                                             <div
                                                 class="aspect-square overflow-hidden rounded-lg bg-gray-100 group-hover:opacity-75">
 
-                                                <img :src="item.imageSrc" :alt="item.imageAlt"
+                                                <img :src="item.imageSrc" alt=""
                                                     class="h-full w-full object-cover object-center" />
 
                                             </div>
@@ -216,12 +216,13 @@ import { navigation } from "@/constants/navigation";
 
 import { useMobileMenu } from "@/composables/useMobileMenu";
 
-import { ref } from "vue";
-import { RouterLink } from "vue-router";
+import { ref, watch } from "vue";
+import { RouterLink, useRoute } from "vue-router";
 
 import { ROUTES } from "@/config";
 import { useAuth } from "@/composables/useAuth";
 import { useAuthStore } from "@/stores/authStore";
+import { restoreFocusAfterDialog } from "@/router/pageFocus";
 
 const {
     open,
@@ -229,6 +230,13 @@ const {
 } = useMobileMenu();
 
 const auth = useAuthStore();
+
+// A menu link navigates and closes the menu; focus then belongs to the new page.
+const route = useRoute();
+let pathAtOpen = route.path;
+watch(open, (isOpen) => { if (isOpen) pathAtOpen = route.path; });
+
+const afterLeave = () => restoreFocusAfterDialog("mobile-menu-button", route.path !== pathAtOpen);
 const { handleLogout } = useAuth();
 
 const loggingOut = ref(false);

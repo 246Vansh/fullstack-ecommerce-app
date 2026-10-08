@@ -40,7 +40,7 @@
             <!-- Desktop Illustration -->
             <div class="pointer-events-none absolute right-1 hidden lg:block">
 
-                <img src="@/assets/images/cart/cart-hero.png" alt="Shopping Cart" class="w-67 xl:w-140"
+                <img src="@/assets/images/cart/cart-hero.png" alt="" class="w-67 xl:w-140"
                     draggable="false" />
 
             </div>
@@ -50,7 +50,7 @@
         <!-- Mobile -->
         <div class="flex justify-center px-6 pb-6 lg:hidden">
 
-            <img src="@/assets/images/cart/cart-hero.png" alt="Shopping Cart" class="w-55" draggable="false" />
+            <img src="@/assets/images/cart/cart-hero.png" alt="" class="w-55" draggable="false" />
 
         </div>
 

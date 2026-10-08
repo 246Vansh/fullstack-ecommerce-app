@@ -12,7 +12,8 @@
           <div class="flex h-16 items-center border-b border-gray-200">
 
             <!-- Mobile Menu Button -->
-            <button type="button" class="relative rounded-md bg-white p-2 text-gray-400 lg:hidden" @click="openMenu">
+            <button id="mobile-menu-button" type="button" class="relative rounded-md bg-white p-2 text-gray-400 lg:hidden"
+              :aria-expanded="open" @click="openMenu">
               <span class="sr-only">
                 Open menu
               </span>
@@ -50,6 +51,7 @@ import DesktopNavigation from "./DesktopNavigation.vue";
 import { useMobileMenu } from "@/composables/useMobileMenu";
 
 const {
+  open,
   openMenu
 } = useMobileMenu();
 

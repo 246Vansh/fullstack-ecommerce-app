@@ -9,7 +9,7 @@
         Add to Cart
         <svg v-if="!disabled" xmlns="http://www.w3.org/2000/svg"
             class="ml-2 h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" fill="none"
-            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6l6 6-6 6" />
         </svg>
     </button>

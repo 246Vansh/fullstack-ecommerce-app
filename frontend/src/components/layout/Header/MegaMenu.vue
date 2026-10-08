@@ -21,7 +21,7 @@
 
                 <div class="overflow-hidden rounded-lg bg-gray-100">
 
-                  <img :src="item.imageSrc" :alt="item.imageAlt"
+                  <img :src="item.imageSrc" alt=""
                     class="aspect-square w-full object-cover transition duration-300 group-hover:scale-105 group-hover:opacity-75" />
 
                 </div>

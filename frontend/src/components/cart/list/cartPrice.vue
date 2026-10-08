@@ -4,9 +4,9 @@
         <div class="text-right">
 
             <!-- Current Price (none for an item no longer in the catalog) -->
-            <h3 v-if="product.price != null" class="text-3xl font-bold text-slate-900">
+            <p v-if="product.price != null" class="text-3xl font-bold text-slate-900">
                 {{ formatPrice(product.price) }}
-            </h3>
+            </p>
 
             <!-- Original Price -->
             <p v-if="hasDiscount" class="mt-1 text-lg text-gray-400 line-through">

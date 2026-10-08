@@ -14,7 +14,7 @@
 
             <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
 
-                <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" stroke-width="2"
+                <svg class="h-8 w-8 text-blue-600" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"
                     viewBox="0 0 24 24">
 
                     <path stroke-linecap="round" stroke-linejoin="round"
@@ -26,11 +26,11 @@
 
             <!-- Title -->
 
-            <h3 class="mt-6 text-lg font-semibold text-gray-900">
+            <h2 class="mt-6 text-lg font-semibold text-gray-900">
 
                 Email verification isn't available yet
 
-            </h3>
+            </h2>
 
             <!-- Description -->
 

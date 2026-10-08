@@ -88,11 +88,11 @@
                         Price
                     </p>
 
-                    <h3 class="mt-2 text-base font-bold sm:text-lg">
+                    <p class="mt-2 text-base font-bold sm:text-lg">
 
                         {{ formatPrice(product.unitPrice) }}
 
-                    </h3>
+                    </p>
 
                 </div>
 
@@ -120,11 +120,11 @@
                         Total
                     </p>
 
-                    <h3 class="mt-2 text-base font-semibold text-orange-600 sm:text-xl">
+                    <p class="mt-2 text-base font-semibold text-orange-600 sm:text-xl">
 
                         {{ formatPrice(product.lineTotal) }}
 
-                    </h3>
+                    </p>
 
                 </div>
 

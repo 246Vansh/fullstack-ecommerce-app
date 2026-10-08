@@ -1,7 +1,7 @@
 <template>
   <div class="flex lg:ml-6">
 
-    <button type="button" class="p-2 text-gray-400 hover:text-gray-500 cursor-pointer" :aria-expanded="open"
+    <button ref="toggleButton" type="button" class="p-2 text-gray-400 hover:text-gray-500 cursor-pointer" :aria-expanded="open"
       aria-controls="header-search" @click="toggle">
       <span class="sr-only">{{ open ? "Close search" : "Search" }}</span>
       <XMarkIcon v-if="open" class="size-6" aria-hidden="true" />
@@ -31,6 +31,8 @@ const open = ref(false);
 
 const searchBar = ref(null);
 
+const toggleButton = ref(null);
+
 async function toggle() {
   open.value = !open.value;
 
@@ -40,7 +42,13 @@ async function toggle() {
   }
 }
 
+// Focus inside the panel would be lost when it unmounts, so it goes back to
+// the toggle; a navigation to another page then moves it to that page.
 function close() {
+  if (open.value && document.getElementById("header-search")?.contains(document.activeElement)) {
+    toggleButton.value?.focus();
+  }
+
   open.value = false;
 }
 

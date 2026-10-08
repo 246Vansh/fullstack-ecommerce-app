@@ -1,6 +1,7 @@
 <template>
     <input v-model="model" :id="id" :type="type" :name="name" :placeholder="placeholder" :disabled="disabled"
-        :required="required" :autocomplete="autocomplete" :autofocus="autofocus" :class="[
+        :required="required" :autocomplete="autocomplete" :autofocus="autofocus"
+        :aria-invalid="error ? 'true' : undefined" :aria-describedby="describedBy || undefined" :class="[
             'block w-full rounded-xl border bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 transition-all duration-200 focus:outline-none focus:ring-2',
 
             error
@@ -41,6 +42,9 @@ defineProps({
     autofocus: Boolean,
 
     error: String,
+
+    // Id of the helper or error text shown under the field.
+    describedBy: String,
 
 });
 </script>

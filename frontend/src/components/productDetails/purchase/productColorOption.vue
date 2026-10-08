@@ -1,5 +1,6 @@
 <template>
-    <button type="button" :title="color.name" class="group" @click="$emit('select', color)">
+    <button type="button" :title="color.name" :aria-label="color.name" :aria-pressed="isSelected" class="group"
+        @click="$emit('select', color)">
         <span class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-all duration-300"
             :class="[
                 isSelected

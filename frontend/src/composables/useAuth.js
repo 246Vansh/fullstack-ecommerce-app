@@ -84,8 +84,6 @@ export function useAuth() {
 
         confirmPassword: "",
 
-        acceptTerms: false,
-
         errors: {
 
             firstName: "",
@@ -97,8 +95,6 @@ export function useAuth() {
             password: "",
 
             confirmPassword: "",
-
-            acceptTerms: "",
 
         },
 
@@ -197,7 +193,6 @@ export function useAuth() {
         if (!EMAIL_PATTERN.test(signUp.email.trim())) errors.email = "Enter a valid email address";
         if (signUp.password.length < 8) errors.password = "Use at least 8 characters";
         if (signUp.password !== signUp.confirmPassword) errors.confirmPassword = "Passwords do not match";
-        if (!signUp.acceptTerms) errors.acceptTerms = "You must accept the terms to continue";
 
         if (Object.values(errors).some(Boolean)) {
             return;
