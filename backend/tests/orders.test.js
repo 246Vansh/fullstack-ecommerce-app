@@ -315,7 +315,7 @@ test("18. client-supplied totals, prices, owner and status are ignored", async (
 
     const { status, body } = await call("POST", "/orders", a, {
         addressId: address.id,
-        total: 0.01, subtotal: 0.01, expectedTotal: 0.01, discount: 999,
+        total: 0.01, subtotal: 0.01, discount: 999, // expectedTotal is a real check now (see pricing.test.js)
         userId: b.id, status: "DELIVERED",
         items: [{ variantId: variants[0].id, quantity: 100, unitPrice: 0.01 }],
     });

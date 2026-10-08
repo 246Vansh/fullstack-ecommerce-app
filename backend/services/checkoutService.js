@@ -1,8 +1,6 @@
-import { Prisma } from "@prisma/client";
-
 import prisma from "../config/db.js";
 import { listAddresses } from "./addressService.js";
-import { calculateTotals, toMoney } from "./pricingService.js";
+import { calculateTotals, serializeTotals, toMoney, unitPriceOf, originalPriceOf, lineTotalOf } from "./pricingService.js";
 
 const itemSelect = {
     id: true,
@@ -67,12 +65,12 @@ function findIssue({ quantity, variant }) {
     return null;
 }
 
-// Prices always come from the database: the variant price overrides the product price.
+// Prices always come from the database, through pricingService's one rule.
 function toCheckoutItem(row) {
     const { id, quantity, variant } = row;
     const { product } = variant;
-    const unitPrice = new Prisma.Decimal(variant.price ?? product.price);
-    const originalPrice = variant.originalPrice ?? product.originalPrice;
+    const unitPrice = unitPriceOf(variant, product);
+    const originalPrice = originalPriceOf(variant, product);
     const issue = findIssue(row);
 
     return {
@@ -84,7 +82,7 @@ function toCheckoutItem(row) {
             quantity,
             unitPrice: toMoney(unitPrice),
             originalPrice: originalPrice == null ? null : toMoney(originalPrice),
-            subtotal: toMoney(unitPrice.mul(quantity)),
+            subtotal: toMoney(lineTotalOf(unitPrice, quantity)),
             isAvailable: !issue,
             issue,
             product: {
@@ -145,7 +143,8 @@ export async function getCheckout(userId, { addressId } = {}) {
     return {
         items,
         itemCount: items.reduce((count, item) => count + item.quantity, 0),
-        summary: calculateTotals(priced, { address }),
+        // Same calculation order creation uses, so this is the total that will be stored.
+        summary: serializeTotals(calculateTotals(priced, { address })),
         addresses,
         selectedAddressId: address?.id ?? null,
         validation: {

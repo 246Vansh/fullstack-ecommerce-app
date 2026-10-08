@@ -1,11 +1,12 @@
 import { apiClient } from "./apiClient";
 
 // Orders are priced and built entirely by the server; placing one sends only
-// which saved address to ship to.
+// which saved address to ship to, plus the total the customer was shown so the
+// server can refuse the order (409) if prices changed in the meantime.
 export const orderService = {
 
-    async createOrder(addressId) {
-        const { data } = await apiClient.post("/orders", { addressId });
+    async createOrder(addressId, expectedTotal) {
+        const { data } = await apiClient.post("/orders", { addressId, expectedTotal });
 
         return data.data;
     },

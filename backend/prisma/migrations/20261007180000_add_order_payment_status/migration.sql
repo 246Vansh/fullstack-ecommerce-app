@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `orders` ADD COLUMN `paymentStatus` ENUM('UNPAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'UNPAID';
+

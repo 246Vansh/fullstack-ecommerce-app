@@ -13,7 +13,7 @@
                 <LockClosedIcon class="relative h-6 w-6" />
 
                 <span class="relative">
-                    {{ loading ? "Placing Order..." : "Complete Purchase" }}
+                    {{ loading ? "Placing Order..." : "Place Order" }}
                 </span>
 
                 <ArrowRightIcon class="relative h-5 w-5 transition-transform group-hover:translate-x-1" />

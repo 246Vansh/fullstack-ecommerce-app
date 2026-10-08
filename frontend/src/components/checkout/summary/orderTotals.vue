@@ -37,11 +37,10 @@
                     Shipping
                 </span>
 
-                <span class="font-semibold" :class="shipping === 0
-                    ? 'text-emerald-600'
-                    : 'text-slate-900'">
+                <!-- The server's shipping amount, shown as-is (never relabelled "free"). -->
+                <span class="font-semibold">
 
-                    {{ shipping === 0 ? "FREE" : formatPrice(shipping) }}
+                    {{ formatPrice(shipping) }}
 
                 </span>
 

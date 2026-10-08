@@ -26,6 +26,16 @@ export const formatDate = (value, withTime = false) => new Date(value).toLocaleS
 
 export const statusLabel = (status) => STATUS_LABELS[status] ?? status;
 
+// Payment is separate from order status; no provider exists yet, so orders are Unpaid.
+const PAYMENT_STATUS_LABELS = {
+    UNPAID: "Unpaid",
+    PAID: "Paid",
+    FAILED: "Failed",
+    REFUNDED: "Refunded",
+};
+
+export const paymentStatusLabel = (status) => PAYMENT_STATUS_LABELS[status] ?? status;
+
 // Loads the order named in the route (/orderSuccess/:id), so a refresh or a
 // shared link shows the persisted order rather than anything kept in memory.
 export function useOrderSuccess() {

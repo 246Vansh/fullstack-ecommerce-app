@@ -60,6 +60,10 @@
                             <dt class="font-bold text-slate-900">Total</dt>
                             <dd class="font-bold text-slate-900">{{ formatPrice(order.total) }}</dd>
                         </div>
+                        <div class="flex justify-between">
+                            <dt class="text-slate-600">Payment</dt>
+                            <dd class="font-medium text-slate-900">{{ paymentStatusLabel(order.paymentStatus) }}</dd>
+                        </div>
                     </dl>
 
                     <!-- Cancellation -->
@@ -128,7 +132,7 @@ import shippingCard from "@/components/orderSuccess/details/shippingCard.vue";
 
 import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
-import { formatDate, formatPrice } from "@/composables/useOrderSuccess";
+import { formatDate, formatPrice, paymentStatusLabel } from "@/composables/useOrderSuccess";
 
 const route = useRoute();
 

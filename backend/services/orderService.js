@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { loadCartItems } from "./checkoutService.js";
-import { calculateTotals, toMoney } from "./pricingService.js";
+import { calculateTotals, lineTotalOf, roundMoney, toMoney } from "./pricingService.js";
 
 // Waiting for another checkout of the same variant or cart can take a moment
 // under load; these bound it instead of Prisma's 2s/5s defaults.
@@ -23,8 +23,10 @@ function generateOrderNumber(now = new Date()) {
     return `ORD-${date}-${code}`;
 }
 
-// Only orders that have not progressed yet can be cancelled by the customer.
+// Only orders that have not progressed yet can be cancelled by the customer,
+// and only while unpaid (refunds do not exist yet).
 const CANCELLABLE_STATUSES = ["PENDING"];
+const CANCELLABLE_PAYMENT_STATUSES = ["UNPAID"];
 
 const REQUIRED_ADDRESS_FIELDS = ["firstName", "lastName", "phone", "address", "city", "state", "zipCode", "country"];
 
@@ -32,6 +34,7 @@ const orderSelect = {
     id: true,
     orderNumber: true,
     status: true,
+    paymentStatus: true,
     currency: true,
     subtotal: true,
     shipping: true,
@@ -77,7 +80,10 @@ function toOrderResponse(order) {
         orderId: order.id,
         orderNumber: order.orderNumber,
         status: order.status,
-        cancellable: CANCELLABLE_STATUSES.includes(order.status),
+        // Payment is separate from fulfilment; no provider exists, so this is UNPAID.
+        paymentStatus: order.paymentStatus,
+        cancellable: CANCELLABLE_STATUSES.includes(order.status)
+            && CANCELLABLE_PAYMENT_STATUSES.includes(order.paymentStatus),
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
         placedAt: order.placedAt,
@@ -130,7 +136,7 @@ const stockConflict = (details) => new ApiError(409, "Some items in your cart ar
 | steps; the HTTP controller never passes it.
 */
 
-async function placeOrder(tx, userId, addressId, hooks) {
+async function placeOrder(tx, userId, { addressId, expectedTotal }, hooks) {
     const step = async (name) => hooks?.afterStep?.(name, tx);
 
     // A bare UPDATE takes the row lock before any read, so the reads below
@@ -166,7 +172,16 @@ async function placeOrder(tx, userId, addressId, hooks) {
 
     await step("validated");
 
+    // Decimals from the one pricing policy; stored exactly as calculated.
     const totals = calculateTotals(priced, { address });
+
+    // The total the customer saw at checkout. If prices changed since, stop
+    // before touching stock so they can review the new total.
+    if (expectedTotal != null && !roundMoney(expectedTotal).equals(totals.total)) {
+        throw new ApiError(409, "Prices have changed since you opened checkout. Please review the updated total.", [
+            { field: "expectedTotal", code: "PRICE_CHANGED", message: `The total is now ${toMoney(totals.total).toFixed(2)}` },
+        ]);
+    }
 
     // Fixed order (by variant id) so two multi-item orders cannot deadlock.
     const byVariant = [...priced].sort((a, b) => a.item.variant.id - b.item.variant.id);
@@ -227,7 +242,7 @@ async function placeOrder(tx, userId, addressId, hooks) {
                     image: item.product.image,
                     unitPrice,
                     quantity,
-                    lineTotal: unitPrice.mul(quantity),
+                    lineTotal: lineTotalOf(unitPrice, quantity),
                 })),
             },
         },
@@ -246,10 +261,12 @@ async function placeOrder(tx, userId, addressId, hooks) {
 // orderNumber is the only unique column this transaction writes.
 const isOrderNumberClash = (err) => err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
 
-export async function createOrder(userId, { addressId }, hooks) {
+// No payment is taken here: the order is created PENDING and UNPAID, with the
+// server's prices. Payment, when added, will move paymentStatus separately.
+export async function createOrder(userId, { addressId, expectedTotal }, hooks) {
     for (let attempt = 1; ; attempt++) {
         try {
-            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, addressId, hooks), TRANSACTION_OPTIONS);
+            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal }, hooks), TRANSACTION_OPTIONS);
 
             return toOrderResponse(order);
         } catch (err) {
@@ -326,7 +343,7 @@ export async function cancelOrder(userId, id, hooks) {
             tx = transaction;
 
             const { count } = await tx.order.updateMany({
-                where: { id, userId, status: { in: CANCELLABLE_STATUSES } },
+                where: { id, userId, status: { in: CANCELLABLE_STATUSES }, paymentStatus: { in: CANCELLABLE_PAYMENT_STATUSES } },
                 data: { status: "CANCELLED" },
             });
 

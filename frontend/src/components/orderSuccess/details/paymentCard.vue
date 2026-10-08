@@ -76,7 +76,7 @@
 
                 <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
 
-                    Pending
+                    {{ paymentStatusLabel(order.paymentStatus) }}
 
                 </span>
 
@@ -92,7 +92,7 @@
 import { computed } from "vue";
 import { CreditCardIcon } from "@heroicons/vue/24/outline";
 
-import { formatPrice } from "@/composables/useOrderSuccess";
+import { formatPrice, paymentStatusLabel } from "@/composables/useOrderSuccess";
 
 const props = defineProps({
     order: {
@@ -103,7 +103,7 @@ const props = defineProps({
 
 const rows = computed(() => [
     { label: "Subtotal", value: formatPrice(props.order.subtotal) },
-    { label: "Shipping", value: props.order.shipping === 0 ? "FREE" : formatPrice(props.order.shipping) },
+    { label: "Shipping", value: formatPrice(props.order.shipping) },
     { label: "Tax", value: formatPrice(props.order.tax) },
     // A discount row is only shown for a real (non-zero) discount.
     ...(Number(props.order.discount) > 0

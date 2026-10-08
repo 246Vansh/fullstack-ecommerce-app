@@ -1,6 +1,6 @@
 <template>
 
-    <checkoutSection number="01" title="Contact Information" subtitle="We'll use this to send your order updates."
+    <checkoutSection number="01" title="Contact Information" subtitle="The account and email this order is placed under."
         :icon="UserIcon" :editable="false">
 
         <!-- The signed-in account; nothing here is editable yet. -->

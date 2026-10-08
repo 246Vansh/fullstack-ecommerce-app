@@ -1,5 +1,6 @@
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
+import { toMoney, unitPriceOf, originalPriceOf } from "./pricingService.js";
 
 export const PAGINATION = {
     defaultLimit: 12,
@@ -207,8 +208,9 @@ export async function getProductById(id) {
         inStock: product.variants.some((variant) => variant.stock > 0),
         variants: product.variants.map((variant) => ({
             ...variant,
-            price: toNumber(variant.price ?? product.price),
-            originalPrice: toNumber(variant.originalPrice ?? product.originalPrice),
+            // The price the cart, checkout and order will charge for this variant.
+            price: toMoney(unitPriceOf(variant, product)),
+            originalPrice: toNumber(originalPriceOf(variant, product)),
         })),
     };
 }

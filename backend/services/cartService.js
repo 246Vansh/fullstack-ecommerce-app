@@ -1,7 +1,6 @@
-import { Prisma } from "@prisma/client";
-
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
+import { toMoney, unitPriceOf, originalPriceOf, lineTotalOf } from "./pricingService.js";
 
 const itemSelect = {
     id: true,
@@ -37,20 +36,18 @@ const itemSelect = {
     },
 };
 
-const toMoney = (value) => (value == null ? null : new Prisma.Decimal(value).toDecimalPlaces(2).toNumber());
-
-// Prices always come from the database: the variant price overrides the product price.
+// Prices always come from the database, through pricingService's one rule.
 function toCartItem({ id, quantity, variant }) {
     const { product } = variant;
-    const unitPrice = new Prisma.Decimal(variant.price ?? product.price);
-    const originalPrice = variant.originalPrice ?? product.originalPrice;
+    const unitPrice = unitPriceOf(variant, product);
+    const originalPrice = originalPriceOf(variant, product);
 
     return {
         id,
         quantity,
         unitPrice: toMoney(unitPrice),
-        originalPrice: toMoney(originalPrice),
-        subtotal: toMoney(unitPrice.mul(quantity)),
+        originalPrice: originalPrice == null ? null : toMoney(originalPrice),
+        subtotal: toMoney(lineTotalOf(unitPrice, quantity)),
         // False when the product was deactivated or stock dropped below the quantity.
         isAvailable: variant.isActive && product.isActive && quantity <= variant.stock,
         product: {
@@ -98,9 +95,10 @@ export async function getCart(userId) {
 
     const cartItems = items.map(toCartItem);
 
+    // Merchandise only; shipping, tax and discount are priced at checkout.
     const subtotal = items.reduce(
-        (sum, { quantity, variant }) => sum.add(new Prisma.Decimal(variant.price ?? variant.product.price).mul(quantity)),
-        new Prisma.Decimal(0),
+        (sum, { quantity, variant }) => sum.add(lineTotalOf(unitPriceOf(variant, variant.product), quantity)),
+        lineTotalOf(0, 0),
     );
 
     return {

@@ -10,6 +10,11 @@ const router = Router();
 
 const createRules = [
     body("addressId").isInt({ min: 1 }).withMessage("addressId must be a positive integer").toInt(),
+    // Optional: the checkout total the customer saw, compared (never stored).
+    body("expectedTotal").optional()
+        .isDecimal({ decimal_digits: "0,2" }).withMessage("expectedTotal must be an amount with at most 2 decimals")
+        .bail()
+        .custom((value) => Number(value) >= 0).withMessage("expectedTotal cannot be negative"),
 ];
 
 const idRules = [

@@ -27,6 +27,15 @@ enum RefreshTokenRevokeReason {
   REUSE
 }
 
+// Payment is tracked separately from fulfilment (OrderStatus). No payment
+// provider is integrated yet, so every order is created UNPAID.
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+  REFUNDED
+}
+
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -234,10 +243,11 @@ model CartItem {
 // Totals and the shipping address are copied onto the order
 // so later edits to products or addresses do not change history.
 model Order {
-  id          Int         @id @default(autoincrement())
-  orderNumber String      @unique @db.VarChar(30)
-  userId      Int
-  status      OrderStatus @default(PENDING)
+  id            Int           @id @default(autoincrement())
+  orderNumber   String        @unique @db.VarChar(30)
+  userId        Int
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
 
   subtotal Decimal @db.Decimal(10, 2)
   discount Decimal @default(0) @db.Decimal(10, 2)

@@ -17,7 +17,7 @@
         <!-- Amount -->
 
         <successOverviewCard :icon="CurrencyDollarIcon" title="Total Amount" :value="formatPrice(order.total)"
-            subtitle="Payment pending" icon-background="bg-orange-100" icon-color="text-orange-600"
+            :subtitle="`Payment: ${paymentStatusLabel(order.paymentStatus)}`" icon-background="bg-orange-100" icon-color="text-orange-600"
             value-color="text-orange-600" />
 
         <!-- Status -->
@@ -39,7 +39,7 @@ import {
 } from "@heroicons/vue/24/outline";
 
 import successOverviewCard from "./successOverviewCard.vue";
-import { formatDate, formatPrice, statusLabel } from "@/composables/useOrderSuccess";
+import { formatDate, formatPrice, paymentStatusLabel, statusLabel } from "@/composables/useOrderSuccess";
 
 defineProps({
     order: {
