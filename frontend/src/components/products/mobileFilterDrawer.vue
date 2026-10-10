@@ -48,7 +48,9 @@
                             <button type="button"
                                 class="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer"
                                 @click="$emit('close')">
-                                Show {{ totalProducts }} {{ totalProducts === 1 ? "product" : "products" }}
+                                {{ totalProducts === null
+                                    ? "Show products"
+                                    : `Show ${totalProducts} ${totalProducts === 1 ? "product" : "products"}` }}
                             </button>
 
                         </div>

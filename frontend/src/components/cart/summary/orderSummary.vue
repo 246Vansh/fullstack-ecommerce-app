@@ -57,6 +57,7 @@
 import { ClipboardDocumentListIcon } from "@heroicons/vue/24/outline";
 import checkoutButton from "./checkoutButton.vue";
 import summaryRow from "./summaryRow.vue";
+import { formatPrice } from "@/utils/money";
 
 defineProps({
     subtotal: {
@@ -70,7 +71,4 @@ defineProps({
     },
 });
 
-function formatPrice(price) {
-    return `$${Number(price).toFixed(2)}`;
-}
 </script>

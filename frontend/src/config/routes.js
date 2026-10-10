@@ -1,10 +1,10 @@
+// Paths for links built outside the router config. They must match the
+// routes in router/routes.js, which is where the routes are defined.
 export const ROUTES = {
 
     HOME: "/",
 
     PRODUCTS: "/products",
-
-    PRODUCT_DETAILS: "/products/:slug",
 
     CART: "/cart",
 
@@ -21,7 +21,5 @@ export const ROUTES = {
     RESET_PASSWORD: "/reset-password",
 
     VERIFY_EMAIL: "/verify-email",
-
-    PROFILE: "/profile",
 
 };

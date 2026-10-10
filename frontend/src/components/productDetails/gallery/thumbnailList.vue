@@ -10,13 +10,17 @@
                     ? 'border-indigo-600'
                     : 'border-transparent hover:border-gray-300'
             ]">
-            <img :src="image" alt="" class="h-26 w-32 object-cover cursor-pointer" />
+            <!-- 128x104 frame; a 3:2 photo covering it is drawn ~160px wide. -->
+            <img :src="sizedImage(image, 200)" :srcset="sizedImageSrcset(image, [200, 400, 600])" sizes="160px"
+                alt="" class="h-26 w-32 object-cover cursor-pointer" />
         </button>
 
     </div>
 </template>
 
 <script setup>
+import { sizedImage, sizedImageSrcset } from "@/utils/images";
+
 defineProps({
     images: {
         type: Array,

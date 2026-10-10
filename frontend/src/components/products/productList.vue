@@ -23,7 +23,12 @@
 
             </p>
 
-            <RouterLink v-if="clearFiltersTo && !invalidFilter && !loading && !error" :to="clearFiltersTo"
+            <button v-if="error && !loading" type="button" @click="$emit('retry')"
+                class="mt-4 inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                Retry
+            </button>
+
+            <RouterLink v-else-if="clearFiltersTo && !invalidFilter && !loading && !error" :to="clearFiltersTo"
                 class="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
                 Clear filters
             </RouterLink>
@@ -94,6 +99,9 @@ const props = defineProps({
 
 });
 
+
+// Retry re-runs the request for the current URL (filters, search, sort, page).
+defineEmits(["retry"]);
 
 const hasProducts = computed(() => {
 

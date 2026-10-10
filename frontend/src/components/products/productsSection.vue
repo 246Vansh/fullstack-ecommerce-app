@@ -32,15 +32,15 @@
 
                 <div class="lg:col-span-3 cursor-pointer">
 
-                    <h2 class="sr-only">Product results</h2>
+                    <h2 ref="resultsHeading" tabindex="-1" class="sr-only">Product results</h2>
 
                     <!-- Announces the result count once a filter, sort or page change has loaded. -->
                     <p role="status" class="sr-only">{{ resultStatus }}</p>
 
                     <ProductList :products="products" :loading="loading" :error="error" :invalid-filter="invalidFilter" :search="search"
-                        :clear-filters-to="activeFilterCount > 0 ? clearFiltersTo : null" />
+                        :clear-filters-to="activeFilterCount > 0 ? clearFiltersTo : null" @retry="retry" />
 
-                    <Pagination class="mt-12" :total-pages="pagination.totalPages" v-model="pagination.currentPage" />
+                    <Pagination v-if="!error" class="mt-12" :total-pages="pagination.totalPages" v-model="pagination.currentPage" />
 
                 </div>
 
@@ -84,9 +84,10 @@ const props = defineProps({
         default: () => [],
     },
 
+    // null when the count is unknown (first load, or the request failed).
     totalProducts: {
         type: Number,
-        default: 0,
+        default: null,
     },
 
     pagination: {
@@ -146,11 +147,22 @@ const props = defineProps({
 
 });
 
+const emit = defineEmits(["retry"]);
+
 const selectedSort = defineModel("selectedSort");
 
 const selectedFilters = defineModel("selectedFilters");
 
 const filtersOpen = ref(false);
+
+const resultsHeading = ref(null);
+
+// The Retry button disappears while loading, so focus moves to the results
+// heading instead of falling back to the page; the status line announces the outcome.
+function retry() {
+    resultsHeading.value?.focus();
+    emit("retry");
+}
 
 // Updated only when a load settles, so each change is announced once.
 const resultStatus = ref("");

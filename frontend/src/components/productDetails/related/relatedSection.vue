@@ -16,7 +16,7 @@
 
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 
-            <ProductCard v-for="product in products" :key="product.id" :product="product" />
+            <ProductCard v-for="product in products" :key="product.id" :product="product" :image-sizes="IMAGE_SIZES" />
 
         </div>
 
@@ -25,6 +25,11 @@
 
 <script setup>
 import ProductCard from "@/components/products/product/productCard.vue";
+
+// Card slots in the max-w-7xl page: one column below sm, two from sm, four
+// from lg (286px once the page is capped), times the 1.875 a 3:2 photo
+// paints at under object-cover in the 4:5 card.
+const IMAGE_SIZES = "(min-width: 1280px) 536px, (min-width: 1024px) calc(47vw - 64px), (min-width: 640px) calc(94vw - 68px), calc(188vw - 60px)";
 
 defineProps({
     products: {

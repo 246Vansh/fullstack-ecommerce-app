@@ -119,7 +119,7 @@
 
                     <!-- Illustration -->
 
-                    <img src="@/assets/images/orderSuccess/order-success.png" alt=""
+                    <img src="@/assets/images/orderSuccess/order-success.webp" alt=""
                         class="relative z-10 w-[560px] max-w-full object-contain" />
 
                 </div>

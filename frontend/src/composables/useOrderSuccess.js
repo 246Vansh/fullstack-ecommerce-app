@@ -15,7 +15,7 @@ const STATUS_LABELS = {
 };
 
 // Formatting only; every value comes from GET /api/orders/:id.
-export const formatPrice = (value) => `$${Number(value ?? 0).toFixed(2)}`;
+export { formatPrice } from "@/utils/money";
 
 export const formatDate = (value, withTime = false) => new Date(value).toLocaleString("en-US", {
     day: "2-digit",

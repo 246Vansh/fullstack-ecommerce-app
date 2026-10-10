@@ -1,17 +1,7 @@
 import HomePage from "@/pages/homePage.vue";
-import ProductsPage from "@/pages/productsPage.vue";
-import ProductDetailsPage from "@/pages/productDetailsPage.vue";
-import CartPage from "@/pages/cartPage.vue";
-import CheckoutPage from "../pages/checkoutPage.vue";
-import OrderSuccess from "../pages/orderSuccess.vue";
-import SignInPage from "@/pages/signInPage.vue";
-import SignUpPage from "@/pages/signUpPage.vue";
-import ForgotPasswordPage from "@/pages/forgotPasswordPage.vue";
-import ResetPasswordPage from "@/pages/resetPasswordPage.vue";
-import VerifyEmailPage from "@/pages/verifyEmailPage.vue";
-import OrdersPage from "@/pages/ordersPage.vue";
-import OrderDetailsPage from "@/pages/orderDetailsPage.vue";
 
+// The home page is the usual landing page, so it ships in the main bundle;
+// every other page is its own chunk, loaded when its route is first visited.
 export const routes = [
 
     {
@@ -23,49 +13,49 @@ export const routes = [
     {
         path: "/products",
         name: "products",
-        component: ProductsPage,
+        component: () => import("@/pages/productsPage.vue"),
         meta: { title: "Products" },
     },
 
     {
         path: "/products/:id",
         name: "product-details",
-        component: ProductDetailsPage,
+        component: () => import("@/pages/productDetailsPage.vue"),
         meta: { title: "Product" },
     },
 
     {
         path: "/cart",
         name: "cart",
-        component: CartPage,
+        component: () => import("@/pages/cartPage.vue"),
         meta: { title: "Cart" },
     },
 
     {
         path: "/checkout",
         name: "checkout",
-        component: CheckoutPage,
+        component: () => import("@/pages/checkoutPage.vue"),
         meta: { title: "Checkout", requiresAuth: true },
     },
 
     {
         path: "/orderSuccess/:id(\\d+)",
         name: "orderSuccess",
-        component: OrderSuccess,
+        component: () => import("@/pages/orderSuccess.vue"),
         meta: { title: "Order Confirmed", requiresAuth: true },
     },
 
     {
         path: "/orders",
         name: "orders",
-        component: OrdersPage,
+        component: () => import("@/pages/ordersPage.vue"),
         meta: { title: "Orders", requiresAuth: true },
     },
 
     {
         path: "/orders/:id(\\d+)",
         name: "order-details",
-        component: OrderDetailsPage,
+        component: () => import("@/pages/orderDetailsPage.vue"),
         meta: { title: "Order", requiresAuth: true },
     },
 
@@ -75,35 +65,35 @@ export const routes = [
     {
         path: "/login",
         name: "login",
-        component: SignInPage,
+        component: () => import("@/pages/signInPage.vue"),
         meta: { title: "Sign In", guestOnly: true },
     },
 
     {
         path: "/register",
         name: "register",
-        component: SignUpPage,
+        component: () => import("@/pages/signUpPage.vue"),
         meta: { title: "Create Account", guestOnly: true },
     },
 
     {
         path: "/forgot-password",
         name: "forgot-password",
-        component: ForgotPasswordPage,
+        component: () => import("@/pages/forgotPasswordPage.vue"),
         meta: { title: "Forgot Password" },
     },
 
     {
         path: "/reset-password",
         name: "reset-password",
-        component: ResetPasswordPage,
+        component: () => import("@/pages/resetPasswordPage.vue"),
         meta: { title: "Reset Password" },
     },
 
     {
         path: "/verify-email",
         name: "verify-email",
-        component: VerifyEmailPage,
+        component: () => import("@/pages/verifyEmailPage.vue"),
         meta: { title: "Verify Email" },
     },
 

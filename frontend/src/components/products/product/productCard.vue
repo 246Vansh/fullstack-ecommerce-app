@@ -12,7 +12,7 @@
             <div class="relative">
 
                 <!-- The link already reads the product name, so the image is not announced again. -->
-                <ProductImage :src="product.image" alt="" />
+                <ProductImage :src="product.image" alt="" :sizes="imageSizes" />
 
                 <!-- Product Badge -->
 
@@ -68,6 +68,16 @@ const props = defineProps({
         type: Object,
 
         required: true,
+
+    },
+
+    // Image `sizes` for layouts other than the products grid; unset keeps
+    // ProductImage's default.
+    imageSizes: {
+
+        type: String,
+
+        default: undefined,
 
     },
 

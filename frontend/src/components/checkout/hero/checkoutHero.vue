@@ -46,7 +46,7 @@
 
             <div class="flex justify-center">
 
-                <img src="@/assets/images/checkout/secure-checkout.png" alt="" class="w-40 object-contain sm:w-63">
+                <img src="@/assets/images/checkout/secure-checkout.webp" alt="" class="w-40 object-contain sm:w-63">
 
             </div>
 

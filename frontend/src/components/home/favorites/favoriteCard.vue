@@ -2,8 +2,12 @@
     <div class="group relative">
 
         <!-- Product Image -->
+        <!-- One column, two from sm, three (384px max) from lg. A 3:2 photo
+             covering the 4:5 frame is drawn ~1.9x the column width. -->
         <div class="aspect-[4/5] w-full overflow-hidden rounded-lg bg-gray-100">
-            <img :src="product.image" :alt="product.alt ?? product.name" loading="lazy"
+            <img :src="sizedImage(product.image, 800)" :srcset="sizedImageSrcset(product.image, [400, 600, 800, 1200])"
+                sizes="(min-width: 1280px) 720px, (min-width: 1024px) 56vw, (min-width: 640px) 94vw, 188vw"
+                :alt="product.alt ?? product.name" loading="lazy"
                 class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-75" />
         </div>
 
@@ -35,7 +39,8 @@
 
 <script setup>
 import { RouterLink } from 'vue-router';
-import { formatPrice } from "@/composables/useOrderSuccess";
+import { formatPrice } from "@/utils/money";
+import { sizedImage, sizedImageSrcset } from "@/utils/images";
 
 defineProps({
     product: {

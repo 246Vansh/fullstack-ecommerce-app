@@ -63,7 +63,9 @@ export function useProducts() {
 
     const error = ref("");
 
-    const total = ref(0);
+    // null until a request succeeds, and again after one fails: the count is
+    // unknown then, which is not the same as zero matching products.
+    const total = ref(null);
 
     const serverTotalPages = ref(1);
 
@@ -405,7 +407,8 @@ export function useProducts() {
             if (axios.isCancel(err)) return;
 
             products.value = [];
-            total.value = 0;
+            total.value = null;
+            serverTotalPages.value = 1;
             error.value = parseApiError(err).message;
 
         } finally {
@@ -492,6 +495,8 @@ export function useProducts() {
 
         const start = (pagination.currentPage - 1) * pagination.itemsPerPage;
 
+        const known = total.value ?? 0;
+
         return {
             get currentPage() {
                 return pagination.currentPage;
@@ -500,10 +505,11 @@ export function useProducts() {
                 changePage(page);
             },
             itemsPerPage: pagination.itemsPerPage,
+            // null while the count is unknown (see `total`).
             totalItems: total.value,
             totalPages: totalPages.value,
-            start: total.value === 0 ? 0 : start + 1,
-            end: Math.min(start + pagination.itemsPerPage, total.value),
+            start: known === 0 ? 0 : start + 1,
+            end: Math.min(start + pagination.itemsPerPage, known),
         };
 
     });

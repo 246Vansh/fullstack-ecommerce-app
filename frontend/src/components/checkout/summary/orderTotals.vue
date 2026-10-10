@@ -108,6 +108,7 @@
 
 <script setup>
 import { GiftIcon } from "@heroicons/vue/24/outline";
+import { formatPrice } from "@/utils/money";
 
 defineProps({
 
@@ -123,9 +124,4 @@ defineProps({
 
 });
 
-function formatPrice(price) {
-
-    return `$${Number(price).toFixed(2)}`;
-
-}
 </script>

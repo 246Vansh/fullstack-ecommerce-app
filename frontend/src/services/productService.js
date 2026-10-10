@@ -59,6 +59,9 @@ function normalizeProduct(product) {
     };
 }
 
+// Matches the backend's limit for GET /products/batch.
+export const BATCH_LIMIT = 48;
+
 export const productService = {
 
     // params: see GET /api/products query parameters
@@ -75,6 +78,14 @@ export const productService = {
         const { data } = await apiClient.get(`/products/${id}`, { signal });
 
         return normalizeProduct(data.data);
+    },
+
+    // Several products in one request (GET /products/batch, at most
+    // BATCH_LIMIT ids). Products that no longer exist are left out.
+    async getProductsByIds(ids) {
+        const { data } = await apiClient.get("/products/batch", { params: { ids: ids.join(",") } });
+
+        return data.data.map(normalizeProduct);
     },
 
     async getCategories() {

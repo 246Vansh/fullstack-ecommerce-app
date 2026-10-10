@@ -47,7 +47,8 @@
 
                 <div class="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-50 sm:h-24 sm:w-24">
 
-                    <img v-if="product.image" :src="product.image" :alt="product.productName" class="h-16 w-16 object-contain sm:h-20 sm:w-20">
+                    <!-- 64/80px thumbnail; 240px covers 3x screens. -->
+                    <img v-if="product.image" :src="sizedImage(product.image, 240)" :alt="product.productName" class="h-16 w-16 object-contain sm:h-20 sm:w-20">
 
                 </div>
 
@@ -140,6 +141,7 @@
 import { CubeIcon } from "@heroicons/vue/24/outline";
 
 import { formatPrice } from "@/composables/useOrderSuccess";
+import { sizedImage } from "@/utils/images";
 
 // Order item snapshots: names and prices as they were when the order was placed.
 defineProps({

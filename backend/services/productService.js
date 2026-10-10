@@ -62,17 +62,25 @@ function toListItem(product) {
     };
 }
 
+// Prisma sends `contains` as LIKE '%value%' without escaping the value, so a
+// search for "%" or "_" would match everything. MySQL/MariaDB's default LIKE
+// escape character is "\", so escaping it and both wildcards makes the search
+// literal; the value is still sent as a bound parameter.
+export const escapeLike = (value) => value.replace(/[\\%_]/g, "\\$&");
+
 // Builds the Prisma `where` from already-validated query filters.
 function buildWhere(filters) {
     const where = { isActive: true };
     const and = [];
 
     if (filters.search) {
+        const search = escapeLike(filters.search);
+
         and.push({
             OR: [
-                { name: { contains: filters.search } },
-                { brand: { contains: filters.search } },
-                { description: { contains: filters.search } },
+                { name: { contains: search } },
+                { brand: { contains: search } },
+                { description: { contains: search } },
             ],
         });
     }
@@ -156,50 +164,68 @@ export async function listProducts(filters) {
     };
 }
 
+const detailSelect = {
+    id: true,
+    name: true,
+    slug: true,
+    description: true,
+    brand: true,
+    price: true,
+    originalPrice: true,
+    isNew: true,
+    createdAt: true,
+    category: {
+        select: {
+            ...categorySelect,
+            parent: { select: categorySelect },
+        },
+    },
+    images: {
+        select: { id: true, url: true, altText: true, position: true },
+        orderBy: { position: "asc" },
+    },
+    variants: {
+        where: { isActive: true },
+        select: {
+            id: true,
+            sku: true,
+            size: true,
+            color: true,
+            colorHex: true,
+            price: true,
+            originalPrice: true,
+            stock: true,
+        },
+        orderBy: { id: "asc" },
+    },
+};
+
 export async function getProductById(id) {
     const product = await prisma.product.findFirst({
         where: { id, isActive: true },
-        select: {
-            id: true,
-            name: true,
-            slug: true,
-            description: true,
-            brand: true,
-            price: true,
-            originalPrice: true,
-            isNew: true,
-            createdAt: true,
-            category: {
-                select: {
-                    ...categorySelect,
-                    parent: { select: categorySelect },
-                },
-            },
-            images: {
-                select: { id: true, url: true, altText: true, position: true },
-                orderBy: { position: "asc" },
-            },
-            variants: {
-                where: { isActive: true },
-                select: {
-                    id: true,
-                    sku: true,
-                    size: true,
-                    color: true,
-                    colorHex: true,
-                    price: true,
-                    originalPrice: true,
-                    stock: true,
-                },
-                orderBy: { id: "asc" },
-            },
-        },
+        select: detailSelect,
     });
 
     if (!product) {
         throw new ApiError(404, "Product not found");
     }
 
+    return toDetail(product);
+}
+
+// Several products in the GET /products/:id shape, in one query (the guest
+// cart uses it). Missing and inactive ids are left out, as /:id would 404.
+export async function getProductsByIds(ids) {
+    const products = await prisma.product.findMany({
+        where: { id: { in: ids }, isActive: true },
+        select: detailSelect,
+        orderBy: { id: "asc" },
+    });
+
+    return products.map(toDetail);
+}
+
+function toDetail(product) {
     return {
         ...product,
         price: toNumber(product.price),

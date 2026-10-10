@@ -6,7 +6,7 @@
             :total-products="totalProducts" :pagination="paginationInfo" :filters="filters" :filter-data="filterData"
             :active-filter-count="activeFilterCount" v-model:selected-sort="selectedSort"
             v-model:selected-filters="selectedFilters" :sort-options="sortOptions" :loading="loading" :error="error"
-            :invalid-filter="invalidLinkFilter" :search="searchQuery" :clear-filters-to="clearFiltersTo" />
+            :invalid-filter="invalidLinkFilter" :search="searchQuery" :clear-filters-to="clearFiltersTo" @retry="refetch" />
     </main>
 
     <Footer />
@@ -24,7 +24,7 @@ import { useProducts } from "@/composables/useProducts";
 
 import { filters, brands, colors, sizes, priceRanges, availability, sortOptions } from "@/constants/catalog";
 
-const { selectedSort, selectedFilters, paginationInfo, paginatedProducts, totalProducts, activeFilterCount, categories, loading, error, invalidLinkFilter, searchQuery, clearFiltersTo } = useProducts();
+const { selectedSort, selectedFilters, paginationInfo, paginatedProducts, totalProducts, activeFilterCount, categories, loading, error, invalidLinkFilter, searchQuery, clearFiltersTo, refetch } = useProducts();
 
 // useProducts reads the catalog state from the URL and writes it back, so
 // links, refresh and Back/Forward all show the same catalog.

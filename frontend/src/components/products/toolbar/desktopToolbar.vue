@@ -3,7 +3,11 @@
 
         <!-- Product Count -->
 
-        <ProductCount :start="pagination.start" :end="pagination.end" :total="pagination.totalItems" />
+        <ProductCount v-if="pagination.totalItems !== null" :start="pagination.start" :end="pagination.end"
+            :total="pagination.totalItems" />
+
+        <!-- Keeps the sort menu on the right while the count is unknown. -->
+        <span v-else></span>
 
         <!-- Right Actions -->
 

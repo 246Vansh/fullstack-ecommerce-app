@@ -9,7 +9,7 @@ import path from "node:path";
 export const BACKEND_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 // A port the OS reports as free right now.
-function freePort() {
+export function freePort() {
     return new Promise((resolve, reject) => {
         const probe = net.createServer().once("error", reject).listen(0, () => {
             const { port } = probe.address();

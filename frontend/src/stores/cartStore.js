@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 
 import { cartService } from "@/services/cartService";
-import { productService } from "@/services/productService";
+import { productService, BATCH_LIMIT } from "@/services/productService";
 import { parseApiError } from "@/services/apiClient";
 import { readGuestCart, writeGuestCart, GUEST_CART_KEY } from "@/services/guestCartStorage";
 import { useAuthStore } from "./authStore";
@@ -138,16 +138,25 @@ export const useCartStore = defineStore("cart", () => {
 
         if (isGuest.value) error.value = "";
 
-        const request = Promise.all(ids.map((id) => productService.getProduct(id).then(
-            (product) => ({ id, product }),
-            (err) => ({ id, failure: parseApiError(err) }),
+        // One batch request per BATCH_LIMIT products instead of one per product.
+        const chunks = [];
+
+        for (let i = 0; i < ids.length; i += BATCH_LIMIT) chunks.push(ids.slice(i, i + BATCH_LIMIT));
+
+        const request = Promise.all(chunks.map((chunk) => productService.getProductsByIds(chunk).then(
+            (products) => ({ chunk, products }),
+            (err) => ({ chunk, failure: parseApiError(err) }),
         ))).then((results) => {
             const next = { ...guestProducts.value };
 
-            for (const { id, product, failure } of results) {
-                if (product) next[id] = product;
-                else if (failure.status === 404) next[id] = null;
-                else if (isGuest.value) error.value = failure.message;
+            for (const { chunk, products, failure } of results) {
+                if (failure) {
+                    if (isGuest.value) error.value = failure.message;
+                    continue;
+                }
+
+                // A product missing from the response no longer exists.
+                for (const id of chunk) next[id] = products.find((product) => product.id === id) ?? null;
             }
 
             guestProducts.value = next;

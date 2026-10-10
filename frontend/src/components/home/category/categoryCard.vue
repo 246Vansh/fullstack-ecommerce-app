@@ -3,8 +3,9 @@
         ? 'aspect-2/1 sm:row-span-2 sm:aspect-square'
         : 'aspect-2/1 sm:aspect-auto'">
 
-        <!-- Image -->
-        <img :src="card.image" :alt="card.alt"
+        <!-- Image: full width, half (592px max) from sm. -->
+        <img :src="sizedImage(card.image, 800)" :srcset="sizedImageSrcset(card.image, [400, 800, 1200])"
+            sizes="(min-width: 1280px) 592px, (min-width: 640px) 50vw, 100vw" :alt="card.alt"
             class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 group-hover:opacity-75" />
 
         <!-- Overlay -->
@@ -40,6 +41,7 @@
 
 <script setup>
 import { RouterLink } from 'vue-router';
+import { sizedImage, sizedImageSrcset } from "@/utils/images";
 
 defineProps({
     card: {

@@ -32,6 +32,17 @@ router.afterEach((to, from, failure) => {
     }
 });
 
+// A page's chunk can fail to load (connection dropped, or a deploy replaced
+// the files). Load the target URL in full instead of leaving the click with no
+// effect. Not on the first navigation, which would reload the same URL forever.
+const CHUNK_LOAD_ERROR = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i;
+
+router.onError((error, to) => {
+    if (CHUNK_LOAD_ERROR.test(error?.message ?? "") && router.currentRoute.value.matched.length) {
+        window.location.assign(to.fullPath);
+    }
+});
+
 // The refresh token was rejected while using the app: send the user to sign
 // in again, but only from protected pages; public pages keep working as a guest.
 setSessionExpiredHandler(() => {

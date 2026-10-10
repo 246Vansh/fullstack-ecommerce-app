@@ -20,7 +20,8 @@
 
             </div>
 
-            <div class="shrink-0">
+            <!-- No count while it is unknown (first load, or the request failed). -->
+            <div v-if="totalProducts !== null" class="shrink-0">
 
                 <p class="text-sm text-gray-500">
 
@@ -53,9 +54,10 @@ defineProps({
         default: "",
     },
 
+    // null when the count is unknown.
     totalProducts: {
         type: Number,
-        default: 0,
+        default: null,
     },
 
 });

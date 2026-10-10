@@ -31,6 +31,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { formatPrice } from "@/utils/money";
 
 const props = defineProps({
     product: {
@@ -58,7 +59,4 @@ const discountPercentage = computed(() => {
 
 });
 
-function formatPrice(price) {
-    return `$${Number(price).toFixed(2)}`;
-}
 </script>

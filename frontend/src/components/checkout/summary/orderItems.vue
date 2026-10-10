@@ -33,7 +33,8 @@
 
                     <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-slate-50">
 
-                        <img :src="product.image" :alt="product.name" class="h-16 w-16 object-contain">
+                        <!-- 64px thumbnail; 200px covers 3x screens. -->
+                        <img :src="sizedImage(product.image, 200)" :alt="product.name" class="h-16 w-16 object-contain">
 
                     </div>
 
@@ -95,9 +96,10 @@
 </template>
 
 <script setup>
+import { formatPrice } from "@/utils/money";
+import { sizedImage } from "@/utils/images";
 
 // Items and prices come from GET /api/checkout; they are only formatted here.
-const formatPrice = (price) => `$${Number(price).toFixed(2)}`;
 
 defineProps({
 
