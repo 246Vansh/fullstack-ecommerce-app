@@ -2,6 +2,8 @@
 // process.env and exits with a readable list of problems; values are never
 // printed, only variable names.
 
+import express from "express";
+
 const NODE_ENVS = ["development", "production", "test"];
 const SAME_SITE = ["lax", "strict", "none"];
 const MIN_SECRET_LENGTH = 32;
@@ -25,6 +27,17 @@ export function parseTrustProxy(value) {
     if (/^\d+$/.test(raw)) return Number(raw);
 
     return raw;
+}
+
+// Compiles the value the way server.js applies it, so a malformed address
+// list is reported here instead of throwing from app.set() at startup.
+function isValidTrustProxy(value) {
+    try {
+        express().set("trust proxy", value);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export function validateEnv(env = process.env) {
@@ -59,8 +72,12 @@ export function validateEnv(env = process.env) {
         errors.push("CLIENT_URL must be an http:// or https:// URL");
     }
 
-    if (env.TRUST_PROXY !== undefined && parseTrustProxy(env.TRUST_PROXY) === undefined) {
-        errors.push('TRUST_PROXY must be "false", a hop count such as "1", or a trusted address list (not "true")');
+    if (env.TRUST_PROXY !== undefined) {
+        const trustProxy = parseTrustProxy(env.TRUST_PROXY);
+
+        if (trustProxy === undefined || !isValidTrustProxy(trustProxy)) {
+            errors.push('TRUST_PROXY must be "false", a hop count such as "1", or a trusted address list (not "true")');
+        }
     }
 
     if (env.COOKIE_SAME_SITE && !SAME_SITE.includes(env.COOKIE_SAME_SITE)) {
@@ -77,6 +94,11 @@ export function validateEnv(env = process.env) {
         }
         if (env.CLIENT_URL && isUrl(env.CLIENT_URL, ["http:"]) && !/^http:\/\/localhost(:\d+)?\/?$/.test(env.CLIENT_URL)) {
             errors.push("CLIENT_URL must use https in production");
+        }
+        // Unset would silently mean "no proxy": behind one, every client then
+        // shares the proxy's IP and rate-limit budget. Make the choice explicit.
+        if (!String(env.TRUST_PROXY ?? "").trim()) {
+            errors.push('TRUST_PROXY is required in production: "false" when clients connect directly, otherwise the proxies in front of the app');
         }
     }
 

@@ -52,6 +52,32 @@ test("2. with TRUST_PROXY=1 the client IP comes from X-Forwarded-For", async () 
     }
 });
 
+// Valid production settings for a server started over plain http in tests.
+const PRODUCTION = { NODE_ENV: "production", CLIENT_URL: "https://shop.example.com", COOKIE_SECURE: "true" };
+
+test("production with TRUST_PROXY=false (direct deployment) starts, and spoofed X-Forwarded-For is ignored", async () => {
+    const server = await startServer({ ...PRODUCTION, TRUST_PROXY: "false" });
+    try {
+        assert.equal((await fetch(`${server.url}/health`)).status, 200);
+        for (let i = 0; i < 20; i++) await badLogin(server.url, { "X-Forwarded-For": `203.0.113.${i}` });
+        assert.equal((await badLogin(server.url, { "X-Forwarded-For": "198.51.100.7" })).status, 429);
+    } finally {
+        await server.stop();
+    }
+});
+
+test("production with a trusted proxy CIDR takes the client IP from X-Forwarded-For", async () => {
+    // The test connects from 127.0.0.1, which plays the trusted proxy here.
+    const server = await startServer({ ...PRODUCTION, TRUST_PROXY: "127.0.0.0/8" });
+    try {
+        for (let i = 0; i < 20; i++) await badLogin(server.url, { "X-Forwarded-For": "203.0.113.1" });
+        assert.equal((await badLogin(server.url, { "X-Forwarded-For": "203.0.113.1" })).status, 429);
+        assert.equal((await badLogin(server.url, { "X-Forwarded-For": "203.0.113.2" })).status, 401, "different client, own budget");
+    } finally {
+        await server.stop();
+    }
+});
+
 test("11. normal browsing volume is not blocked by the general limiter", async () => {
     const server = await startServer();
     try {
