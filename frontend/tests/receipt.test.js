@@ -72,7 +72,17 @@ test("every amount on a (USD-only) order is formatted as USD", () => {
     ];
 
     assert.equal(amounts.length, 8);
-    for (const amount of amounts) assert.match(amount, /^-?\$\d+\.\d{2}$/, amount);
+    for (const amount of amounts) assert.match(amount, /^-?\$\d{1,3}(,\d{3})*\.\d{2}$/, amount);
+});
+
+test("large saved amounts use thousands separators", () => {
+    const big = {
+        ...order, subtotal: "36999.99", total: "36999.99",
+        items: [{ ...order.items[0], quantity: 1, unitPrice: "36999.99", lineTotal: "36999.99" }],
+    };
+
+    assert.equal(receiptLines(big)[0].unitPrice, "$36,999.99");
+    assert.equal(receiptTotals(big)[0].value, "$36,999.99");
 });
 
 test("an order without items yields no lines", () => {

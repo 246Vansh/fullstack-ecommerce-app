@@ -117,7 +117,7 @@
 
                     <p class="mt-3 text-2xl font-bold text-blue-600">
 
-                        ${{ formattedPrice }}
+                        {{ formattedPrice }}
 
                     </p>
 
@@ -141,7 +141,7 @@
 
                     <p class="mt-3 text-2xl font-bold text-gray-400 line-through">
 
-                        ${{ formattedOriginalPrice }}
+                        {{ formattedOriginalPrice }}
 
                     </p>
 
@@ -165,7 +165,7 @@
 
                     <p class="mt-3 text-2xl font-bold text-green-600">
 
-                        ${{ savedAmount }}
+                        {{ savedAmount }}
 
                     </p>
 
@@ -264,6 +264,8 @@
 <script setup>
 import { computed } from "vue";
 
+import { formatPrice } from "@/utils/money";
+
 const props = defineProps({
     product: {
         type: Object,
@@ -276,18 +278,18 @@ const props = defineProps({
 ---------------------------------- */
 
 const formattedPrice = computed(() =>
-    Number(props.product.price || 0).toFixed(2)
+    formatPrice(props.product.price)
 );
 
 const formattedOriginalPrice = computed(() =>
-    Number(props.product.originalPrice || 0).toFixed(2)
+    formatPrice(props.product.originalPrice)
 );
 
 const savedAmount = computed(() => {
     const original = Number(props.product.originalPrice || 0);
     const current = Number(props.product.price || 0);
 
-    return Math.max(original - current, 0).toFixed(2);
+    return formatPrice(Math.max(original - current, 0));
 });
 
 const hasDiscount = computed(() =>
