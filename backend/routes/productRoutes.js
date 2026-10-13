@@ -3,7 +3,7 @@ import { query, param } from "express-validator";
 
 import { getProducts, getProduct, getProductsBatch } from "../controllers/productController.js";
 import { PAGINATION, SORT_VALUES } from "../services/productService.js";
-import { validate } from "../middleware/validate.js";
+import { paginationRules, singleQuery, validate } from "../middleware/validate.js";
 
 const router = Router();
 
@@ -23,15 +23,12 @@ const listRules = [
     listParam("brand"),
     listParam("color"),
     listParam("size"),
-    query("minPrice").optional().isFloat({ min: 0 }).withMessage("minPrice must be a positive number").toFloat(),
-    query("maxPrice").optional().isFloat({ min: 0 }).withMessage("maxPrice must be a positive number").toFloat(),
-    query("inStock").optional().isBoolean().withMessage("inStock must be true or false").toBoolean(true),
-    query("sort").default("newest").isIn(SORT_VALUES)
+    singleQuery("minPrice").optional().isFloat({ min: 0 }).withMessage("minPrice must be a positive number").toFloat(),
+    singleQuery("maxPrice").optional().isFloat({ min: 0 }).withMessage("maxPrice must be a positive number").toFloat(),
+    singleQuery("inStock").optional().isBoolean().withMessage("inStock must be true or false").toBoolean(true),
+    singleQuery("sort").default("newest").isIn(SORT_VALUES)
         .withMessage(`sort must be one of: ${SORT_VALUES.join(", ")}`),
-    query("page").default(1).isInt({ min: 1 }).withMessage("page must be 1 or more").toInt(),
-    query("limit").default(PAGINATION.defaultLimit)
-        .isInt({ min: 1, max: PAGINATION.maxLimit })
-        .withMessage(`limit must be between 1 and ${PAGINATION.maxLimit}`).toInt(),
+    ...paginationRules(PAGINATION),
 ];
 
 const MAX_ID = 2147483647; // INT column

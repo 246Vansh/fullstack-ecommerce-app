@@ -8,7 +8,7 @@ import {
 } from "../controllers/adminCatalogController.js";
 import { ADMIN_PAGINATION, MAX_STOCK } from "../services/adminCatalogService.js";
 import { authenticate, authorize, requireCurrentAdmin } from "../middleware/auth.js";
-import { validate } from "../middleware/validate.js";
+import { paginationRules, singleQuery, validate } from "../middleware/validate.js";
 import { ApiError } from "../utils/ApiError.js";
 
 const router = Router();
@@ -144,13 +144,10 @@ function requireChanges(req, res, next) {
 }
 
 const listRules = [
-    query("page").default(1).isInt({ min: 1 }).withMessage("page must be 1 or more").toInt(),
-    query("limit").default(ADMIN_PAGINATION.defaultLimit)
-        .isInt({ min: 1, max: ADMIN_PAGINATION.maxLimit })
-        .withMessage(`limit must be between 1 and ${ADMIN_PAGINATION.maxLimit}`).toInt(),
+    ...paginationRules(ADMIN_PAGINATION),
     query("search").optional().isString().trim().isLength({ max: 100 }).withMessage("search must be at most 100 characters"),
-    query("isActive").optional().isIn(["true", "false"]).withMessage("isActive must be true or false").toBoolean(true),
-    query("categoryId").optional().isInt({ min: 1, max: MAX_ID }).withMessage("categoryId must be a positive integer").toInt(),
+    singleQuery("isActive").optional().isIn(["true", "false"]).withMessage("isActive must be true or false").toBoolean(true),
+    singleQuery("categoryId").optional().isInt({ min: 1, max: MAX_ID }).withMessage("categoryId must be a positive integer").toInt(),
 ];
 
 const createProductRules = [
