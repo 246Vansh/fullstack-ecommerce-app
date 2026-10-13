@@ -1,6 +1,6 @@
 allowBuilds:
-  '@prisma/engines': set this to true or false
-  prisma: set this to true or false
+  '@prisma/engines': true
+  prisma: true
 
 # @prisma/adapter-mariadb pins mariadb 3.4.5 exactly (GHSA-cqhc-2h57-wpxf,
 # GHSA-r3rv-jm3r-62q2 and others); 3.4.7 is the patched 3.4.x maintenance release.
