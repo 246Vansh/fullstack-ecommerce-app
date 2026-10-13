@@ -97,6 +97,47 @@ export const routes = [
         meta: { title: "Verify Email" },
     },
 
+    // Admin area. The guard (meta.requiresAdmin) only decides what to show;
+    // the server re-checks the ADMIN role on every /api/admin request.
+    {
+        path: "/admin",
+        component: () => import("@/components/admin/layout/adminLayout.vue"),
+        meta: { requiresAuth: true, requiresAdmin: true },
+        children: [
+            {
+                path: "",
+                name: "admin",
+                redirect: { name: "admin-products" },
+            },
+            {
+                path: "products",
+                name: "admin-products",
+                component: () => import("@/pages/admin/adminProductsPage.vue"),
+                meta: { title: "Products · Admin" },
+            },
+            // Forms arrive in Phase 12.2B; until then these routes say so.
+            {
+                path: "products/new",
+                name: "admin-product-new",
+                component: () => import("@/pages/admin/adminProductFormPage.vue"),
+                meta: { title: "New Product · Admin" },
+            },
+            {
+                path: "products/:id(\\d+)/edit",
+                name: "admin-product-edit",
+                component: () => import("@/pages/admin/adminProductFormPage.vue"),
+                meta: { title: "Edit Product · Admin" },
+            },
+        ],
+    },
+
+    {
+        path: "/forbidden",
+        name: "forbidden",
+        component: () => import("@/pages/forbiddenPage.vue"),
+        meta: { title: "Access Denied" },
+    },
+
     {
         path: "/:pathMatch(.*)*",
         name: "not-found",

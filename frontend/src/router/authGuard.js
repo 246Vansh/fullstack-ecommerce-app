@@ -1,7 +1,10 @@
 import { useAuthStore } from "@/stores/authStore";
 
-// meta.requiresAuth -> redirect guests to /login?redirect=...
-// meta.guestOnly    -> redirect signed-in users away from auth pages
+// meta.requiresAuth  -> redirect guests to /login?redirect=...
+// meta.requiresAdmin -> signed-in non-admins see /forbidden. The role comes
+//                       from the server's session response, and is UX only:
+//                       the API re-checks it on every admin request.
+// meta.guestOnly     -> redirect signed-in users away from auth pages
 export async function authGuard(to) {
     const auth = useAuthStore();
 
@@ -12,6 +15,10 @@ export async function authGuard(to) {
             name: "login",
             query: { redirect: to.fullPath },
         };
+    }
+
+    if (to.meta.requiresAdmin && !auth.isAdmin) {
+        return { name: "forbidden" };
     }
 
     if (to.meta.guestOnly && auth.isAuthenticated) {

@@ -14,6 +14,14 @@
         Orders
       </RouterLink>
 
+      <template v-if="auth.isAdmin">
+        <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
+
+        <RouterLink :to="ROUTES.ADMIN" class="text-sm font-medium text-gray-700 hover:text-gray-800">
+          Admin
+        </RouterLink>
+      </template>
+
       <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
 
       <button type="button" :disabled="loggingOut"

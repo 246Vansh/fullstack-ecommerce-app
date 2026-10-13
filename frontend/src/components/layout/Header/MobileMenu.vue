@@ -149,6 +149,16 @@
 
                                 </div>
 
+                                <div v-if="auth.isAdmin" class="flow-root">
+
+                                    <RouterLink :to="ROUTES.ADMIN"
+                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        @click="closeMenu">
+                                        Admin
+                                    </RouterLink>
+
+                                </div>
+
                                 <div class="flow-root">
 
                                     <button type="button" :disabled="loggingOut"

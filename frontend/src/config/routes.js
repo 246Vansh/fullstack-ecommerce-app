@@ -12,6 +12,8 @@ export const ROUTES = {
 
     ORDERS: "/orders",
 
+    ADMIN: "/admin",
+
     LOGIN: "/login",
 
     REGISTER: "/register",
