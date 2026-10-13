@@ -6,6 +6,8 @@ import { X509Certificate } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
 
+import { tokenLifetimeSeconds } from "../utils/jwt.js";
+
 const NODE_ENVS = ["development", "production", "test"];
 const SAME_SITE = ["lax", "strict", "none"];
 const MIN_SECRET_LENGTH = 32;
@@ -16,6 +18,25 @@ function isUrl(value, protocols) {
     } catch {
         return false;
     }
+}
+
+// CORS compares CLIENT_URL with the browser's Origin header character for
+// character, so it must be written exactly as an origin: scheme, lowercase
+// host and non-default port only. "https://shop.example.com/" (trailing slash),
+// a path, a query or credentials would make browsers reject every response.
+function isExactOrigin(value) {
+    try {
+        return new URL(value).origin === value;
+    } catch {
+        return false;
+    }
+}
+
+// A duration with a unit ("15m", "12h", "7d") that jsonwebtoken accepts and
+// that lasts at least a second. A bare number is refused: jsonwebtoken reads
+// "900" as 900 milliseconds, so the token would expire at once.
+function isTokenLifetime(value) {
+    return !/^\s*-?[\d.]+\s*$/.test(value) && tokenLifetimeSeconds(value) >= 1;
 }
 
 // TRUST_PROXY: unset/"false" = off (default), a hop count ("1"), or an
@@ -81,8 +102,24 @@ export function validateEnv(env = process.env) {
         errors.push("JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different");
     }
 
-    if (required("CLIENT_URL") && !isUrl(env.CLIENT_URL, ["http:", "https:"])) {
-        errors.push("CLIENT_URL must be an http:// or https:// URL");
+    if (required("CLIENT_URL")) {
+        if (!isUrl(env.CLIENT_URL, ["http:", "https:"])) {
+            errors.push("CLIENT_URL must be an http:// or https:// URL");
+        } else if (!isExactOrigin(env.CLIENT_URL)) {
+            errors.push("CLIENT_URL must be the frontend origin only, e.g. https://shop.example.com (lowercase host; no path, trailing slash, query or default port)");
+        }
+    }
+
+    for (const name of ["JWT_ACCESS_EXPIRES_IN", "JWT_REFRESH_EXPIRES_IN"]) {
+        // Blank means the default (utils/jwt.js).
+        if (String(env[name] ?? "").trim() && !isTokenLifetime(env[name])) {
+            errors.push(`${name} must be a duration with a unit, such as "15m", "12h" or "7d"`);
+        }
+    }
+
+    // Blank means the default port (server.js).
+    if (String(env.PORT ?? "").trim() && !(/^\d+$/.test(env.PORT) && Number(env.PORT) >= 1 && Number(env.PORT) <= 65535)) {
+        errors.push("PORT must be a whole number from 1 to 65535");
     }
 
     if (env.DATABASE_SSL && !["true", "false"].includes(env.DATABASE_SSL)) {
@@ -117,7 +154,7 @@ export function validateEnv(env = process.env) {
         if (env.COOKIE_SECURE === "false") {
             errors.push("COOKIE_SECURE cannot be false in production");
         }
-        if (env.CLIENT_URL && isUrl(env.CLIENT_URL, ["http:"]) && !/^http:\/\/localhost(:\d+)?\/?$/.test(env.CLIENT_URL)) {
+        if (env.CLIENT_URL && isUrl(env.CLIENT_URL, ["http:"])) {
             errors.push("CLIENT_URL must use https in production");
         }
         // Unset would silently mean "no proxy": behind one, every client then

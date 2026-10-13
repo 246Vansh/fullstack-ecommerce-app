@@ -36,6 +36,10 @@ const CASES = [
     ["malformed TRUST_PROXY list", { TRUST_PROXY: "yes" }, /TRUST_PROXY must be/],
     ["production without DATABASE_SSL", { NODE_ENV: "production", CLIENT_URL: "https://shop.example.com", COOKIE_SECURE: "true", TRUST_PROXY: "false", DATABASE_SSL: "" }, /DATABASE_SSL is required in production/],
     ["DATABASE_SSL_CA that is not a certificate", { DATABASE_SSL: "true", DATABASE_SSL_CA: "package.json" }, /DATABASE_SSL_CA must be the path to a readable PEM certificate file/],
+    ["CLIENT_URL with a trailing slash", { CLIENT_URL: "http://localhost:5173/" }, /CLIENT_URL must be the frontend origin only/],
+    ["malformed JWT_ACCESS_EXPIRES_IN", { JWT_ACCESS_EXPIRES_IN: "15x" }, /JWT_ACCESS_EXPIRES_IN must be a duration/],
+    ["unit-less JWT_REFRESH_EXPIRES_IN", { JWT_REFRESH_EXPIRES_IN: "900" }, /JWT_REFRESH_EXPIRES_IN must be a duration/],
+    ["non-numeric PORT", { PORT: "abc" }, /PORT must be a whole number from 1 to 65535/],
 ];
 
 for (const [name, env, expected] of CASES) {
@@ -96,6 +100,51 @@ test("TRUST_PROXY: true and malformed values are rejected, never treated as trus
 test("TRUST_PROXY: still optional outside production (unset means false)", () => {
     assert.deepEqual(validateEnv({ ...PRODUCTION, NODE_ENV: "development" }), []);
     assert.equal(parseTrustProxy(undefined), false);
+});
+
+const errorsFor = (env, name) => validateEnv(env).filter((error) => error.startsWith(name));
+
+test("CLIENT_URL: must be an exact origin; development URLs still work", () => {
+    const development = { ...PRODUCTION, NODE_ENV: "development" };
+
+    for (const CLIENT_URL of ["http://localhost:5173", "http://127.0.0.1:5173", "https://shop.example.com", "https://shop.example.com:8443"]) {
+        assert.deepEqual(errorsFor({ ...development, CLIENT_URL }, "CLIENT_URL"), [], CLIENT_URL);
+    }
+    for (const CLIENT_URL of ["http://localhost:5173/", "https://shop.example.com/", "https://shop.example.com/app",
+        "https://shop.example.com?x=1", "https://Shop.Example.com", "https://shop.example.com:443", "https://user:pw@shop.example.com"]) {
+        assert.deepEqual(errorsFor({ ...development, CLIENT_URL }, "CLIENT_URL"),
+            ["CLIENT_URL must be the frontend origin only, e.g. https://shop.example.com (lowercase host; no path, trailing slash, query or default port)"], CLIENT_URL);
+    }
+});
+
+test("CLIENT_URL: production requires https, including for localhost", () => {
+    const production = { ...PRODUCTION, TRUST_PROXY: "false" };
+
+    assert.deepEqual(validateEnv(production), []);
+    for (const CLIENT_URL of ["http://shop.example.com", "http://localhost:5173"]) {
+        assert.deepEqual(errorsFor({ ...production, CLIENT_URL }, "CLIENT_URL"), ["CLIENT_URL must use https in production"], CLIENT_URL);
+    }
+});
+
+test("JWT_*_EXPIRES_IN: durations jsonwebtoken accepts; malformed, unit-less and non-positive values rejected", () => {
+    for (const name of ["JWT_ACCESS_EXPIRES_IN", "JWT_REFRESH_EXPIRES_IN"]) {
+        for (const value of [undefined, "", "15m", "7d", "12h", "1.5h", "2 days", "30s"]) {
+            assert.deepEqual(errorsFor({ ...PRODUCTION, TRUST_PROXY: "false", [name]: value }, name), [], `${name}=${value}`);
+        }
+        for (const value of ["15x", " 15m", "900", "90000", "-1d", "0s", "500ms", "abc"]) {
+            assert.deepEqual(errorsFor({ ...PRODUCTION, TRUST_PROXY: "false", [name]: value }, name),
+                [`${name} must be a duration with a unit, such as "15m", "12h" or "7d"`], `${name}=${value}`);
+        }
+    }
+});
+
+test("PORT: unset or a whole number from 1 to 65535", () => {
+    for (const PORT of [undefined, "", "1", "5000", "65535"]) {
+        assert.deepEqual(errorsFor({ ...PRODUCTION, TRUST_PROXY: "false", PORT }, "PORT"), [], `PORT=${PORT}`);
+    }
+    for (const PORT of ["0", "65536", "abc", "50.5", "-1", " 80", "5000abc"]) {
+        assert.deepEqual(errorsFor({ ...PRODUCTION, TRUST_PROXY: "false", PORT }, "PORT"), ["PORT must be a whole number from 1 to 65535"], `PORT=${PORT}`);
+    }
 });
 
 // Throwaway self-signed certificate; its private key was discarded.

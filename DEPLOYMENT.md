@@ -13,8 +13,12 @@ matches the current code; the file and setting names are the source of truth.
 ## 1. Requirements
 
 - Node.js 22 (developed and tested with 22.17.0).
-- pnpm 11, version 11.9.0 or a later 11.x (`backend/package.json` →
-  `devEngines`, range `^11.9.0`). Install with
+- pnpm 11.28.2. In `backend/` it is pinned by `packageManager`
+  (`pnpm@11.28.2`), `devEngines` and the lockfile: started from pnpm 10 or 11,
+  or through Corepack, pnpm switches to 11.28.2 itself (pnpm 9 cannot install
+  this project). `frontend/` has **no** pin and uses whichever pnpm runs it, so
+  install 11.28.2 on the build machine (e.g. `npm install -g pnpm@11.28.2`)
+  and check `pnpm --version` prints `11.28.2` in both directories. Install with
   `--frozen-lockfile` so the committed lockfiles are used exactly.
 - MySQL 8.4, an empty database (first deploy) or one migrated by this project,
   and a database user with the privileges to create and alter tables.
@@ -32,15 +36,15 @@ a list of problems, naming variables only, never values.
 | Variable | Required in production | Purpose and safe value |
 |---|---|---|
 | `NODE_ENV` | Yes | `production`. Enables the production checks below, secure cookies and generic 5xx messages. |
-| `PORT` | No (default `5000`) | TCP port the API listens on. Use a number. |
+| `PORT` | No (default `5000`) | TCP port the API listens on: a whole number from 1 to 65535 (checked at startup). |
 | `DATABASE_URL` | Yes | `mysql://USER:PASSWORD@HOST:3306/DATABASE`. Must **not** contain `ssl*` query parameters; TLS is configured only with `DATABASE_SSL`/`DATABASE_SSL_CA` (prisma commands reject them). URL-encode special characters in the password. |
 | `DATABASE_SSL` | Yes | **`true`** in production: TLS with certificate and host name verification (see section 5). Leaving it unset is rejected in production. `false` (plaintext) is not a supported production setting; see the security exception in section 5. |
 | `DATABASE_SSL_CA` | When the DB certificate is not signed by a public CA | Path to a PEM file with the CA certificate. Only valid with `DATABASE_SSL=true`; must be a readable PEM certificate. |
 | `JWT_ACCESS_SECRET` | Yes | Random secret, at least 32 characters. |
 | `JWT_REFRESH_SECRET` | Yes | Different random secret, at least 32 characters. |
-| `JWT_ACCESS_EXPIRES_IN` | No (default `15m`) | Access-token lifetime, e.g. `15m`. Must be a valid timespan (`15m`, `1h`, `7d`) or logins fail; it is not checked at startup. |
+| `JWT_ACCESS_EXPIRES_IN` | No (default `15m`) | Access-token lifetime, e.g. `15m`. Must be a duration with a unit (`15m`, `1h`, `7d`); bare numbers are rejected at startup (jsonwebtoken would read `900` as milliseconds). |
 | `JWT_REFRESH_EXPIRES_IN` | No (default `7d`) | Refresh-token lifetime. Same format rule. |
-| `CLIENT_URL` | Yes | The frontend's exact origin for CORS, e.g. `https://shop.example.com`: `https://`, **no trailing slash, no path** (a trailing slash makes browsers reject every API response; it is not checked at startup). |
+| `CLIENT_URL` | Yes | The frontend's exact origin for CORS, e.g. `https://shop.example.com`: `https://`, **no trailing slash, no path** (a trailing slash would make browsers reject every API response, so startup rejects anything but an exact origin). |
 | `TRUST_PROXY` | Yes | Which proxies may set `X-Forwarded-For` (see section 5). `true` is rejected. |
 | `COOKIE_SECURE` | No (defaults to `true` in production) | Leave unset or `true`. `false` is rejected in production. |
 | `COOKIE_SAME_SITE` | No (default `lax`) | `lax` when frontend and API share a site; `none` when they do not (see section 7). |
@@ -55,7 +59,7 @@ frontend.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `VITE_API_URL` | Yes, **at build time** | Full API base URL including `/api`, e.g. `https://api.shop.example.com/api`. It is compiled into the JavaScript bundle; changing it requires a rebuild. Public: never put secrets in any `VITE_` variable. |
+| `VITE_API_URL` | Yes, **at build time** | Full API base URL including `/api`, e.g. `https://api.shop.example.com/api`. It is compiled into the JavaScript bundle; changing it requires a rebuild. `vite build` fails unless it is an `https://` URL ending in `/api` that is not localhost (`frontend/src/config/apiUrl.js`; a local http URL is allowed only for the dev server, never in a build, whatever `--mode`). Public: never put secrets in any `VITE_` variable. |
 
 Do not deploy a `dist/` built on a development machine: it contains
 `http://localhost:5000/api`. Check a build with
@@ -69,6 +73,7 @@ Take a database backup before every deploy that includes new migrations
 **Backend** (in `backend/`, with the production variables set):
 
 ```sh
+pnpm --version                   # must print 11.28.2
 pnpm install --frozen-lockfile   # also runs the approved @prisma/engines / prisma install scripts
 pnpm run prisma:generate         # prisma generate: creates the Prisma Client (required; install does not)
 pnpm run db:migrate              # prisma migrate deploy: applies only reviewed, committed migrations
@@ -89,6 +94,7 @@ pnpm start                       # node server.js
 **Frontend** (in `frontend/`):
 
 ```sh
+pnpm --version                   # must print 11.28.2 (not enforced here; see section 1)
 pnpm install --frozen-lockfile
 VITE_API_URL=https://api.shop.example.com/api pnpm run build
 ```

@@ -4,6 +4,19 @@ import jwt from "jsonwebtoken";
 const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 
+// Seconds a token signed with this expiresIn string lives, as jsonwebtoken
+// itself computes it, or null when jsonwebtoken rejects the value ("15x").
+// Startup validation (config/env.js) uses this so it accepts exactly what
+// signing will accept.
+export function tokenLifetimeSeconds(expiresIn) {
+    try {
+        const { iat, exp } = jwt.decode(jwt.sign({}, "lifetime-check", { expiresIn }));
+        return exp - iat;
+    } catch {
+        return null;
+    }
+}
+
 function getSecret(name) {
     const secret = process.env[name];
 
