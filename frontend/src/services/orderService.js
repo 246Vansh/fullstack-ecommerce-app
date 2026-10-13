@@ -11,11 +11,12 @@ export const orderService = {
         return data.data;
     },
 
-    // The signed-in user's orders, newest first (list fields only).
-    async listOrders() {
-        const { data } = await apiClient.get("/orders");
+    // One page of the signed-in user's orders, newest first (list fields only),
+    // with { page, limit, total, totalPages }.
+    async listOrders({ page, limit }) {
+        const { data } = await apiClient.get("/orders", { params: { page, limit } });
 
-        return data.data;
+        return { orders: data.data, pagination: data.pagination };
     },
 
     // The persisted order snapshot (the signed-in user's own orders only).

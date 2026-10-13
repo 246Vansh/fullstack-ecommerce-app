@@ -21,10 +21,13 @@ export async function getMyOrder(req, res) {
     res.json({ success: true, data });
 }
 
+// The owner always comes from the token; the query only picks the page.
 export async function getMyOrders(req, res) {
-    const data = await listOrders(req.user.id);
+    const { page, limit } = matchedData(req, { locations: ["query"] });
 
-    res.json({ success: true, data });
+    const { data, pagination } = await listOrders(req.user.id, { page, limit });
+
+    res.json({ success: true, data, pagination });
 }
 
 // Status and stock are changed by the server only; the body is ignored.

@@ -296,26 +296,46 @@ export async function getOrder(userId, id) {
     return toOrderResponse(order);
 }
 
-// The signed-in user's orders, newest first, as list rows (no item details).
-export async function listOrders(userId) {
-    const orders = await prisma.order.findMany({
-        where: { userId },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        select: {
-            id: true,
-            orderNumber: true,
-            status: true,
-            total: true,
-            createdAt: true,
-            items: { select: { quantity: true } },
-        },
-    });
+// Order history page size. maxPage keeps the offset a safe integer.
+export const ORDER_PAGINATION = { defaultLimit: 10, maxLimit: 50, maxPage: 10_000 };
 
-    return orders.map(({ items, total, ...order }) => ({
-        ...order,
-        total: toMoney(total),
-        itemCount: items.reduce((count, item) => count + item.quantity, 0),
-    }));
+// One page of the signed-in user's orders, newest first, as list rows (no
+// item details). id breaks ties between orders placed in the same instant, so
+// pages never overlap or skip an order. A page past the end is empty.
+export async function listOrders(userId, { page, limit }) {
+    const where = { userId };
+
+    const [total, orders] = await Promise.all([
+        prisma.order.count({ where }),
+        prisma.order.findMany({
+            where,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            skip: (page - 1) * limit,
+            take: limit,
+            select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                total: true,
+                createdAt: true,
+                items: { select: { quantity: true } },
+            },
+        }),
+    ]);
+
+    return {
+        data: orders.map(({ items, total: orderTotal, ...order }) => ({
+            ...order,
+            total: toMoney(orderTotal),
+            itemCount: items.reduce((count, item) => count + item.quantity, 0),
+        })),
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
 }
 
 /*
