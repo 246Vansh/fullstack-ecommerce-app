@@ -1,3 +1,4 @@
+import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { verifyAccessToken } from "../utils/jwt.js";
 
@@ -30,4 +31,17 @@ export function authorize(...roles) {
 
         next();
     };
+}
+
+// Use after authorize("ADMIN") on admin routes. The token's role is up to 15
+// minutes old, so the role is re-read from the database: a demoted or deleted
+// admin loses access immediately, not when their access token expires.
+export async function requireCurrentAdmin(req, res, next) {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { role: true } });
+
+    if (user?.role !== "ADMIN") {
+        return next(new ApiError(403, "You do not have permission to perform this action"));
+    }
+
+    next();
 }

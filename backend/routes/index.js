@@ -8,6 +8,7 @@ import cartRoutes from "./cartRoutes.js";
 import addressRoutes from "./addressRoutes.js";
 import checkoutRoutes from "./checkoutRoutes.js";
 import orderRoutes from "./orderRoutes.js";
+import adminRoutes from "./adminRoutes.js";
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use("/cart", cartRoutes);
 router.use("/addresses", addressRoutes);
 router.use("/checkout", checkoutRoutes);
 router.use("/orders", orderRoutes);
+router.use("/admin", adminRoutes);
 
 export default router;
