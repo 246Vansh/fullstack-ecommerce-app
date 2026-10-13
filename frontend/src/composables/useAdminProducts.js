@@ -35,7 +35,7 @@ function toApiParams({ search, status, category, page }) {
 
 // Top-level categories by name, each followed by its subcategories. Choosing a
 // top-level category also lists its subcategories' products (server rule).
-function toCategoryOptions(categories) {
+export function toCategoryOptions(categories) {
     const byName = (a, b) => a.name.localeCompare(b.name);
     const children = (id) => categories.filter((category) => category.parentId === id).sort(byName);
 

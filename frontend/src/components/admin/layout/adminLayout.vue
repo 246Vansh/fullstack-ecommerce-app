@@ -91,7 +91,9 @@
             </header>
 
             <main id="main-content" tabindex="-1" class="px-4 py-6 sm:px-6 lg:px-8">
-                <RouterView />
+                <!-- Keyed by path: another product's edit page is a fresh page (its own
+                     drafts and load), while list filters (query only) keep the page. -->
+                <RouterView :key="route.path" />
             </main>
 
         </div>

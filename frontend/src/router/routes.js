@@ -115,18 +115,23 @@ export const routes = [
                 component: () => import("@/pages/admin/adminProductsPage.vue"),
                 meta: { title: "Products · Admin" },
             },
-            // Forms arrive in Phase 12.2B; until then these routes say so.
             {
                 path: "products/new",
                 name: "admin-product-new",
-                component: () => import("@/pages/admin/adminProductFormPage.vue"),
+                component: () => import("@/pages/admin/adminProductCreatePage.vue"),
                 meta: { title: "New Product · Admin" },
             },
             {
                 path: "products/:id(\\d+)/edit",
                 name: "admin-product-edit",
-                component: () => import("@/pages/admin/adminProductFormPage.vue"),
+                component: () => import("@/pages/admin/adminProductEditPage.vue"),
                 meta: { title: "Edit Product · Admin" },
+            },
+            {
+                path: "categories",
+                name: "admin-categories",
+                component: () => import("@/pages/admin/adminCategoriesPage.vue"),
+                meta: { title: "Categories · Admin" },
             },
         ],
     },
