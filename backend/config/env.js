@@ -2,6 +2,8 @@
 // process.env and exits with a readable list of problems; values are never
 // printed, only variable names.
 
+import { X509Certificate } from "node:crypto";
+import { readFileSync } from "node:fs";
 import express from "express";
 
 const NODE_ENVS = ["development", "production", "test"];
@@ -40,6 +42,17 @@ function isValidTrustProxy(value) {
     }
 }
 
+// DATABASE_SSL_CA must name a readable file that starts with a PEM
+// certificate. Neither the path's contents nor the parse error is reported.
+function isPemCertificateFile(path) {
+    try {
+        new X509Certificate(readFileSync(path));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export function validateEnv(env = process.env) {
     const errors = [];
     const required = (name) => {
@@ -72,6 +85,18 @@ export function validateEnv(env = process.env) {
         errors.push("CLIENT_URL must be an http:// or https:// URL");
     }
 
+    if (env.DATABASE_SSL && !["true", "false"].includes(env.DATABASE_SSL)) {
+        errors.push('DATABASE_SSL must be "true" or "false"');
+    }
+
+    if (env.DATABASE_SSL_CA) {
+        if (env.DATABASE_SSL !== "true") {
+            errors.push("DATABASE_SSL_CA is set but DATABASE_SSL is not true, so TLS would be off");
+        } else if (!isPemCertificateFile(env.DATABASE_SSL_CA)) {
+            errors.push("DATABASE_SSL_CA must be the path to a readable PEM certificate file");
+        }
+    }
+
     if (env.TRUST_PROXY !== undefined) {
         const trustProxy = parseTrustProxy(env.TRUST_PROXY);
 
@@ -99,6 +124,10 @@ export function validateEnv(env = process.env) {
         // shares the proxy's IP and rate-limit budget. Make the choice explicit.
         if (!String(env.TRUST_PROXY ?? "").trim()) {
             errors.push('TRUST_PROXY is required in production: "false" when clients connect directly, otherwise the proxies in front of the app');
+        }
+        // Plaintext to the database must be a deliberate choice, not a default.
+        if (!env.DATABASE_SSL) {
+            errors.push('DATABASE_SSL is required in production: "true" (verified TLS) or "false" (database reached only over a trusted private network)');
         }
     }
 
