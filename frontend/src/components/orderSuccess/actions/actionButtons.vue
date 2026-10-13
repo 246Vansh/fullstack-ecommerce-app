@@ -1,6 +1,6 @@
 <template>
 
-    <!-- Invoice download and order tracking are not implemented yet, so they are not offered. -->
+    <!-- Order tracking is not implemented yet, so it is not offered. -->
     <section class="flex flex-col items-center justify-center gap-4 sm:flex-row">
 
         <!-- This order -->
@@ -12,6 +12,19 @@
 
             <span class="text-xl font-semibold">
                 View Order
+            </span>
+
+        </RouterLink>
+
+        <!-- Printable receipt -->
+
+        <RouterLink :to="{ name: 'order-receipt', params: { id: orderId } }"
+            class="group flex h-16 w-full max-w-md items-center justify-center gap-4 rounded-xl border border-gray-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg">
+
+            <PrinterIcon class="h-7 w-7" />
+
+            <span class="text-xl font-semibold">
+                Receipt
             </span>
 
         </RouterLink>
@@ -48,7 +61,7 @@
 
 <script setup>
 import { RouterLink } from "vue-router";
-import { ClipboardDocumentListIcon, DocumentTextIcon, ShoppingBagIcon } from "@heroicons/vue/24/outline";
+import { ClipboardDocumentListIcon, DocumentTextIcon, PrinterIcon, ShoppingBagIcon } from "@heroicons/vue/24/outline";
 
 defineProps({
     orderId: {

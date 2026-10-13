@@ -54,7 +54,13 @@
                             </p>
                         </div>
 
-                        <OrderStatusBadge :status="order.status" class="self-start" />
+                        <div class="flex items-center gap-3 self-start">
+                            <OrderStatusBadge :status="order.status" />
+                            <RouterLink :to="{ name: 'order-receipt', params: { id: order.id } }"
+                                class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-gray-50">
+                                View receipt
+                            </RouterLink>
+                        </div>
 
                     </div>
 

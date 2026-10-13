@@ -59,8 +59,16 @@ export const routes = [
         meta: { title: "Order", requiresAuth: true },
     },
 
-    // /trackOrder and /invoice are not registered until tracking and invoices
-    // exist; their pages still render static placeholder data.
+    // Printable receipt built from the saved order snapshot.
+    {
+        path: "/orders/:id(\\d+)/receipt",
+        name: "order-receipt",
+        component: () => import("@/pages/orderReceiptPage.vue"),
+        meta: { title: "Receipt", requiresAuth: true },
+    },
+
+    // /trackOrder is not registered until tracking exists; its page still
+    // renders static placeholder data.
 
     {
         path: "/login",
