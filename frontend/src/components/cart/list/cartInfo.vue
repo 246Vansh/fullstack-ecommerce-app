@@ -35,8 +35,10 @@
 
                 <div class="h-2.5 w-2.5 rounded-full bg-red-500" />
 
+                <!-- "Only N left" only when the quantity is the problem; a deactivated
+                     product or option can still have stock but cannot be bought. -->
                 <span class="font-medium">
-                    {{ product.stock > 0 ? `Only ${product.stock} left` : "Unavailable" }}
+                    {{ product.stock > 0 && product.quantity > product.stock ? `Only ${product.stock} left` : "Unavailable" }}
                 </span>
 
             </div>
