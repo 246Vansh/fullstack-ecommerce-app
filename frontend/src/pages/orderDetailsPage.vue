@@ -21,10 +21,18 @@
                 class="mt-4 flex min-h-100 flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center">
                 <h1 class="text-2xl font-bold text-gray-900">Order unavailable</h1>
                 <p class="mt-2 text-gray-500">{{ error }}</p>
-                <RouterLink :to="{ name: 'orders' }"
-                    class="mt-6 rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-700">
-                    View My Orders
-                </RouterLink>
+                <div class="mt-6 flex flex-wrap justify-center gap-3">
+                    <!-- A missing order will not appear on retry; a failed request might. -->
+                    <button v-if="!notFound" type="button"
+                        class="rounded-xl border border-gray-200 px-6 py-3 font-semibold text-slate-700 hover:bg-gray-50 cursor-pointer"
+                        @click="load(route.params.id)">
+                        Try again
+                    </button>
+                    <RouterLink :to="{ name: 'orders' }"
+                        class="rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-700">
+                        View My Orders
+                    </RouterLink>
+                </div>
             </section>
 
             <template v-else>
@@ -140,6 +148,7 @@ const route = useRoute();
 const order = ref(null);
 const loading = ref(true);
 const error = ref("");
+const notFound = ref(false);
 
 const confirming = ref(false);
 const cancelling = ref(false);
@@ -160,6 +169,7 @@ async function load(id) {
 
     loading.value = true;
     error.value = "";
+    notFound.value = false;
     order.value = null;
     confirming.value = false;
     cancelError.value = "";
@@ -174,7 +184,8 @@ async function load(id) {
     } catch (err) {
         if (current !== requestId) return;
         const { status, message } = parseApiError(err);
-        error.value = status === 404 ? "We couldn't find this order." : message;
+        notFound.value = status === 404;
+        error.value = notFound.value ? "We couldn't find this order." : message;
         focusHeadingAfterLoad();
     } finally {
         if (current === requestId) loading.value = false;
