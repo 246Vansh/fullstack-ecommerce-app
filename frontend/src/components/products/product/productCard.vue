@@ -25,7 +25,7 @@
 
             <div class="flex flex-1 flex-col">
 
-                <ProductInfo :brand="brand?.name" :name="product.name" />
+                <ProductInfo :brand="product.brand" :name="product.name" />
 
                 <ProductPrice :price="product.price" :originalPrice="product.originalPrice" />
 
@@ -51,8 +51,6 @@ import ProductBadge from "./productBadge.vue";
 
 import ProductInfo from "./productInfo.vue";
 
-
-import { brands } from "@/constants/catalog/brands";
 
 import { badges } from "@/constants/catalog/badges";
 
@@ -83,20 +81,6 @@ const props = defineProps({
 
 });
 
-
-// --------------------------------------------------
-// Brand
-// --------------------------------------------------
-
-const brand = computed(() => {
-
-    return brands.find(
-
-        item => item.id === props.product.brandId
-
-    );
-
-});
 
 
 // --------------------------------------------------

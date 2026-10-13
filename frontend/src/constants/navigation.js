@@ -1,6 +1,6 @@
 // Links open the catalog pre-filtered via the same query params as
 // GET /api/products. Slugs must match the categories in the database;
-// brand values are the slugs in constants/catalog/brands.js.
+// brand values are brand slugs from GET /api/products/brands ("levis", "hm").
 const catalog = (query = {}) => ({ name: "products", query });
 
 // Header Navigation

@@ -4,8 +4,8 @@ import axios from "axios";
 
 import { productService } from "@/services/productService";
 import { parseApiError } from "@/services/apiClient";
+import { brandQueryNames, matchBrandSlugs, toBrandFilterOptions } from "@/utils/brandOptions";
 import {
-    brands,
     colors,
     sizes,
     priceRanges,
@@ -59,6 +59,9 @@ export function useProducts() {
     // Starts with the constants so the sidebar renders before the API answers.
     const categories = ref(fallbackCategories);
 
+    // From GET /api/products/brands: every brand in the catalog.
+    const brands = ref([]);
+
     const loading = ref(false);
 
     const error = ref("");
@@ -97,6 +100,16 @@ export function useProducts() {
     const pendingSlugs = ref(null);
 
     let categoriesLoaded = false;
+
+    // Brand slugs from the URL wait here until GET /api/products/brands
+    // answers; products are not fetched meanwhile, because the API filters by
+    // brand name, which only the brand list knows.
+    const pendingBrandSlugs = ref(null);
+
+    let brandsLoaded = false;
+
+    // Why the brand list failed to load ("" when it has not failed).
+    const brandsError = ref("");
 
     // A URL value that matches no category, subcategory, brand, color or
     // size. The catalog then shows an empty state instead of every product.
@@ -153,7 +166,7 @@ export function useProducts() {
             search: searchQuery.value || undefined,
             category: categorySlugs.value.join(",") || undefined,
             subcategory: subcategorySlugs.value.join(",") || undefined,
-            brand: namesFor(selectedFilters.brand, brands).join(",") || undefined,
+            brand: brandQueryNames(brands.value, selectedFilters.brand).join(",") || undefined,
             color: namesFor(selectedFilters.color, colors).join(",") || undefined,
             size: namesFor(selectedFilters.size, sizes).join(",") || undefined,
             minPrice: price?.min || undefined,
@@ -180,7 +193,7 @@ export function useProducts() {
             search: searchQuery.value,
             category: categorySlugs.value.join(","),
             subcategory: subcategorySlugs.value.join(","),
-            brand: namesFor(selectedFilters.brand, brands, "slug").join(","),
+            brand: (pendingBrandSlugs.value ?? namesFor(selectedFilters.brand, brands.value, "slug")).join(","),
             color: namesFor(selectedFilters.color, colors, "slug").join(","),
             size: namesFor(selectedFilters.size, sizes, "slug").join(","),
             minPrice: price?.min ? String(price.min) : "",
@@ -227,13 +240,30 @@ export function useProducts() {
 
     }
 
+    function resolvePendingBrands() {
+
+        if (!pendingBrandSlugs.value) return;
+
+        const { ids, complete } = matchBrandSlugs(brands.value, pendingBrandSlugs.value);
+
+        applyingLink = true;
+
+        selectedFilters.brand = ids;
+
+        pendingBrandSlugs.value = null;
+
+        applyingLink = false;
+
+        if (!complete) invalidLinkFilter.value = true;
+
+    }
+
     function applyRouteQuery(routeQuery) {
 
         const brandSlugs = listParam(routeQuery.brand);
         const colorSlugs = listParam(routeQuery.color);
         const sizeSlugs = listParam(routeQuery.size);
 
-        const matchedBrands = brands.filter((item) => brandSlugs.includes(item.slug));
         const matchedColors = colors.filter((item) => colorSlugs.includes(item.slug));
         const matchedSizes = sizes.filter((item) => sizeSlugs.includes(item.slug));
 
@@ -256,7 +286,9 @@ export function useProducts() {
 
         selectedSort.value = sortOptions.some((option) => option.value === sort) ? sort : DEFAULT_SORT;
 
-        selectedFilters.brand = matchedBrands.map((item) => item.id);
+        // Brands resolve against the brand list (resolvePendingBrands).
+        pendingBrandSlugs.value = brandSlugs.length ? brandSlugs : null;
+        if (!brandSlugs.length) selectedFilters.brand = [];
         selectedFilters.color = matchedColors.map((item) => item.id);
         selectedFilters.size = matchedSizes.map((item) => item.id);
 
@@ -279,11 +311,11 @@ export function useProducts() {
 
         applyingLink = false;
 
-        invalidLinkFilter.value = matchedBrands.length < brandSlugs.length
-            || matchedColors.length < colorSlugs.length
+        invalidLinkFilter.value = matchedColors.length < colorSlugs.length
             || matchedSizes.length < sizeSlugs.length;
 
         if (categoriesLoaded) resolvePendingSlugs();
+        if (brandsLoaded) resolvePendingBrands();
 
     }
 
@@ -388,6 +420,18 @@ export function useProducts() {
             return;
         }
 
+        // A ?brand= link waits for the brand list; if that failed, say so.
+        if (pendingBrandSlugs.value) {
+            loading.value = !brandsError.value;
+            error.value = brandsError.value;
+            if (brandsError.value) {
+                products.value = [];
+                total.value = null;
+                serverTotalPages.value = 1;
+            }
+            return;
+        }
+
         const current = new AbortController();
         controller = current;
 
@@ -434,10 +478,43 @@ export function useProducts() {
 
     }
 
+    async function fetchBrands() {
+
+        try {
+            brands.value = toBrandFilterOptions(await productService.getBrands());
+            brandsLoaded = true;
+            brandsError.value = "";
+            resolvePendingBrands();
+        } catch (err) {
+            brandsError.value = parseApiError(err).message;
+            // Only a waiting ?brand= link needs to show this.
+            if (pendingBrandSlugs.value) fetchProducts();
+        }
+
+    }
+
+    // "Retry" also reloads the brand list if it never arrived.
+    function retry() {
+
+        if (!brandsLoaded) {
+            brandsError.value = "";
+            fetchBrands();
+        }
+
+        fetchProducts();
+
+    }
+
     // Compared as a string so loading categories alone does not refetch.
-    watch([() => JSON.stringify(query.value), invalidLinkFilter], fetchProducts, { immediate: true });
+    watch(
+        [() => JSON.stringify(query.value), invalidLinkFilter, () => pendingBrandSlugs.value?.join(",") ?? ""],
+        fetchProducts,
+        { immediate: true },
+    );
 
     fetchCategories();
+
+    fetchBrands();
 
     // ==========================
     // Statistics
@@ -541,6 +618,7 @@ export function useProducts() {
 
         // customPrice is not part of selectedFilters, so navigate here too.
         customPrice.value = null;
+        pendingBrandSlugs.value = null;
         invalidLinkFilter.value = false;
         pagination.currentPage = 1;
         queueNavigation();
@@ -551,6 +629,7 @@ export function useProducts() {
 
         products,
         categories,
+        brands,
         loading,
         error,
         invalidLinkFilter,
@@ -572,7 +651,7 @@ export function useProducts() {
 
         changePage,
         clearFilters,
-        refetch: fetchProducts,
+        refetch: retry,
 
     };
 

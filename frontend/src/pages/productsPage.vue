@@ -22,9 +22,9 @@ import { computed } from "vue";
 
 import { useProducts } from "@/composables/useProducts";
 
-import { filters, brands, colors, sizes, priceRanges, availability, sortOptions } from "@/constants/catalog";
+import { filters, colors, sizes, priceRanges, availability, sortOptions } from "@/constants/catalog";
 
-const { selectedSort, selectedFilters, paginationInfo, paginatedProducts, totalProducts, activeFilterCount, categories, loading, error, invalidLinkFilter, searchQuery, clearFiltersTo, refetch } = useProducts();
+const { selectedSort, selectedFilters, paginationInfo, paginatedProducts, totalProducts, activeFilterCount, categories, brands, loading, error, invalidLinkFilter, searchQuery, clearFiltersTo, refetch } = useProducts();
 
 // useProducts reads the catalog state from the URL and writes it back, so
 // links, refresh and Back/Forward all show the same catalog.
@@ -39,8 +39,8 @@ const pageData = computed(() => searchQuery.value
         description: "Discover premium essentials designed for everyday comfort and timeless style.",
     });
 
-// Categories come from GET /api/categories; the other options are still constants.
+// Categories and brands come from the API; the other options are still constants.
 const filterData = computed(() => ({
-    categories: categories.value, brands, priceRanges, colors, sizes, availability,
+    categories: categories.value, brands: brands.value, priceRanges, colors, sizes, availability,
 }));
 </script>

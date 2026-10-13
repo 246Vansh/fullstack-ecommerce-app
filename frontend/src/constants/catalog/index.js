@@ -1,6 +1,5 @@
 export { filters } from "./filters";
 export { categories } from "./categories";
-export { brands } from "./brands";
 export { badges } from "./badges";
 export { colors } from "./colors";
 export { sizes } from "./sizes";

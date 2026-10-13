@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { query, param } from "express-validator";
 
-import { getProducts, getProduct, getProductsBatch } from "../controllers/productController.js";
+import { getProducts, getProduct, getProductsBatch, getBrands } from "../controllers/productController.js";
 import { PAGINATION, SORT_VALUES } from "../services/productService.js";
 import { paginationRules, singleQuery, validate } from "../middleware/validate.js";
 
@@ -49,7 +49,8 @@ const idRules = [
 ];
 
 router.get("/", listRules, validate, getProducts);
-// Before /:id, which would otherwise match "batch".
+// Before /:id, which would otherwise match "batch" or "brands".
+router.get("/brands", getBrands);
 router.get("/batch", batchRules, validate, getProductsBatch);
 router.get("/:id", idRules, validate, getProduct);
 

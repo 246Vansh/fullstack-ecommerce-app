@@ -69,7 +69,6 @@
 
 <script setup>
 import { computed } from "vue";
-import { brands } from "../../../constants/catalog/brands";
 import { colors } from "../../../constants/catalog/colors";
 import { sizes } from "../../../constants/catalog/sizes";
 
@@ -80,16 +79,9 @@ const props = defineProps({
     },
 });
 
-// Server cart items carry brand/color/size as strings; the id lookups
-// remain for the older constant-based product shape.
-const brand = computed(() => {
-    return (
-        props.product.brand ||
-        brands.find(
-            item => item.id === props.product.brandId
-        )?.name || "Unknown Brand"
-    );
-});
+// Server cart items carry brand/color/size as strings; the color/size id
+// lookups remain for the older constant-based product shape.
+const brand = computed(() => props.product.brand || "Unknown Brand");
 
 const color = computed(() => {
     return props.product.color || props.product.colorIds

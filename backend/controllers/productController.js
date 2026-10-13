@@ -1,6 +1,6 @@
 import { matchedData } from "express-validator";
 
-import { listProducts, getProductById, getProductsByIds } from "../services/productService.js";
+import { listProducts, listBrands, getProductById, getProductsByIds } from "../services/productService.js";
 
 export async function getProducts(req, res) {
     const query = matchedData(req, { locations: ["query"] });
@@ -22,6 +22,12 @@ export async function getProductsBatch(req, res) {
     const { ids } = matchedData(req, { locations: ["query"] });
 
     const data = await getProductsByIds(ids);
+
+    res.json({ success: true, data });
+}
+
+export async function getBrands(req, res) {
+    const data = await listBrands();
 
     res.json({ success: true, data });
 }

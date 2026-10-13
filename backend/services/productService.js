@@ -136,6 +136,52 @@ function buildWhere(filters) {
     return where;
 }
 
+// URL slug for a brand: the same rule as adminCatalogService.slugify and the
+// seed, so "Levi's" -> "levis" and "H&M" -> "hm" match the existing links.
+export const brandSlug = (name) => {
+    const trimmed = name.trim();
+    const slug = trimmed.toLowerCase().replace(/&/g, "").replace(/'/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+    // A name of symbols only ("&&") still gets a usable slug.
+    return slug || trimmed.toLowerCase().replace(/\s+/g, "-");
+};
+
+// [{ brand, _count: { _all } }] from groupBy -> sorted brand options.
+// Null, empty and whitespace-only brands are dropped. Names that share a slug
+// ("H&M" / "HM") become one option; `names` holds every stored spelling, which
+// the catalog sends as ?brand= so each of them still matches exactly.
+export function toBrandOptions(groups) {
+    const bySlug = new Map();
+
+    for (const { brand, _count: { _all: count } } of groups) {
+        if (typeof brand !== "string" || !brand.trim()) continue;
+
+        const slug = brandSlug(brand);
+        const option = bySlug.get(slug) ?? { slug, name: brand.trim(), names: [], productCount: 0, top: 0 };
+
+        option.names.push(brand);
+        option.productCount += count;
+        if (count > option.top) Object.assign(option, { name: brand.trim(), top: count });
+
+        bySlug.set(slug, option);
+    }
+
+    return [...bySlug.values()]
+        .map(({ top, ...option }) => option)
+        .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+}
+
+// Brands of the products the catalog can show, with how many each has.
+export async function listBrands() {
+    const groups = await prisma.product.groupBy({
+        by: ["brand"],
+        where: { isActive: true, brand: { not: null } },
+        _count: { _all: true },
+    });
+
+    return toBrandOptions(groups);
+}
+
 export async function listProducts(filters) {
     const where = buildWhere(filters);
     const { page, limit } = filters;

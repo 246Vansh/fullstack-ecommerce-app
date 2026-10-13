@@ -1,9 +1,10 @@
 import { apiClient } from "./apiClient";
 
-import { brands, colors, sizes } from "@/constants/catalog";
+import { colors, sizes } from "@/constants/catalog";
 
-// The UI components still look up brands/colors/sizes by the ids in
+// The UI components still look up colors/sizes by the ids in
 // constants/catalog, so API values are matched to those entries by name.
+// Brands are shown as the API sends them (product.brand).
 const byName = (list, name) =>
     list.find((item) => item.name.toLowerCase() === String(name).toLowerCase());
 
@@ -23,7 +24,6 @@ function normalizeListItem(product) {
     return {
         ...UNSUPPORTED_DEFAULTS,
         ...product,
-        brandId: byName(brands, product.brand)?.id ?? null,
         categoryId: product.category?.id ?? null,
     };
 }
@@ -50,7 +50,6 @@ function normalizeProduct(product) {
     return {
         ...UNSUPPORTED_DEFAULTS,
         ...product,
-        brandId: byName(brands, product.brand)?.id ?? null,
         categoryId: product.category?.id ?? null,
         images: product.images.map((image) => image.url),
         colors: colorOptions,
@@ -90,6 +89,13 @@ export const productService = {
 
     async getCategories() {
         const { data } = await apiClient.get("/categories");
+
+        return data.data;
+    },
+
+    // Brands of the active catalog: [{ slug, name, names, productCount }].
+    async getBrands() {
+        const { data } = await apiClient.get("/products/brands");
 
         return data.data;
     },
