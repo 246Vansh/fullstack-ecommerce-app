@@ -50,7 +50,7 @@ const tabs = [
         label: "Shipping",
     },
     // No Returns tab: there is no return policy or return flow yet.
-    // No Reviews tab: there is no review system yet.
+    // No Reviews tab: reviews have their own section below (reviews/productReviews.vue).
 ];
 
 const changeTab = (tab) => {

@@ -13,6 +13,12 @@
 
             <div class="mt-20">
 
+                <ProductReviews />
+
+            </div>
+
+            <div class="mt-20">
+
                 <RelatedSection :products="relatedProducts" />
 
             </div>
@@ -26,9 +32,16 @@
 import ProductDetailsSection from "./layout/productDetailsSection.vue";
 import ProductContent from "./content/productContent.vue";
 import RelatedSection from "./related/relatedSection.vue";
+import ProductReviews from "./reviews/productReviews.vue";
 
+import { computed, onBeforeUnmount, provide, watch } from "vue";
 
-defineProps({
+import { useAuthStore } from "@/stores/authStore";
+import { reviewService } from "@/services/reviewService";
+import { parseApiError } from "@/services/apiClient";
+import { PRODUCT_REVIEWS_KEY, useProductReviews } from "@/composables/useProductReviews";
+
+const props = defineProps({
     product: {
         type: Object,
         required: true,
@@ -44,4 +57,20 @@ defineProps({
         default: () => [],
     },
 });
+
+// One reviews state for the page: the summary near the title and the reviews
+// section both read it, so the first page of reviews is requested once.
+const authStore = useAuthStore();
+const reviews = useProductReviews({ service: reviewService, parseError: parseApiError });
+
+provide(PRODUCT_REVIEWS_KEY, reviews);
+
+const viewer = computed(() => (authStore.user ? { id: authStore.user.id, role: authStore.user.role } : null));
+
+watch(() => props.product.id, (id) => reviews.load(id, viewer.value), { immediate: true });
+
+// Signing in or out on this page (or the session restoring after load).
+watch(() => [viewer.value?.id, viewer.value?.role], () => reviews.setViewer(viewer.value));
+
+onBeforeUnmount(() => reviews.dispose());
 </script>

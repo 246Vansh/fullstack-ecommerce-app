@@ -6,6 +6,8 @@
 
         <ProductTitle :title="product.name" :brand="product.brand" />
 
+        <ReviewSummary jump-to-reviews />
+
         <ProductMeta :product="product" :selected-variant="selectedVariant" />
 
     </div>
@@ -16,6 +18,7 @@
 import ProductBadge from "./productBadge.vue";
 import ProductTitle from "./productTitle.vue";
 import ProductMeta from "./productMeta.vue";
+import ReviewSummary from "../reviews/reviewSummary.vue";
 
 defineProps({
     product: {
