@@ -66,6 +66,7 @@ model User {
   cart          Cart?
   orders        Order[]
   refreshTokens RefreshToken[]
+  reviews       Review[]
 
   @@map("users")
 }
@@ -157,6 +158,7 @@ model Product {
   variants   ProductVariant[]
   images     ProductImage[]
   orderItems OrderItem[]
+  reviews    Review[]
 
   @@index([categoryId])
   @@index([brand])
@@ -202,6 +204,27 @@ model ProductImage {
 
   @@index([productId, position])
   @@map("product_images")
+}
+
+// One review per user per product. Verified purchase is derived from
+// DELIVERED orders at read time, not stored. The 1-5 rating range is
+// enforced by the CHECK constraint `reviews_rating_check` in the migration
+// (Prisma cannot express CHECK constraints in the schema).
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  rating    Int
+  body      String   @db.VarChar(2000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId, createdAt])
+  @@map("reviews")
 }
 
 // ==========================

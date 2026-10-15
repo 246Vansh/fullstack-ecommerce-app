@@ -39,3 +39,11 @@ export const orderMutationLimiter = limiter({
     keyGenerator: (req) => `user:${req.user.id}`,
     message: { success: false, message: "Too many order attempts, please try again later" },
 });
+
+// Review create/edit/delete, keyed by user (use after authenticate). A
+// customer has one review per product, so normal use is a handful of writes.
+export const reviewMutationLimiter = limiter({
+    limit: 20,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many review changes, please try again later" },
+});
