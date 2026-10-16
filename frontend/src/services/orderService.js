@@ -1,12 +1,36 @@
 import { apiClient } from "./apiClient";
 
 // Orders are priced and built entirely by the server; placing one sends only
-// which saved address to ship to, plus the total the customer was shown so the
-// server can refuse the order (409) if prices changed in the meantime.
+// which saved address to ship to, the payment method (COD or RAZORPAY), plus
+// the total the customer was shown so the server can refuse the order (409) if
+// prices changed in the meantime.
 export const orderService = {
 
-    async createOrder(addressId, expectedTotal) {
-        const { data } = await apiClient.post("/orders", { addressId, expectedTotal });
+    async createOrder(addressId, expectedTotal, paymentMethod = "COD") {
+        const { data } = await apiClient.post("/orders", { addressId, expectedTotal, paymentMethod });
+
+        return data.data;
+    },
+
+    // Razorpay Checkout options for an unpaid online order: the public key id,
+    // the gateway order and the stored amount (never computed here).
+    async startPayment(id) {
+        const { data } = await apiClient.post(`/orders/${id}/payment`);
+
+        return data.data;
+    },
+
+    // The ids Razorpay Checkout returned; the server checks the signature and the
+    // payment with Razorpay. -> { state, order }
+    async verifyPayment(id, { razorpayOrderId, razorpayPaymentId, razorpaySignature }) {
+        const { data } = await apiClient.post(`/orders/${id}/payment/verify`, { razorpayOrderId, razorpayPaymentId, razorpaySignature });
+
+        return data.data;
+    },
+
+    // The server asks Razorpay for the order's payment status. -> { state, order }
+    async refreshPayment(id) {
+        const { data } = await apiClient.post(`/orders/${id}/payment/refresh`);
 
         return data.data;
     },

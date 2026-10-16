@@ -32,6 +32,16 @@
 
             <template v-else>
 
+                <!-- An online order that has not been paid yet: never shown as complete. -->
+                <section v-if="order.payable" role="alert"
+                    class="mb-5 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="font-medium text-amber-800">This order is waiting for its online payment.</p>
+                    <RouterLink :to="{ name: 'order-details', params: { id: order.id } }"
+                        class="rounded-xl bg-green-600 px-5 py-2.5 text-center text-sm font-semibold text-white hover:bg-green-700">
+                        Pay for this order
+                    </RouterLink>
+                </section>
+
                 <!-- Hero -->
                 <successHero :order="order" :product-count="productCount" :total-quantity="totalQuantity" />
 

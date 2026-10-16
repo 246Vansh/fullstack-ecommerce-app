@@ -71,7 +71,7 @@
                         @select="selectAddress" />
 
                     <!-- Delivery methods, coupons and order notes are not implemented, so they are not shown. -->
-                    <paymentCard />
+                    <paymentCard v-model="paymentMethod" :methods="paymentMethods" :disabled="placing" />
 
                 </section>
 
@@ -81,7 +81,7 @@
                     <orderSummary :products="products" :subtotal="summary.subtotal" :discount="summary.discount"
                         :shipping="summary.shipping" :tax="summary.tax" :total="summary.total" :customer="auth.user"
                         :address="selectedAddress" :can-proceed="validation.canProceed && !loading" :placing="placing"
-                        @place-order="placeOrder" />
+                        @place-order="placeOrder(paymentMethod)" />
 
                     <p v-if="placeError" role="alert"
                         class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -100,7 +100,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 
 import Header from "@/components/layout/Header/Header.vue";
@@ -160,6 +160,15 @@ const issueList = computed(() => validation.value.issues.map((issue) => {
 
     return { ...issue, name: options ? `${item.product.name} (${options})` : item?.product.name };
 }));
+
+// The methods the server offers; COD stays available when online payment is off.
+const paymentMethods = computed(() => checkout.value?.paymentMethods ?? ["COD"]);
+const paymentMethod = ref("COD");
+
+// Never keep a method the server no longer offers.
+watch(paymentMethods, (methods) => {
+    if (!methods.includes(paymentMethod.value)) paymentMethod.value = methods[0] ?? "COD";
+});
 
 onMounted(() => load());
 </script>

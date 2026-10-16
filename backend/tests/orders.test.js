@@ -163,7 +163,7 @@ dbTest("1. user lists their own orders, newest first, with list fields only", as
     const { status, body } = await call("GET", "/orders", a);
     assert.equal(status, 200);
     assert.deepEqual(body.data.map((o) => o.id), [second.id, first.id]);
-    assert.deepEqual(Object.keys(body.data[0]).sort(), ["createdAt", "id", "itemCount", "orderNumber", "status", "total"]);
+    assert.deepEqual(Object.keys(body.data[0]).sort(), ["createdAt", "id", "itemCount", "orderNumber", "payable", "paymentMethod", "paymentStatus", "status", "total"]);
     assert.equal(body.data[1].itemCount, 3);
     assert.equal(body.data[1].total, first.total);
 

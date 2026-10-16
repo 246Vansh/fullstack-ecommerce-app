@@ -70,6 +70,10 @@
                         <dt class="text-slate-500">Payment status</dt>
                         <dd class="mt-1 font-semibold text-slate-900">{{ paymentStatusLabel(order.paymentStatus) }}</dd>
                     </div>
+                    <div v-if="order.paymentMethod">
+                        <dt class="text-slate-500">Payment method</dt>
+                        <dd class="mt-1 font-semibold text-slate-900">{{ paymentMethodLabel(order.paymentMethod) }}</dd>
+                    </div>
                     <div v-if="order.status === 'CANCELLED'">
                         <dt class="text-slate-500">Cancelled</dt>
                         <dd class="mt-1 font-semibold text-slate-900">{{ formatDate(order.updatedAt, true) }}</dd>
@@ -158,7 +162,7 @@ import OrderStatusBadge from "@/components/orders/orderStatusBadge.vue";
 
 import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
-import { formatDate, formatPrice, paymentStatusLabel } from "@/composables/useOrderSuccess";
+import { formatDate, formatPrice, paymentMethodLabel, paymentStatusLabel } from "@/composables/useOrderSuccess";
 import { receiptAddressLines, receiptLines, receiptTotals } from "@/utils/receipt";
 import { focusHeadingAfterLoad, setPageTitle } from "@/router/pageFocus";
 

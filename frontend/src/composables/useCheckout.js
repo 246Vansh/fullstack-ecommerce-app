@@ -6,6 +6,7 @@ import { addressService } from "@/services/addressService";
 import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
 import { useCartStore } from "@/stores/cartStore";
+import { useRazorpayPayment } from "@/composables/useRazorpayPayment";
 
 // Checkout page state. Everything shown comes from GET /api/checkout; the
 // page only formats the server's prices and totals, it never computes them.
@@ -77,11 +78,18 @@ export function useCheckout() {
 
     const placing = ref(false);
     const placeError = ref("");
+    const payment = useRazorpayPayment();
 
-    // Sends only the address id; the server re-validates, prices and creates
-    // the order atomically. `placing` is set before the request, so a double
-    // click (even before the button re-renders as disabled) sends one request.
-    async function placeOrder() {
+    // Sends only the address id and payment method; the server re-validates,
+    // prices and creates the order atomically. `placing` is set before the
+    // request, so a double click (even before the button re-renders as
+    // disabled) sends one request.
+    //
+    // Online: the order is created first (stock reserved, UNPAID), then paid.
+    // Only a server-verified payment leads to the success page; anything else
+    // goes to the order's page, where it can be paid or re-checked. The order
+    // is never created twice.
+    async function placeOrder(paymentMethod = "COD") {
         if (placing.value || !validation.value?.canProceed || !selectedAddressId.value) return;
 
         placing.value = true;
@@ -89,10 +97,21 @@ export function useCheckout() {
 
         try {
             // The displayed server total is sent only as a check, never as the price.
-            const order = await orderService.createOrder(selectedAddressId.value, summary.value?.total);
+            const order = await orderService.createOrder(selectedAddressId.value, summary.value?.total, paymentMethod);
 
             // The server emptied the cart; resync the header badge.
             cart.loadCart();
+
+            if (order.paymentMethod === "RAZORPAY") {
+                const result = await payment.pay(order.id);
+
+                if (result?.state === "PAID") {
+                    await router.push({ name: "orderSuccess", params: { id: order.id } });
+                } else {
+                    await router.push({ name: "order-details", params: { id: order.id }, query: { payment: result?.state ?? "UNKNOWN" } });
+                }
+                return;
+            }
 
             await router.push({ name: "orderSuccess", params: { id: order.id } });
         } catch (err) {

@@ -2,10 +2,11 @@ import { Router } from "express";
 import { body, param, query } from "express-validator";
 
 import { createMyOrder, getMyOrder, getMyOrders, cancelMyOrder } from "../controllers/orderController.js";
-import { ORDER_PAGINATION } from "../services/orderService.js";
+import { startMyPayment, verifyMyPayment, refreshMyPayment } from "../controllers/paymentController.js";
+import { ORDER_PAGINATION, PAYMENT_METHODS } from "../services/orderService.js";
 import { authenticate } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { orderMutationLimiter } from "../middleware/rateLimits.js";
+import { orderMutationLimiter, paymentLimiter } from "../middleware/rateLimits.js";
 
 const router = Router();
 
@@ -16,6 +17,16 @@ const createRules = [
         .isDecimal({ decimal_digits: "0,2" }).withMessage("expectedTotal must be an amount with at most 2 decimals")
         .bail()
         .custom((value) => Number(value) >= 0).withMessage("expectedTotal cannot be negative"),
+    // Optional; COD when left out (the behaviour before online payment).
+    body("paymentMethod").optional()
+        .isIn(PAYMENT_METHODS).withMessage(`paymentMethod must be one of: ${PAYMENT_METHODS.join(", ")}`),
+];
+
+// Exactly what Razorpay Checkout returns, in its documented formats.
+const verifyRules = [
+    body("razorpayOrderId").isString().matches(/^order_[A-Za-z0-9]{1,40}$/).withMessage("razorpayOrderId is invalid"),
+    body("razorpayPaymentId").isString().matches(/^pay_[A-Za-z0-9]{1,40}$/).withMessage("razorpayPaymentId is invalid"),
+    body("razorpaySignature").isString().matches(/^[0-9a-fA-F]{64}$/).withMessage("razorpaySignature is invalid"),
 ];
 
 // A repeated parameter (?page=1&page=2) arrives as an array; reject it rather
@@ -44,5 +55,10 @@ router.get("/", listRules, validate, getMyOrders);
 router.post("/", orderMutationLimiter, createRules, validate, createMyOrder);
 router.get("/:id", idRules, validate, getMyOrder);
 router.post("/:id/cancel", orderMutationLimiter, idRules, validate, cancelMyOrder);
+
+// Online payment for the customer's own order (see services/paymentService.js).
+router.post("/:id/payment", paymentLimiter, idRules, validate, startMyPayment);
+router.post("/:id/payment/verify", paymentLimiter, idRules, verifyRules, validate, verifyMyPayment);
+router.post("/:id/payment/refresh", paymentLimiter, idRules, validate, refreshMyPayment);
 
 export default router;

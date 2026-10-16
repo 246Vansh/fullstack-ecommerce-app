@@ -142,6 +142,17 @@ export function validateEnv(env = process.env) {
         }
     }
 
+    // Online payment is optional: both Razorpay keys, or neither (then only
+    // cash on delivery is offered). The secret is never sent to the browser.
+    const razorpayKeyId = String(env.RAZORPAY_KEY_ID ?? "").trim();
+    const razorpaySecret = String(env.RAZORPAY_KEY_SECRET ?? "").trim();
+
+    if (Boolean(razorpayKeyId) !== Boolean(razorpaySecret)) {
+        errors.push("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set together (or both left empty to disable online payment)");
+    } else if (razorpayKeyId && !/^rzp_(test|live)_[A-Za-z0-9]+$/.test(razorpayKeyId)) {
+        errors.push("RAZORPAY_KEY_ID must be a Razorpay key id (rzp_test_... or rzp_live_...)");
+    }
+
     if (env.COOKIE_SAME_SITE && !SAME_SITE.includes(env.COOKIE_SAME_SITE)) {
         errors.push(`COOKIE_SAME_SITE must be one of: ${SAME_SITE.join(", ")}`);
     }

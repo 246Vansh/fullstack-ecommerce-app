@@ -39,7 +39,14 @@
                 <dl class="mt-5 grid gap-4 text-sm sm:grid-cols-3">
                     <div>
                         <dt class="text-slate-500">Payment</dt>
-                        <dd class="mt-1 font-semibold text-slate-900">{{ paymentStatusLabel(order.paymentStatus) }}</dd>
+                        <dd class="mt-1 font-semibold text-slate-900">
+                            {{ paymentStatusLabel(order.paymentStatus) }}
+                            <span v-if="order.paymentMethod" class="font-normal text-slate-500">· {{ paymentMethodLabel(order.paymentMethod) }}</span>
+                        </dd>
+                    </div>
+                    <div v-if="order.razorpayPaymentId">
+                        <dt class="text-slate-500">Razorpay payment</dt>
+                        <dd class="mt-1 wrap-anywhere font-mono text-xs text-slate-900">{{ order.razorpayPaymentId }}</dd>
                     </div>
                     <div v-if="order.shippedAt">
                         <dt class="text-slate-500">Shipped</dt>
@@ -55,7 +62,9 @@
                 <div class="mt-6 border-t border-slate-100 pt-5">
 
                     <p v-if="!order.nextStatus" class="text-sm text-slate-500">
-                        {{ order.status === "DELIVERED" ? "This order has been delivered." : "This order no longer changes status." }}
+                        {{ order.awaitingPayment && order.status === "PENDING"
+                            ? "Awaiting online payment. The order can be confirmed once the payment is verified."
+                            : order.status === "DELIVERED" ? "This order has been delivered." : "This order no longer changes status." }}
                     </p>
 
                     <template v-else>
@@ -165,7 +174,7 @@ import OrderStatusBadge from "@/components/orders/orderStatusBadge.vue";
 
 import { adminOrderService } from "@/services/adminOrderService";
 import { parseApiError } from "@/services/apiClient";
-import { formatDate, formatPrice, paymentStatusLabel, statusLabel } from "@/composables/useOrderSuccess";
+import { formatDate, formatPrice, paymentMethodLabel, paymentStatusLabel, statusLabel } from "@/composables/useOrderSuccess";
 import { receiptAddressLines, receiptLines, receiptTotals } from "@/utils/receipt";
 import { focusHeadingAfterLoad, focusMainContent, setPageTitle } from "@/router/pageFocus";
 

@@ -26,7 +26,8 @@ export const formatDate = (value, withTime = false) => new Date(value).toLocaleS
 
 export const statusLabel = (status) => STATUS_LABELS[status] ?? status;
 
-// Payment is separate from order status; no provider exists yet, so orders are Unpaid.
+// Payment is separate from order status. Only the server marks an order Paid,
+// after verifying an online payment with Razorpay.
 const PAYMENT_STATUS_LABELS = {
     UNPAID: "Unpaid",
     PAID: "Paid",
@@ -35,6 +36,13 @@ const PAYMENT_STATUS_LABELS = {
 };
 
 export const paymentStatusLabel = (status) => PAYMENT_STATUS_LABELS[status] ?? status;
+
+const PAYMENT_METHOD_LABELS = {
+    COD: "Cash on delivery",
+    RAZORPAY: "Online (Razorpay)",
+};
+
+export const paymentMethodLabel = (method) => PAYMENT_METHOD_LABELS[method] ?? method;
 
 // Loads the order named in the route (/orderSuccess/:id), so a refresh or a
 // shared link shows the persisted order rather than anything kept in memory.

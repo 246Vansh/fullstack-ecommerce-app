@@ -74,9 +74,26 @@
 
                 </span>
 
-                <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                <span class="rounded-full px-3 py-1 text-xs font-semibold"
+                    :class="order.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
 
                     {{ paymentStatusLabel(order.paymentStatus) }}
+
+                </span>
+
+            </div>
+
+            <div v-if="order.paymentMethod" class="flex items-center justify-between">
+
+                <span class="text-sm font-semibold text-slate-900">
+
+                    Payment Method
+
+                </span>
+
+                <span class="text-sm text-slate-700">
+
+                    {{ paymentMethodLabel(order.paymentMethod) }}
 
                 </span>
 
@@ -92,7 +109,7 @@
 import { computed } from "vue";
 import { CreditCardIcon } from "@heroicons/vue/24/outline";
 
-import { formatPrice, paymentStatusLabel } from "@/composables/useOrderSuccess";
+import { formatPrice, paymentMethodLabel, paymentStatusLabel } from "@/composables/useOrderSuccess";
 
 const props = defineProps({
     order: {

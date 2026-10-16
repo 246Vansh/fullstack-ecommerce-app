@@ -40,6 +40,14 @@ export const orderMutationLimiter = limiter({
     message: { success: false, message: "Too many order attempts, please try again later" },
 });
 
+// Payment start/verify/refresh, keyed by user (use after authenticate). Each
+// call may reach Razorpay; enough for a few attempts and status checks.
+export const paymentLimiter = limiter({
+    limit: 30,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many payment attempts, please try again later" },
+});
+
 // Review create/edit/delete, keyed by user (use after authenticate). A
 // customer has one review per product, so normal use is a handful of writes.
 export const reviewMutationLimiter = limiter({

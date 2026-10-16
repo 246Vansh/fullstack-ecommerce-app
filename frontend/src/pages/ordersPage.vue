@@ -65,6 +65,11 @@
                             </div>
 
                             <div class="flex items-center gap-4 sm:shrink-0">
+                                <!-- An online order still waiting for its payment. -->
+                                <span v-if="order.payable"
+                                    class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                    Payment due
+                                </span>
                                 <OrderStatusBadge :status="order.status" />
                                 <span class="font-bold text-slate-900">{{ formatPrice(order.total) }}</span>
                                 <ChevronRightIcon class="ml-auto h-5 w-5 text-slate-400 sm:ml-0" />

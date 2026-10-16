@@ -78,7 +78,35 @@
                             <dt class="text-slate-600">Payment</dt>
                             <dd class="font-medium text-slate-900">{{ paymentStatusLabel(order.paymentStatus) }}</dd>
                         </div>
+                        <div v-if="order.paymentMethod" class="flex justify-between">
+                            <dt class="text-slate-600">Payment method</dt>
+                            <dd class="font-medium text-slate-900">{{ paymentMethodLabel(order.paymentMethod) }}</dd>
+                        </div>
                     </dl>
+
+                    <!-- Online payment: pay, or have the server re-check with Razorpay. -->
+                    <div v-if="order.paymentMethod === 'RAZORPAY' && (order.payable || paymentMessage)"
+                        class="mt-6 border-t border-gray-100 pt-5">
+
+                        <p v-if="paymentMessage" :role="paymentState === 'PAID' ? 'status' : 'alert'"
+                            class="mb-4 text-sm font-medium"
+                            :class="paymentState === 'PAID' ? 'text-green-700' : paymentState === 'ERROR' ? 'text-red-600' : 'text-slate-700'">
+                            {{ paymentMessage }}
+                        </p>
+
+                        <div v-if="order.payable" class="flex flex-wrap gap-3">
+                            <button type="button" :disabled="paying"
+                                class="rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50 cursor-pointer"
+                                @click="payNow">
+                                {{ paying ? "Please wait…" : `Pay ${formatPrice(order.total)}` }}
+                            </button>
+                            <button type="button" :disabled="paying"
+                                class="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+                                @click="refreshStatus">
+                                Refresh payment status
+                            </button>
+                        </div>
+                    </div>
 
                     <!-- Cancellation -->
                     <div v-if="order.cancellable" class="mt-6 border-t border-gray-100 pt-5">
@@ -146,7 +174,8 @@ import shippingCard from "@/components/orderSuccess/details/shippingCard.vue";
 
 import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
-import { formatDate, formatPrice, paymentStatusLabel } from "@/composables/useOrderSuccess";
+import { formatDate, formatPrice, paymentMethodLabel, paymentStatusLabel } from "@/composables/useOrderSuccess";
+import { PAYMENT_MESSAGES, useRazorpayPayment } from "@/composables/useRazorpayPayment";
 import { focusHeadingAfterLoad, focusMainContent, setPageTitle } from "@/router/pageFocus";
 
 const route = useRoute();
@@ -159,6 +188,30 @@ const notFound = ref(false);
 const confirming = ref(false);
 const cancelling = ref(false);
 const cancelError = ref("");
+
+// Online payment. The result of a checkout attempt arrives as ?payment=STATE;
+// only the server's answer (verify or refresh) ever shows this order as paid.
+const { busy: paying, pay, refresh } = useRazorpayPayment();
+const paymentState = ref("");
+const paymentMessage = ref("");
+
+function applyPayment(id, result) {
+    // Ignore a result for an order the page no longer shows.
+    if (!result || order.value?.id !== id) return;
+    paymentState.value = result.state;
+    paymentMessage.value = result.message;
+    if (result.order) order.value = result.order;
+}
+
+async function payNow() {
+    const id = order.value.id;
+    applyPayment(id, await pay(id));
+}
+
+async function refreshStatus() {
+    const id = order.value.id;
+    applyPayment(id, await refresh(id));
+}
 
 const totals = computed(() => [
     { label: "Subtotal", value: formatPrice(order.value.subtotal) },
@@ -179,11 +232,20 @@ async function load(id) {
     order.value = null;
     confirming.value = false;
     cancelError.value = "";
+    paymentState.value = "";
+    paymentMessage.value = "";
 
     try {
         const data = await orderService.getOrder(id);
         if (current === requestId) {
             order.value = data;
+
+            // Outcome passed from checkout; shown only while it still applies.
+            const state = route.query.payment;
+            if (data.paymentMethod === "RAZORPAY" && PAYMENT_MESSAGES[state] && (data.payable || data.paymentStatus === "PAID")) {
+                paymentState.value = data.paymentStatus === "PAID" ? "PAID" : state;
+                paymentMessage.value = PAYMENT_MESSAGES[paymentState.value];
+            }
             setPageTitle(`Order #${data.orderNumber}`);
             focusHeadingAfterLoad();
         }
@@ -228,6 +290,7 @@ async function cancel() {
     try {
         order.value = await orderService.cancelOrder(order.value.id);
         confirming.value = false;
+        paymentMessage.value = "";
     } catch (err) {
         cancelError.value = parseApiError(err).message;
         confirming.value = false;

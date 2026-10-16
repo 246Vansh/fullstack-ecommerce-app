@@ -80,7 +80,8 @@
                                 <p class="text-sm text-slate-500">
                                     {{ formatDate(order.createdAt, true) }} ·
                                     {{ order.itemCount }} {{ order.itemCount === 1 ? "item" : "items" }} ·
-                                    Payment: {{ paymentStatusLabel(order.paymentStatus) }}
+                                    Payment: {{ paymentStatusLabel(order.paymentStatus) }}<template v-if="order.paymentMethod">
+                                        ({{ paymentMethodLabel(order.paymentMethod) }})</template>
                                 </p>
                             </div>
 
@@ -115,7 +116,7 @@ import Pagination from "@/components/products/pagination.vue";
 
 import { adminOrderService } from "@/services/adminOrderService";
 import { parseApiError } from "@/services/apiClient";
-import { formatDate, formatPrice, paymentStatusLabel, statusLabel } from "@/composables/useOrderSuccess";
+import { formatDate, formatPrice, paymentMethodLabel, paymentStatusLabel, statusLabel } from "@/composables/useOrderSuccess";
 
 // Matches the OrderStatus enum (and the API's ?status= values).
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"];

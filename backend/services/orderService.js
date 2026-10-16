@@ -28,6 +28,17 @@ function generateOrderNumber(now = new Date()) {
 const CANCELLABLE_STATUSES = ["PENDING"];
 const CANCELLABLE_PAYMENT_STATUSES = ["UNPAID"];
 
+// Matches the PaymentMethod enum. COD orders are fulfilled while unpaid;
+// RAZORPAY orders must be PAID (verified with Razorpay) before fulfilment.
+export const PAYMENT_METHODS = ["COD", "RAZORPAY"];
+
+// Online orders that can still be paid: not yet paid, not cancelled or moved on.
+export const isPayable = (order) => order.paymentMethod === "RAZORPAY"
+    && order.status === "PENDING" && ["UNPAID", "FAILED"].includes(order.paymentStatus);
+
+// An online order that has not been paid cannot enter fulfilment.
+const awaitsPayment = (order) => order.paymentMethod === "RAZORPAY" && order.paymentStatus !== "PAID";
+
 const REQUIRED_ADDRESS_FIELDS = ["firstName", "lastName", "phone", "address", "city", "state", "zipCode", "country"];
 
 const orderSelect = {
@@ -35,6 +46,8 @@ const orderSelect = {
     orderNumber: true,
     status: true,
     paymentStatus: true,
+    paymentMethod: true,
+    paidAt: true,
     currency: true,
     subtotal: true,
     shipping: true,
@@ -80,8 +93,12 @@ function toOrderResponse(order) {
         orderId: order.id,
         orderNumber: order.orderNumber,
         status: order.status,
-        // Payment is separate from fulfilment; no provider exists, so this is UNPAID.
+        // Payment is separate from fulfilment; only server-side verification sets PAID.
         paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        paidAt: order.paidAt,
+        // An online order the customer can (still) pay for.
+        payable: isPayable(order),
         cancellable: CANCELLABLE_STATUSES.includes(order.status)
             && CANCELLABLE_PAYMENT_STATUSES.includes(order.paymentStatus),
         createdAt: order.createdAt,
@@ -136,7 +153,7 @@ const stockConflict = (details) => new ApiError(409, "Some items in your cart ar
 | steps; the HTTP controller never passes it.
 */
 
-async function placeOrder(tx, userId, { addressId, expectedTotal }, hooks) {
+async function placeOrder(tx, userId, { addressId, expectedTotal, paymentMethod = "COD" }, hooks) {
     const step = async (name) => hooks?.afterStep?.(name, tx);
 
     // A bare UPDATE takes the row lock before any read, so the reads below
@@ -219,6 +236,7 @@ async function placeOrder(tx, userId, { addressId, expectedTotal }, hooks) {
         data: {
             orderNumber: generateOrderNumber(),
             userId,
+            paymentMethod,
             ...totals,
             shippingFirstName: address.firstName,
             shippingLastName: address.lastName,
@@ -262,11 +280,12 @@ async function placeOrder(tx, userId, { addressId, expectedTotal }, hooks) {
 const isOrderNumberClash = (err) => err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
 
 // No payment is taken here: the order is created PENDING and UNPAID, with the
-// server's prices. Payment, when added, will move paymentStatus separately.
-export async function createOrder(userId, { addressId, expectedTotal }, hooks) {
+// server's prices. For RAZORPAY orders, paymentService then collects payment
+// against this stored total and marks it PAID only after verification.
+export async function createOrder(userId, { addressId, expectedTotal, paymentMethod }, hooks) {
     for (let attempt = 1; ; attempt++) {
         try {
-            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal }, hooks), TRANSACTION_OPTIONS);
+            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal, paymentMethod }, hooks), TRANSACTION_OPTIONS);
 
             return toOrderResponse(order);
         } catch (err) {
@@ -316,6 +335,8 @@ export async function listOrders(userId, { page, limit }) {
                 id: true,
                 orderNumber: true,
                 status: true,
+                paymentStatus: true,
+                paymentMethod: true,
                 total: true,
                 createdAt: true,
                 items: { select: { quantity: true } },
@@ -328,6 +349,7 @@ export async function listOrders(userId, { page, limit }) {
             ...order,
             total: toMoney(orderTotal),
             itemCount: items.reduce((count, item) => count + item.quantity, 0),
+            payable: isPayable(order),
         })),
         pagination: {
             page,
@@ -346,7 +368,9 @@ export async function listOrders(userId, { page, limit }) {
 | PENDING -> CONFIRMED -> PROCESSING -> SHIPPED -> DELIVERED. Each step is a
 | conditional UPDATE on the expected previous status, so two admins (or an
 | admin and a customer cancelling) can never both win. Cancelled and refunded
-| orders never move. No step touches payment status, prices, items or stock.
+| orders never move. An online (RAZORPAY) order must be PAID before any step;
+| COD orders move while unpaid. No step touches payment status, prices, items
+| or stock.
 */
 
 // Matches the OrderStatus enum in prisma/schema.prisma.
@@ -360,6 +384,9 @@ export function nextStatusOf(status) {
 
     return index >= 0 && index < FULFILMENT_STEPS.length - 1 ? FULFILMENT_STEPS[index + 1] : null;
 }
+
+// What an admin may do next with this order: null while an online order is unpaid.
+const adminNextStatus = (order) => (awaitsPayment(order) ? null : nextStatusOf(order.status));
 
 const STEP_TIMESTAMPS = { SHIPPED: "shippedAt", DELIVERED: "deliveredAt" };
 
@@ -381,6 +408,7 @@ export async function listAdminOrders({ page, limit, status }) {
                 orderNumber: true,
                 status: true,
                 paymentStatus: true,
+                paymentMethod: true,
                 total: true,
                 createdAt: true,
                 shippingFirstName: true,
@@ -397,7 +425,8 @@ export async function listAdminOrders({ page, limit, status }) {
             total: toMoney(orderTotal),
             itemCount: items.reduce((count, item) => count + item.quantity, 0),
             customer: { name: `${shippingFirstName} ${shippingLastName}`.trim(), email: shippingEmail },
-            nextStatus: nextStatusOf(order.status),
+            awaitingPayment: awaitsPayment(order),
+            nextStatus: adminNextStatus(order),
         })),
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
@@ -408,19 +437,23 @@ export async function listAdminOrders({ page, limit, status }) {
 export async function getAdminOrder(id) {
     const order = await prisma.order.findUnique({
         where: { id },
-        select: { ...orderSelect, userId: true, shippedAt: true, deliveredAt: true },
+        select: { ...orderSelect, userId: true, shippedAt: true, deliveredAt: true, razorpayOrderId: true, razorpayPaymentId: true },
     });
 
     if (!order) throw new ApiError(404, "Order not found");
 
-    const { cancellable, ...response } = toOrderResponse(order);
+    const { cancellable, payable, ...response } = toOrderResponse(order);
 
     return {
         ...response,
         userId: order.userId,
         shippedAt: order.shippedAt,
         deliveredAt: order.deliveredAt,
-        nextStatus: nextStatusOf(order.status),
+        // Gateway references, for reconciliation in the Razorpay dashboard.
+        razorpayOrderId: order.razorpayOrderId,
+        razorpayPaymentId: order.razorpayPaymentId,
+        awaitingPayment: awaitsPayment(order),
+        nextStatus: adminNextStatus(order),
     };
 }
 
@@ -434,15 +467,20 @@ export async function advanceOrderStatus(id, status) {
     if (!from) throw new ApiError(422, "Validation failed", [{ field: "status", message: "status is not a fulfilment step" }]);
 
     const timestamp = STEP_TIMESTAMPS[status];
+    // Same conditional UPDATE, plus the payment rule: COD, or online and PAID.
     const { count } = await prisma.order.updateMany({
-        where: { id, status: from },
+        where: { id, status: from, OR: [{ paymentMethod: "COD" }, { paymentStatus: "PAID" }] },
         data: { status, ...(timestamp && { [timestamp]: new Date() }) },
     });
 
     if (count === 0) {
-        const current = await prisma.order.findUnique({ where: { id }, select: { status: true } });
+        const current = await prisma.order.findUnique({ where: { id }, select: { status: true, paymentMethod: true, paymentStatus: true } });
 
         if (!current) throw new ApiError(404, "Order not found");
+
+        if (current.status === from && awaitsPayment(current)) {
+            throw new ApiError(409, `This order is awaiting online payment and cannot be marked ${statusLabel(status)}`);
+        }
 
         throw new ApiError(409, current.status === status
             ? `This order is already ${statusLabel(status)}`
