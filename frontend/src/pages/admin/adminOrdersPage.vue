@@ -150,6 +150,7 @@ async function load() {
 
     loading.value = true;
     error.value = "";
+    forbidden.value = false;
 
     try {
         const result = await adminOrderService.listOrders({ page: current, limit: PAGE_SIZE, status: status.value || undefined });
