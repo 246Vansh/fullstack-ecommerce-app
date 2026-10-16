@@ -1,19 +1,31 @@
 // Admin catalog API: ADMIN-only access, validation and normalization, safe
 // deactivation, stock invariants and category rules. Uses throwaway users,
 // categories and products tagged with RUN; after() removes all of them.
+//
+// Writes only to the test database named by TEST_DATABASE_URL (see
+// testDatabase.js); unset, these tests are skipped and nothing connects.
 import "dotenv/config";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
-import prisma from "../config/db.js";
 import { signAccessToken } from "../utils/jwt.js";
-import { createOrder } from "../services/orderService.js";
 import { startServer } from "./helpers.js";
+import {
+    openTestDatabase, testDatabaseGuardTest, testServerEnv, assertOnTestDatabase, deleteInTestDatabase, expectDeleted,
+} from "./testDatabase.js";
+
+// Database modules load only after the switch to the test database.
+const { guard, skip, prisma } = await openTestDatabase();
+const { createOrder } = guard.ok ? await import("../services/orderService.js") : {};
+
+const dbTest = (name, fn) => test(name, { skip }, fn);
+testDatabaseGuardTest(test, guard);
 
 const RUN = crypto.randomBytes(4).toString("hex");
 const userIds = [];
+const userEmails = [];
 const productIds = [];
 const categoryIds = [];
 let server, admin, customer, demoted, categoryId, inactiveCategoryId;
@@ -23,6 +35,7 @@ async function makeUser(label, role) {
         data: { email: `p12-${label}-${RUN}@example.test`, passwordHash: "not-a-login", firstName: "Test", lastName: label, role },
     });
     userIds.push(user.id);
+    userEmails.push(user.email);
     return { id: user.id, headers: { Authorization: `Bearer ${signAccessToken(user)}` } };
 }
 
@@ -60,7 +73,11 @@ async function createProduct(suffix, overrides) {
 }
 
 before(async () => {
-    server = await startServer();
+    if (!guard.ok) return;
+
+    // Before any write: this process is on the test database.
+    await assertOnTestDatabase(prisma);
+
     admin = await makeUser("admin", "ADMIN");
     customer = await makeUser("customer", "CUSTOMER");
     // A token still claiming ADMIN for a user whose role is now CUSTOMER.
@@ -68,6 +85,7 @@ before(async () => {
         data: { email: `p12-demoted-${RUN}@example.test`, passwordHash: "x", firstName: "Test", lastName: "demoted", role: "CUSTOMER" },
     });
     userIds.push(demotedUser.id);
+    userEmails.push(demotedUser.email);
     demoted = { headers: { Authorization: `Bearer ${signAccessToken({ id: demotedUser.id, role: "ADMIN" })}` } };
 
     const parent = await prisma.category.create({ data: { name: `P12 ${RUN}`, slug: `p12-${RUN}` } });
@@ -76,19 +94,34 @@ before(async () => {
     categoryIds.push(child.id, inactive.id, parent.id);
     categoryId = child.id;
     inactiveCategoryId = inactive.id;
+
+    server = await startServer(testServerEnv(guard));
+
+    // Before any request that writes: the server lists a category that exists
+    // only in this run (a GET, so a misrouted server changes nothing).
+    const probe = await (await fetch(`${server.url}/categories`)).json();
+    assert.ok(JSON.stringify(probe).includes(`"p12-${RUN}"`), "server is on the test database");
 });
 
 after(async () => {
+    if (!guard.ok) return;
+
     try {
-        await prisma.order.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.cart.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.product.deleteMany({ where: { id: { in: productIds } } });
-        const extra = await prisma.category.findMany({ where: { slug: { startsWith: `p12-${RUN}` } }, select: { id: true, parentId: true } });
-        await prisma.category.deleteMany({ where: { id: { in: extra.filter((c) => c.parentId).map((c) => c.id) } } });
-        await prisma.category.deleteMany({ where: { id: { in: extra.map((c) => c.id) } } });
-        await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+        // Only this run's rows: its users' orders and carts, the products its
+        // admin created (by id), the categories tagged with RUN (subcategories
+        // first), then its users.
+        await deleteInTestDatabase(prisma, async (tx) => {
+            await tx.order.deleteMany({ where: { userId: { in: userIds } } });
+            await tx.cart.deleteMany({ where: { userId: { in: userIds } } });
+            const products = [...new Set(productIds)];
+            expectDeleted("products", await tx.product.deleteMany({ where: { id: { in: products } } }), products.length);
+            const extra = await tx.category.findMany({ where: { slug: { startsWith: `p12-${RUN}` } }, select: { id: true, parentId: true } });
+            await tx.category.deleteMany({ where: { id: { in: extra.filter((c) => c.parentId).map((c) => c.id) } } });
+            await tx.category.deleteMany({ where: { id: { in: extra.map((c) => c.id) } } });
+            expectDeleted("users", await tx.user.deleteMany({ where: { id: { in: userIds }, email: { in: userEmails } } }), userIds.length);
+        });
     } finally {
-        await server.stop();
+        await server?.stop();
         await prisma.$disconnect();
     }
 });
@@ -102,7 +135,7 @@ const ROUTES = [
     ["GET", "/admin/categories"], ["POST", "/admin/categories"], ["PATCH", "/admin/categories/1"],
 ];
 
-test("auth: every admin route needs a token and refuses customers, even when they claim ADMIN", async () => {
+dbTest("auth: every admin route needs a token and refuses customers, even when they claim ADMIN", async () => {
     const forged = { headers: { Authorization: `Bearer ${jwt.sign({ sub: String(admin.id), role: "ADMIN", type: "access" }, "not-the-secret")}` } };
     const body = { role: "ADMIN", isAdmin: true, name: "x" };
 
@@ -119,7 +152,7 @@ test("auth: every admin route needs a token and refuses customers, even when the
 
 // ------------------------------------------------------------ products
 
-test("products: create normalizes input, ignores unknown fields, and is visible publicly", async () => {
+dbTest("products: create normalizes input, ignores unknown fields, and is visible publicly", async () => {
     const product = await createProduct("create", { id: 1, createdAt: "2000-01-01", orderItems: [], role: "ADMIN" });
 
     assert.equal(product.name, `P12 ${RUN} create`);
@@ -141,7 +174,7 @@ test("products: create normalizes input, ignores unknown fields, and is visible 
     assert.equal(pub.body.data.image, "https://images.example.com/a.jpg");
 });
 
-test("products: invalid prices, stock, ids and payloads are rejected with 422", async () => {
+dbTest("products: invalid prices, stock, ids and payloads are rejected with 422", async () => {
     const invalid = [
         { price: 0 }, { price: -1 }, { price: "1.999" }, { price: 0.1 + 0.2 }, { price: 1e21 }, { price: "abc" },
         { price: "100000000.00" }, { price: true }, { price: undefined }, { originalPrice: "10" },
@@ -164,7 +197,7 @@ test("products: invalid prices, stock, ids and payloads are rejected with 422", 
     assert.equal(await prisma.product.count({ where: { name: { contains: `${RUN} invalid` } } }), 0);
 });
 
-test("products: duplicate and conflicting data return 409 without partial writes", async () => {
+dbTest("products: duplicate and conflicting data return 409 without partial writes", async () => {
     const existing = await createProduct("dup");
 
     const sameSlug = await call("POST", "/admin/products", admin, productBody("dup2", {
@@ -197,7 +230,7 @@ test("products: duplicate and conflicting data return 409 without partial writes
     assert.equal(await prisma.product.count({ where: { name: { contains: `${RUN} dup` } } }), 1);
 });
 
-test("products: PATCH updates only sent fields and checks the merged price pair", async () => {
+dbTest("products: PATCH updates only sent fields and checks the merged price pair", async () => {
     const product = await createProduct("patch");
 
     const updated = await call("PATCH", `/admin/products/${product.id}`, admin, { price: 39.99, originalPrice: null, isNew: true, slug: "  P12-Patched-" + RUN + " " });
@@ -215,7 +248,7 @@ test("products: PATCH updates only sent fields and checks the merged price pair"
     assert.equal((await call("PATCH", "/admin/products/2147483647", admin, { price: 10 })).status, 404);
 });
 
-test("products: DELETE deactivates; carts and order history keep working and it can be restored", async () => {
+dbTest("products: DELETE deactivates; carts and order history keep working and it can be restored", async () => {
     const product = await createProduct("deactivate");
     const variant = product.variants[0];
 
@@ -249,7 +282,7 @@ test("products: DELETE deactivates; carts and order history keep working and it 
     assert.equal((await call("DELETE", "/admin/products/2147483647", admin)).status, 404);
 });
 
-test("images: PUT replaces the gallery in the given order", async () => {
+dbTest("images: PUT replaces the gallery in the given order", async () => {
     const product = await createProduct("images");
 
     const res = await call("PUT", `/admin/products/${product.id}/images`, admin, {
@@ -267,7 +300,7 @@ test("images: PUT replaces the gallery in the given order", async () => {
 
 // ------------------------------------------------------------ variants and stock
 
-test("variants: create, update and deactivate with conflict checks", async () => {
+dbTest("variants: create, update and deactivate with conflict checks", async () => {
     const product = await createProduct("variants");
 
     const added = await call("POST", `/admin/products/${product.id}/variants`, admin, { sku: sku("variants-xl"), size: "XL", color: "Black", stock: 3 });
@@ -292,7 +325,7 @@ test("variants: create, update and deactivate with conflict checks", async () =>
     assert.equal((await call("DELETE", "/admin/variants/2147483647", admin)).status, 404);
 });
 
-test("stock: absolute and relative updates never go negative, and concurrent decrements are not lost", async () => {
+dbTest("stock: absolute and relative updates never go negative, and concurrent decrements are not lost", async () => {
     const product = await createProduct("stock");
     const variantId = product.variants[0].id;
     const stockOf = async () => (await prisma.productVariant.findUnique({ where: { id: variantId } })).stock;
@@ -318,7 +351,7 @@ test("stock: absolute and relative updates never go negative, and concurrent dec
 
 // ------------------------------------------------------------ categories
 
-test("categories: create, nest one level, and refuse unsafe changes", async () => {
+dbTest("categories: create, nest one level, and refuse unsafe changes", async () => {
     const top = await call("POST", "/admin/categories", admin, { name: `  P12 ${RUN} Top ` });
     assert.equal(top.status, 201, JSON.stringify(top.body));
     assert.equal(top.body.data.slug, `p12-${RUN}-top`);
@@ -354,7 +387,7 @@ test("categories: create, nest one level, and refuse unsafe changes", async () =
 
 const ROUNDS = 8;
 
-test("race: concurrent variants with a blank size never duplicate a size/color option", async () => {
+dbTest("race: concurrent variants with a blank size never duplicate a size/color option", async () => {
     for (let round = 0; round < ROUNDS; round++) {
         const product = await createProduct(`race-opt-${round}`);
         const results = await Promise.all(Array.from({ length: 6 }, (_, i) => call("POST", `/admin/products/${product.id}/variants`, admin,
@@ -366,7 +399,7 @@ test("race: concurrent variants with a blank size never duplicate a size/color o
     }
 });
 
-test("prices: a product price or was-price change cannot invalidate a variant's displayed pair", async () => {
+dbTest("prices: a product price or was-price change cannot invalidate a variant's displayed pair", async () => {
     const product = await createProduct("price-pair", { originalPrice: null });
     const [m] = product.variants; // inherits the product price (49.90)
     const l = product.variants[1]; // own price 54.90, inherits the product's was-price
@@ -398,7 +431,7 @@ const pairIsValid = (variant, product) => {
     return was == null || Number(was) > price;
 };
 
-test("race: concurrent product and variant price edits never leave an invalid pair", async () => {
+dbTest("race: concurrent product and variant price edits never leave an invalid pair", async () => {
     for (let round = 0; round < ROUNDS; round++) {
         const product = await createProduct(`race-price-${round}`, { originalPrice: null });
         const variantId = product.variants[0].id;
@@ -417,7 +450,7 @@ test("race: concurrent product and variant price edits never leave an invalid pa
     }
 });
 
-test("race: deactivating a category never leaves active products or subcategories in it", async () => {
+dbTest("race: deactivating a category never leaves active products or subcategories in it", async () => {
     const parent = await prisma.category.findUnique({ where: { slug: `p12-${RUN}` } });
 
     for (let round = 0; round < ROUNDS; round++) {
@@ -457,7 +490,7 @@ test("race: deactivating a category never leaves active products or subcategorie
 
 // ------------------------------------------------------------ lock-path audit (Phase 12.1.2)
 
-test("race: concurrent gallery replacements leave exactly one gallery, never a 500", async () => {
+dbTest("race: concurrent gallery replacements leave exactly one gallery, never a 500", async () => {
     for (let round = 0; round < ROUNDS; round++) {
         const product = await createProduct(`race-img-${round}`, { images: [] });
         const galleries = Array.from({ length: 4 }, (_, i) => [1, 2].map((n) => ({ url: `https://images.example.com/r${round}-g${i}-${n}.jpg` })));
@@ -470,7 +503,7 @@ test("race: concurrent gallery replacements leave exactly one gallery, never a 5
     }
 });
 
-test("race: cross-moving two categories under each other fails cleanly, never a 500", async () => {
+dbTest("race: cross-moving two categories under each other fails cleanly, never a 500", async () => {
     for (let round = 0; round < ROUNDS; round++) {
         const [a, b] = await Promise.all(["x", "y"].map((n) => prisma.category.create({ data: { name: `P12 ${RUN} X${round}${n}`, slug: `p12-${RUN}-cross-${round}-${n}` } })));
 
@@ -486,7 +519,7 @@ test("race: cross-moving two categories under each other fails cleanly, never a 
     }
 });
 
-test("lock order: an admin variant edit during order placement lets both succeed (no deadlock)", async () => {
+dbTest("lock order: an admin variant edit during order placement lets both succeed (no deadlock)", async () => {
     const product = await createProduct("lock-order");
     const variantId = product.variants[0].id;
     const address = await call("POST", "/addresses", customer, {

@@ -307,6 +307,32 @@ dbTest("full path PENDING -> DELIVERED sets timestamps and never touches money o
     assert.equal(done.body.data.nextStatus, null);
 });
 
+dbTest("full path PENDING -> DELIVERED leaves every order item field unchanged", async () => {
+    // Two items with no product or variant link, so no stock is involved; the
+    // order is tracked by makeOrder and its items go with it (onDelete: Cascade).
+    const order = await makeOrder({
+        items: {
+            create: [
+                { productName: "Fixture Lamp", sku: `AOT-${RUN}-LAMP`, size: null, color: "Black", image: "https://images.example.com/lamp.jpg", unitPrice: "12.50", quantity: 2, lineTotal: "25.00" },
+                { productName: "Fixture Mug", sku: `AOT-${RUN}-MUG`, size: "L", color: null, image: null, unitPrice: "15.00", quantity: 1, lineTotal: "15.00" },
+            ],
+        },
+    });
+    // Every column of every item row, as stored.
+    const items = () => prisma.orderItem.findMany({ where: { orderId: order.id }, orderBy: { id: "asc" } });
+    const before = await items();
+    assert.equal(before.length, 2);
+    assert.ok(before.every((item) => item.productId === null && item.variantId === null));
+
+    for (const step of ["CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"]) {
+        const { status, body } = await advance(order.id, step);
+        assert.equal(status, 200, `${step}: ${JSON.stringify(body)}`);
+    }
+
+    assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).status, "DELIVERED");
+    assert.deepEqual(await items(), before, "order items unchanged by fulfilment");
+});
+
 dbTest("skipping, repeating or going backwards is a 409 and changes nothing", async () => {
     const order = await makeOrder();
 

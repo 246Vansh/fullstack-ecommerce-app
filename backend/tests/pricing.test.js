@@ -1,23 +1,37 @@
 // Server-authoritative pricing, Decimal money, order price snapshots,
-// expectedTotal checks and payment state. Uses its own test product (so seed
-// prices are never touched) and throwaway users; after() removes everything.
+// expectedTotal checks and payment state. Uses its own test category and
+// product (so seed prices are never touched) and throwaway users; after()
+// removes every row this run created.
+//
+// The integration tests write only to the test database named by
+// TEST_DATABASE_URL (see testDatabase.js); unset, they are skipped and nothing
+// connects. The unit tests always run.
 import "dotenv/config";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 
-import prisma from "../config/db.js";
 import { signAccessToken } from "../utils/jwt.js";
-import { cancelOrder } from "../services/orderService.js";
 import {
     calculateTotals, serializeTotals, roundMoney, unitPriceOf, originalPriceOf, lineTotalOf, toMoney,
 } from "../services/pricingService.js";
 import { startServer } from "./helpers.js";
+import {
+    openTestDatabase, testDatabaseGuardTest, testServerEnv, assertOnTestDatabase, deleteInTestDatabase, expectDeleted,
+} from "./testDatabase.js";
+
+// Database modules load only after the switch to the test database.
+const { guard, skip, prisma } = await openTestDatabase();
+const { cancelOrder } = guard.ok ? await import("../services/orderService.js") : {};
+
+const dbTest = (name, fn) => test(name, { skip }, fn);
+testDatabaseGuardTest(test, guard);
 
 const D = (value) => new Prisma.Decimal(value);
 const RUN = crypto.randomBytes(4).toString("hex");
 const userIds = [];
+const created = { users: [], categories: [] };
 let server, product, fallback, override, whole;
 
 // ---------------------------------------------------------------- unit tests
@@ -68,6 +82,7 @@ async function makeUser(label) {
         data: { email: `phase8-${label}-${RUN}@example.test`, passwordHash: "not-a-login", firstName: "Test", lastName: label, role: "CUSTOMER" },
     });
     userIds.push(user.id);
+    created.users.push({ id: user.id, email: user.email });
     return { id: user.id, headers: { Authorization: `Bearer ${signAccessToken(user)}` } };
 }
 
@@ -96,8 +111,17 @@ async function shopper(label, lines) {
 const stockOf = async (id) => (await prisma.productVariant.findUnique({ where: { id } })).stock;
 
 before(async () => {
-    server = await startServer();
-    const category = await prisma.category.findFirst({ where: { parentId: { not: null }, isActive: true } });
+    if (!guard.ok) return;
+
+    // Before any write: this process is on the test database.
+    await assertOnTestDatabase(prisma);
+
+    // An active subcategory of this run's own, like the storefront's.
+    const parent = await prisma.category.create({ data: { name: `Phase 8 ${RUN}`, slug: `phase8-${RUN}` } });
+    created.categories.push({ id: parent.id, slug: parent.slug });
+    const category = await prisma.category.create({ data: { name: `Phase 8 ${RUN} Tees`, slug: `phase8-${RUN}-tees`, parentId: parent.id } });
+    created.categories.unshift({ id: category.id, slug: category.slug });
+
     product = await prisma.product.create({
         data: {
             categoryId: category.id, name: `Phase 8 Test Tee ${RUN}`, slug: `phase8-test-${RUN}`,
@@ -113,30 +137,50 @@ before(async () => {
         include: { variants: { orderBy: { id: "asc" } } },
     });
     [fallback, override, whole] = product.variants;
+
+    server = await startServer(testServerEnv(guard));
+
+    // Before any request that writes: the server reads a product that exists
+    // only in this run (a GET, so a misrouted server changes nothing).
+    const probe = await call("GET", `/products/${product.id}`);
+    assert.equal(probe.body?.data?.name, product.name, "server is on the test database");
 });
 
 after(async () => {
+    if (!guard.ok) return;
+
     try {
         const orders = await prisma.order.findMany({ where: { userId: { in: userIds } } });
         for (const order of orders.filter((o) => o.status !== "CANCELLED")) {
             await prisma.order.update({ where: { id: order.id }, data: { status: "PENDING", paymentStatus: "UNPAID" } });
             await cancelOrder(order.userId, order.id);
         }
-        for (const v of product.variants) assert.equal(await stockOf(v.id), 50, "fixture stock restored");
+        if (product) for (const v of product.variants) assert.equal(await stockOf(v.id), 50, "fixture stock restored");
 
-        await prisma.order.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.cartItem.deleteMany({ where: { cart: { userId: { in: userIds } } } });
-        await prisma.cart.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.address.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.user.deleteMany({ where: { id: { in: userIds } } });
-        await prisma.product.delete({ where: { id: product.id } }); // variants cascade
+        // Only this run's rows: its users' orders, carts and addresses, then the
+        // users, its product (variants cascade) and its categories (child first).
+        await deleteInTestDatabase(prisma, async (tx) => {
+            await tx.order.deleteMany({ where: { userId: { in: userIds } } });
+            await tx.cartItem.deleteMany({ where: { cart: { userId: { in: userIds } } } });
+            await tx.cart.deleteMany({ where: { userId: { in: userIds } } });
+            await tx.address.deleteMany({ where: { userId: { in: userIds } } });
+            expectDeleted("users", await tx.user.deleteMany({
+                where: { id: { in: created.users.map((u) => u.id) }, email: { in: created.users.map((u) => u.email) } },
+            }), created.users.length);
+            if (product) {
+                expectDeleted("products", await tx.product.deleteMany({ where: { id: product.id, slug: product.slug } }), 1);
+            }
+            for (const category of created.categories) {
+                expectDeleted(`category ${category.slug}`, await tx.category.deleteMany({ where: { id: category.id, slug: category.slug } }), 1);
+            }
+        });
     } finally {
-        await server.stop();
+        await server?.stop();
         await prisma.$disconnect();
     }
 });
 
-test("product detail, cart and checkout all use the same unit price rule", async () => {
+dbTest("product detail, cart and checkout all use the same unit price rule", async () => {
     const detail = (await call("GET", `/products/${product.id}`)).body.data;
     assert.deepEqual(detail.variants.map((v) => v.price), [19.99, 24.5, 10]);
 
@@ -149,7 +193,7 @@ test("product detail, cart and checkout all use the same unit price rule", async
     assert.deepEqual(checkout.items.map((i) => i.unitPrice), [19.99, 24.5, 10]);
 });
 
-test("1/3/4/5/6/7/8/17. server prices the order: lines, subtotal, shipping, tax, discount, total", async () => {
+dbTest("1/3/4/5/6/7/8/17. server prices the order: lines, subtotal, shipping, tax, discount, total", async () => {
     const user = await shopper("totals", [[fallback, 3], [override, 2], [whole, 1]]);
 
     const checkout = (await call("GET", "/checkout", user)).body.data;
@@ -175,7 +219,7 @@ test("1/3/4/5/6/7/8/17. server prices the order: lines, subtotal, shipping, tax,
     assert.deepEqual(stored.items.map((i) => i.unitPrice.toFixed(2)), ["19.99", "24.50", "10.00"]);
 });
 
-test("2/9/10/11/12. client-supplied prices, shipping, tax, discount and totals are ignored", async () => {
+dbTest("2/9/10/11/12. client-supplied prices, shipping, tax, discount and totals are ignored", async () => {
     const user = await shopper("tamper", [[override, 2]]);
     await call("POST", "/cart/items", user, { variantId: whole.id, quantity: 1, unitPrice: 0.01, price: 0.01, subtotal: 0.01 });
 
@@ -193,7 +237,7 @@ test("2/9/10/11/12. client-supplied prices, shipping, tax, discount and totals a
     assert.equal(body.data.status, "PENDING");
 });
 
-test("14/15. order items keep the price charged after the catalog price changes", async () => {
+dbTest("14/15. order items keep the price charged after the catalog price changes", async () => {
     const user = await shopper("snapshot", [[override, 1], [fallback, 1]]);
     const order = (await call("POST", "/orders", user, { addressId: user.addressId })).body.data;
 
@@ -214,7 +258,7 @@ test("14/15. order items keep the price charged after the catalog price changes"
     }
 });
 
-test("16/18. price change between checkout and order: stale expectedTotal is rejected, current price is used", async () => {
+dbTest("16/18. price change between checkout and order: stale expectedTotal is rejected, current price is used", async () => {
     const user = await shopper("stale", [[override, 2]]);
     const shown = (await call("GET", "/checkout", user)).body.data.summary.total;
     assert.equal(shown, 49);
@@ -241,7 +285,7 @@ test("16/18. price change between checkout and order: stale expectedTotal is rej
     }
 });
 
-test("16. expectedTotal: string form accepted; malformed values rejected", async () => {
+dbTest("16. expectedTotal: string form accepted; malformed values rejected", async () => {
     const user = await shopper("expected", [[whole, 3]]);
     for (const bad of ["abc", -1, "1.234", "-0.01"]) {
         assert.equal((await call("POST", "/orders", user, { addressId: user.addressId, expectedTotal: bad })).status, 422, String(bad));
@@ -252,7 +296,7 @@ test("16. expectedTotal: string form accepted; malformed values rejected", async
     assert.ok(!("expectedTotal" in ok.body.data));
 });
 
-test("18. a client without expectedTotal still gets the current server price", async () => {
+dbTest("18. a client without expectedTotal still gets the current server price", async () => {
     const user = await shopper("no-expected", [[fallback, 2]]);
     await prisma.product.update({ where: { id: product.id }, data: { price: D("21.10") } });
     try {
@@ -264,7 +308,7 @@ test("18. a client without expectedTotal still gets the current server price", a
     }
 });
 
-test("19. orders are created unpaid; nothing marks them paid", async () => {
+dbTest("19. orders are created unpaid; nothing marks them paid", async () => {
     const user = await shopper("unpaid", [[whole, 1]]);
     const order = (await call("POST", "/orders", user, { addressId: user.addressId })).body.data;
 
@@ -274,7 +318,7 @@ test("19. orders are created unpaid; nothing marks them paid", async () => {
     assert.equal((await call("GET", `/orders/${order.id}`, user)).body.data.paymentStatus, "UNPAID");
 });
 
-test("20. cancellation still restores stock; a paid order cannot be self-cancelled", async () => {
+dbTest("20. cancellation still restores stock; a paid order cannot be self-cancelled", async () => {
     const user = await shopper("cancel", [[override, 4], [fallback, 1]]);
     const before = [await stockOf(override.id), await stockOf(fallback.id)];
     const order = (await call("POST", "/orders", user, { addressId: user.addressId })).body.data;

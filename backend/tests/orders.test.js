@@ -1,19 +1,33 @@
 // Order history, detail, cancellation and address ownership.
 // Each scenario uses its own throwaway user (so the per-user order limit and
-// carts never collide). Every order is cancelled (restoring stock) and every
-// test row deleted in after(), which also checks stock ended where it started.
+// carts never collide). The run creates its own category and three products,
+// so no existing stock is touched. Every order is cancelled (restoring stock)
+// and every row this run created is deleted in after(), which also checks
+// stock ended where it started.
+//
+// Writes only to the test database named by TEST_DATABASE_URL (see
+// testDatabase.js); unset, these tests are skipped and nothing connects.
 import "dotenv/config";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 
-import prisma from "../config/db.js";
 import { signAccessToken } from "../utils/jwt.js";
-import { cancelOrder } from "../services/orderService.js";
 import { startServer } from "./helpers.js";
+import {
+    openTestDatabase, testDatabaseGuardTest, testServerEnv, assertOnTestDatabase, deleteInTestDatabase, expectDeleted,
+} from "./testDatabase.js";
+
+// Database modules load only after the switch to the test database.
+const { guard, skip, prisma } = await openTestDatabase();
+const { cancelOrder } = guard.ok ? await import("../services/orderService.js") : {};
+
+const dbTest = (name, fn) => test(name, { skip }, fn);
+testDatabaseGuardTest(test, guard);
 
 const RUN = crypto.randomBytes(4).toString("hex");
 const userIds = [];
+const created = { users: [], products: [], categories: [] };
 let server, variants, stockBefore;
 
 const ADDRESS = {
@@ -26,6 +40,7 @@ async function makeUser(label) {
         data: { email: `phase7-${label}-${RUN}@example.test`, passwordHash: "not-a-login", firstName: "Test", lastName: label, role: "CUSTOMER" },
     });
     userIds.push(user.id);
+    created.users.push({ id: user.id, email: user.email });
     return { id: user.id, headers: { Authorization: `Bearer ${signAccessToken(user)}` } };
 }
 
@@ -60,20 +75,43 @@ async function placeOrder(user, lines, addressId) {
 }
 
 before(async () => {
-    server = await startServer();
-    // Three active, well-stocked variants of different active products.
-    const rows = await prisma.productVariant.findMany({
-        where: { isActive: true, stock: { gte: 10 }, product: { isActive: true } },
-        include: { product: { select: { id: true, price: true } } },
-        orderBy: { id: "asc" },
-    });
-    variants = rows.filter((v, i) => rows.findIndex((w) => w.productId === v.productId) === i).slice(0, 3)
-        .map((v) => ({ id: v.id, price: Number(v.price ?? v.product.price) }));
-    assert.equal(variants.length, 3);
+    if (!guard.ok) return;
+
+    // Before any write: this process is on the test database.
+    await assertOnTestDatabase(prisma);
+
+    const slug = `phase7-${RUN}`;
+    const category = await prisma.category.create({ data: { name: `Phase 7 ${RUN}`, slug } });
+    created.categories.push({ id: category.id, slug });
+
+    // Three active, well-stocked variants of different active products (no
+    // variant price, so each charges its product's price).
+    variants = [];
+    for (const [suffix, price] of [["a", "19.99"], ["b", "24.50"], ["c", "10.00"]]) {
+        const product = await prisma.product.create({
+            data: {
+                categoryId: category.id, name: `Phase 7 ${RUN} ${suffix}`, slug: `phase7-${RUN}-${suffix}`,
+                description: "Orders test fixture", brand: "Nike", price, isActive: true,
+                variants: { create: [{ sku: `P7-${RUN}-${suffix}`.toUpperCase(), size: "M", color: "Black", stock: 50 }] },
+            },
+            include: { variants: true },
+        });
+        created.products.push({ id: product.id, slug: product.slug });
+        variants.push({ id: product.variants[0].id, price: Number(product.price) });
+    }
     stockBefore = await stocks();
+
+    server = await startServer(testServerEnv(guard));
+
+    // Before any request that writes: the server reads a product that exists
+    // only in this run (a GET, so a misrouted server changes nothing).
+    const probe = await call("GET", `/products/${created.products[0].id}`);
+    assert.equal(probe.body?.data?.name, `Phase 7 ${RUN} a`, "server is on the test database");
 });
 
 after(async () => {
+    if (!guard.ok) return;
+
     try {
         // Undo every test order through the real cancellation path.
         const orders = await prisma.order.findMany({ where: { userId: { in: userIds } } });
@@ -81,20 +119,32 @@ after(async () => {
             await prisma.order.update({ where: { id: order.id }, data: { status: "PENDING" } });
             await cancelOrder(order.userId, order.id);
         }
-        assert.deepEqual(await stocks(), stockBefore, "stock is back to its starting values");
+        if (variants) assert.deepEqual(await stocks(), stockBefore, "stock is back to its starting values");
 
-        await prisma.order.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.cartItem.deleteMany({ where: { cart: { userId: { in: userIds } } } });
-        await prisma.cart.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.address.deleteMany({ where: { userId: { in: userIds } } });
-        await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+        // Only this run's rows: its users' orders, carts and addresses, then the
+        // users, products (variants cascade) and category it created.
+        await deleteInTestDatabase(prisma, async (tx) => {
+            await tx.order.deleteMany({ where: { userId: { in: userIds } } });
+            await tx.cartItem.deleteMany({ where: { cart: { userId: { in: userIds } } } });
+            await tx.cart.deleteMany({ where: { userId: { in: userIds } } });
+            await tx.address.deleteMany({ where: { userId: { in: userIds } } });
+            expectDeleted("users", await tx.user.deleteMany({
+                where: { id: { in: created.users.map((u) => u.id) }, email: { in: created.users.map((u) => u.email) } },
+            }), created.users.length);
+            expectDeleted("products", await tx.product.deleteMany({
+                where: { id: { in: created.products.map((p) => p.id) }, slug: { in: created.products.map((p) => p.slug) } },
+            }), created.products.length);
+            expectDeleted("categories", await tx.category.deleteMany({
+                where: { id: { in: created.categories.map((c) => c.id) }, slug: { in: created.categories.map((c) => c.slug) } },
+            }), created.categories.length);
+        });
     } finally {
-        await server.stop();
+        await server?.stop();
         await prisma.$disconnect();
     }
 });
 
-test("19. a valid order is created, priced by the server, and empties the cart", async () => {
+dbTest("19. a valid order is created, priced by the server, and empties the cart", async () => {
     const a = await makeUser("create");
     const [before0] = await stocks();
     const order = await placeOrder(a, [[variants[0], 2]]);
@@ -105,7 +155,7 @@ test("19. a valid order is created, priced by the server, and empties the cart",
     assert.equal((await call("GET", "/cart", a)).body.data.items.length, 0);
 });
 
-test("1. user lists their own orders, newest first, with list fields only", async () => {
+dbTest("1. user lists their own orders, newest first, with list fields only", async () => {
     const a = await makeUser("list");
     const first = await placeOrder(a, [[variants[0], 1], [variants[1], 2]]);
     const second = await placeOrder(a, [[variants[2], 1]]);
@@ -121,14 +171,14 @@ test("1. user lists their own orders, newest first, with list fields only", asyn
     assert.deepEqual((await call("GET", "/orders", empty)).body.data, []);
 });
 
-test("2. unauthenticated requests are rejected", async () => {
+dbTest("2. unauthenticated requests are rejected", async () => {
     assert.equal((await call("GET", "/orders")).status, 401);
     assert.equal((await call("GET", "/orders/1")).status, 401);
     assert.equal((await call("POST", "/orders/1/cancel")).status, 401);
     assert.equal((await call("DELETE", "/addresses/1")).status, 401);
 });
 
-test("3/4/5. order detail: own order only; others and missing ids are 404", async () => {
+dbTest("3/4/5. order detail: own order only; others and missing ids are 404", async () => {
     const a = await makeUser("owner");
     const b = await makeUser("other");
     const order = await placeOrder(a, [[variants[0], 1]]);
@@ -153,7 +203,7 @@ test("3/4/5. order detail: own order only; others and missing ids are 404", asyn
     assert.equal((await call("GET", "/orders/abc", a)).status, 422, "malformed id fails validation");
 });
 
-test("6/7. a pending order is cancelled and its stock restored", async () => {
+dbTest("6/7. a pending order is cancelled and its stock restored", async () => {
     const a = await makeUser("cancel");
     const start = await stockOf(variants[0].id);
     const order = await placeOrder(a, [[variants[0], 3]]);
@@ -166,7 +216,7 @@ test("6/7. a pending order is cancelled and its stock restored", async () => {
     assert.equal(await stockOf(variants[0].id), start);
 });
 
-test("8. multi-item cancellation restores every variant", async () => {
+dbTest("8. multi-item cancellation restores every variant", async () => {
     const a = await makeUser("multi");
     const start = await stocks();
     const order = await placeOrder(a, [[variants[0], 2], [variants[1], 1], [variants[2], 4]]);
@@ -176,7 +226,7 @@ test("8. multi-item cancellation restores every variant", async () => {
     assert.deepEqual(await stocks(), start);
 });
 
-test("9. cancelling an already cancelled order is rejected without touching stock", async () => {
+dbTest("9. cancelling an already cancelled order is rejected without touching stock", async () => {
     const a = await makeUser("twice");
     const order = await placeOrder(a, [[variants[1], 2]]);
     assert.equal((await call("POST", `/orders/${order.id}/cancel`, a)).status, 200);
@@ -188,7 +238,7 @@ test("9. cancelling an already cancelled order is rejected without touching stoc
     assert.equal(await stockOf(variants[1].id), restored);
 });
 
-test("10. simultaneous cancellations restore stock exactly once", async () => {
+dbTest("10. simultaneous cancellations restore stock exactly once", async () => {
     const a = await makeUser("race");
     const start = await stocks();
     const order = await placeOrder(a, [[variants[0], 2], [variants[2], 1]]);
@@ -201,7 +251,7 @@ test("10. simultaneous cancellations restore stock exactly once", async () => {
     assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).status, "CANCELLED");
 });
 
-test("11. shipped or delivered orders cannot be cancelled", async () => {
+dbTest("11. shipped or delivered orders cannot be cancelled", async () => {
     const a = await makeUser("shipped");
     const order = await placeOrder(a, [[variants[1], 1]]);
     const reserved = await stockOf(variants[1].id);
@@ -216,7 +266,7 @@ test("11. shipped or delivered orders cannot be cancelled", async () => {
     assert.equal(await stockOf(variants[1].id), reserved);
 });
 
-test("12/20. another user cannot cancel; ownership holds after cancellation", async () => {
+dbTest("12/20. another user cannot cancel; ownership holds after cancellation", async () => {
     const a = await makeUser("victim");
     const b = await makeUser("attacker");
     const order = await placeOrder(a, [[variants[2], 1]]);
@@ -233,7 +283,7 @@ test("12/20. another user cannot cancel; ownership holds after cancellation", as
     assert.equal((await call("GET", `/orders/${order.id}`, a)).body.data.status, "CANCELLED");
 });
 
-test("cancellation rolls back completely if a step fails", async () => {
+dbTest("cancellation rolls back completely if a step fails", async () => {
     const a = await makeUser("rollback");
     const order = await placeOrder(a, [[variants[0], 1], [variants[1], 2]]);
     const reserved = await stocks();
@@ -250,7 +300,7 @@ test("cancellation rolls back completely if a step fails", async () => {
     assert.equal((await call("POST", `/orders/${order.id}/cancel`, a)).status, 200, "a later cancel still works");
 });
 
-test("13/14. invalid or foreign addressId is rejected, with no fallback", async () => {
+dbTest("13/14. invalid or foreign addressId is rejected, with no fallback", async () => {
     const a = await makeUser("addr-a");
     const b = await makeUser("addr-b");
     await addAddress(a); // a has a valid address that must NOT be used as a fallback
@@ -273,7 +323,7 @@ test("13/14. invalid or foreign addressId is rejected, with no fallback", async 
     assert.deepEqual(await stocks(), reserved, "stock untouched");
 });
 
-test("insufficient stock: order is rejected and nothing changes", async () => {
+dbTest("insufficient stock: order is rejected and nothing changes", async () => {
     const a = await makeUser("stock");
     const address = await addAddress(a);
     await call("POST", "/cart/items", a, { variantId: variants[1].id, quantity: 1 });
@@ -286,7 +336,7 @@ test("insufficient stock: order is rejected and nothing changes", async () => {
     assert.equal(await prisma.order.count({ where: { userId: a.id } }), 0);
 });
 
-test("15/16/17. address delete: owner only, and orders keep their snapshot", async () => {
+dbTest("15/16/17. address delete: owner only, and orders keep their snapshot", async () => {
     const a = await makeUser("del-a");
     const b = await makeUser("del-b");
     const address = await addAddress(a);
@@ -307,7 +357,7 @@ test("15/16/17. address delete: owner only, and orders keep their snapshot", asy
     assert.deepEqual(after.body.data.shippingAddress, snapshot, "order shipping info unchanged");
 });
 
-test("18. client-supplied totals, prices, owner and status are ignored", async () => {
+dbTest("18. client-supplied totals, prices, owner and status are ignored", async () => {
     const a = await makeUser("tamper");
     const b = await makeUser("tamper-b");
     const address = await addAddress(a);
@@ -331,7 +381,7 @@ test("18. client-supplied totals, prices, owner and status are ignored", async (
     assert.equal(Number(stored.total), expected);
 });
 
-test("4. order mutations (create + cancel) share a per-user limit", async () => {
+dbTest("4. order mutations (create + cancel) share a per-user limit", async () => {
     const a = await makeUser("limit");
     const address = await addAddress(a);
 
