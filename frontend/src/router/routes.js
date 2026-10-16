@@ -141,6 +141,18 @@ export const routes = [
                 component: () => import("@/pages/admin/adminCategoriesPage.vue"),
                 meta: { title: "Categories · Admin" },
             },
+            {
+                path: "orders",
+                name: "admin-orders",
+                component: () => import("@/pages/admin/adminOrdersPage.vue"),
+                meta: { title: "Orders · Admin" },
+            },
+            {
+                path: "orders/:id(\\d+)",
+                name: "admin-order-detail",
+                component: () => import("@/pages/admin/adminOrderDetailPage.vue"),
+                meta: { title: "Order · Admin" },
+            },
         ],
     },
 

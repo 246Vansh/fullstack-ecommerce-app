@@ -1,7 +1,7 @@
 // Shared guard for test files that write to a database. They run only against
 // a dedicated test database named by TEST_DATABASE_URL, never the development
-// database from .env (DATABASE_URL is not a fallback). Same rules as the guard
-// in adminOrders.test.js, which keeps its own copy and its unit test.
+// database from .env (DATABASE_URL is not a fallback). adminOrders.test.js
+// holds the full unit test for testDatabaseGuard.
 
 // The development database, plus MySQL's own schemas.
 const FORBIDDEN_DATABASES = ["ecommerce", "mysql", "information_schema", "performance_schema", "sys"];

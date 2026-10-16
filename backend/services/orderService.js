@@ -340,6 +340,120 @@ export async function listOrders(userId, { page, limit }) {
 
 /*
 |--------------------------------------------------------------------------
+| Admin fulfilment
+|--------------------------------------------------------------------------
+| Admins see every order and move it forward one step at a time:
+| PENDING -> CONFIRMED -> PROCESSING -> SHIPPED -> DELIVERED. Each step is a
+| conditional UPDATE on the expected previous status, so two admins (or an
+| admin and a customer cancelling) can never both win. Cancelled and refunded
+| orders never move. No step touches payment status, prices, items or stock.
+*/
+
+// Matches the OrderStatus enum in prisma/schema.prisma.
+export const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"];
+
+export const FULFILMENT_STEPS = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"];
+
+// The status an admin may move an order to next, or null (final or off the path).
+export function nextStatusOf(status) {
+    const index = FULFILMENT_STEPS.indexOf(status);
+
+    return index >= 0 && index < FULFILMENT_STEPS.length - 1 ? FULFILMENT_STEPS[index + 1] : null;
+}
+
+const STEP_TIMESTAMPS = { SHIPPED: "shippedAt", DELIVERED: "deliveredAt" };
+
+export const ADMIN_ORDER_PAGINATION = { defaultLimit: 20, maxLimit: 100 };
+
+// One page of all customers' orders, newest first; optionally one status.
+export async function listAdminOrders({ page, limit, status }) {
+    const where = status ? { status } : {};
+
+    const [total, orders] = await Promise.all([
+        prisma.order.count({ where }),
+        prisma.order.findMany({
+            where,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            skip: (page - 1) * limit,
+            take: limit,
+            select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                paymentStatus: true,
+                total: true,
+                createdAt: true,
+                shippingFirstName: true,
+                shippingLastName: true,
+                shippingEmail: true,
+                items: { select: { quantity: true } },
+            },
+        }),
+    ]);
+
+    return {
+        data: orders.map(({ items, total: orderTotal, shippingFirstName, shippingLastName, shippingEmail, ...order }) => ({
+            ...order,
+            total: toMoney(orderTotal),
+            itemCount: items.reduce((count, item) => count + item.quantity, 0),
+            customer: { name: `${shippingFirstName} ${shippingLastName}`.trim(), email: shippingEmail },
+            nextStatus: nextStatusOf(order.status),
+        })),
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+}
+
+// The stored order snapshot (same shape as a customer's GET /orders/:id,
+// without the customer-only `cancellable`), plus fulfilment fields.
+export async function getAdminOrder(id) {
+    const order = await prisma.order.findUnique({
+        where: { id },
+        select: { ...orderSelect, userId: true, shippedAt: true, deliveredAt: true },
+    });
+
+    if (!order) throw new ApiError(404, "Order not found");
+
+    const { cancellable, ...response } = toOrderResponse(order);
+
+    return {
+        ...response,
+        userId: order.userId,
+        shippedAt: order.shippedAt,
+        deliveredAt: order.deliveredAt,
+        nextStatus: nextStatusOf(order.status),
+    };
+}
+
+const statusLabel = (status) => status.toLowerCase();
+
+// `status` is the step the admin asked for; the server decides which status
+// the order must currently have for that step to be allowed.
+export async function advanceOrderStatus(id, status) {
+    const from = FULFILMENT_STEPS[FULFILMENT_STEPS.indexOf(status) - 1];
+
+    if (!from) throw new ApiError(422, "Validation failed", [{ field: "status", message: "status is not a fulfilment step" }]);
+
+    const timestamp = STEP_TIMESTAMPS[status];
+    const { count } = await prisma.order.updateMany({
+        where: { id, status: from },
+        data: { status, ...(timestamp && { [timestamp]: new Date() }) },
+    });
+
+    if (count === 0) {
+        const current = await prisma.order.findUnique({ where: { id }, select: { status: true } });
+
+        if (!current) throw new ApiError(404, "Order not found");
+
+        throw new ApiError(409, current.status === status
+            ? `This order is already ${statusLabel(status)}`
+            : `This order is ${statusLabel(current.status)} and cannot be marked ${statusLabel(status)}`);
+    }
+
+    return getAdminOrder(id);
+}
+
+/*
+|--------------------------------------------------------------------------
 | Cancellation
 |--------------------------------------------------------------------------
 | One transaction:

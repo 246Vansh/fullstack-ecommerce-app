@@ -6,7 +6,9 @@ import {
     createVariant, updateVariant, deactivateVariant,
     listCategories, createCategory, updateCategory,
 } from "../controllers/adminCatalogController.js";
+import { listOrders, getOrder, updateOrderStatus } from "../controllers/adminOrderController.js";
 import { ADMIN_PAGINATION, MAX_STOCK } from "../services/adminCatalogService.js";
+import { ADMIN_ORDER_PAGINATION, FULFILMENT_STEPS, ORDER_STATUSES } from "../services/orderService.js";
 import { authenticate, authorize, requireCurrentAdmin } from "../middleware/auth.js";
 import { paginationRules, singleQuery, validate } from "../middleware/validate.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -170,6 +172,18 @@ const updateVariantRules = [
         .custom((value, { req }) => req.body.stock === undefined).withMessage("Send either stock or stockAdjustment, not both"),
 ];
 
+const orderListRules = [
+    ...paginationRules(ADMIN_ORDER_PAGINATION),
+    singleQuery("status").optional().isIn(ORDER_STATUSES).withMessage(`status must be one of: ${ORDER_STATUSES.join(", ")}`),
+];
+
+// Only the step requested; the server derives which status it must follow.
+const orderStatusRules = [
+    idParam,
+    body("status").exists().withMessage("status is required").bail()
+        .isIn(FULFILMENT_STEPS.slice(1)).withMessage(`status must be one of: ${FULFILMENT_STEPS.slice(1).join(", ")}`),
+];
+
 // ------------------------------------------------------------ routes
 
 router.get("/products", listRules, validate, listProducts);
@@ -187,5 +201,11 @@ router.delete("/variants/:id", idParam, validate, deactivateVariant);
 router.get("/categories", listCategories);
 router.post("/categories", categoryFields({ required: true }), validate, createCategory);
 router.patch("/categories/:id", idParam, categoryFields({ required: false }), validate, requireChanges, updateCategory);
+
+// Orders are never created, edited or deleted here: only read, and moved
+// forward through fulfilment one step at a time.
+router.get("/orders", orderListRules, validate, listOrders);
+router.get("/orders/:id", idParam, validate, getOrder);
+router.patch("/orders/:id/status", orderStatusRules, validate, updateOrderStatus);
 
 export default router;

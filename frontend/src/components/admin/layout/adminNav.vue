@@ -18,7 +18,7 @@
 
 <script setup>
 import { RouterLink, useRoute } from "vue-router";
-import { CubeIcon, FolderIcon } from "@heroicons/vue/24/outline";
+import { ClipboardDocumentListIcon, CubeIcon, FolderIcon } from "@heroicons/vue/24/outline";
 
 defineProps({
     // Set on the mobile drawer's copy only (the menu button's aria-controls).
@@ -31,6 +31,7 @@ defineEmits(["navigate"]);
 const ITEMS = [
     { label: "Products", to: { name: "admin-products" }, icon: CubeIcon, section: "admin-product" },
     { label: "Categories", to: { name: "admin-categories" }, icon: FolderIcon, section: "admin-categories" },
+    { label: "Orders", to: { name: "admin-orders" }, icon: ClipboardDocumentListIcon, section: "admin-order" },
 ];
 
 const route = useRoute();
