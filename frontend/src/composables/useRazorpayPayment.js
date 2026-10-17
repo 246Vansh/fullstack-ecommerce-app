@@ -39,7 +39,13 @@ export const PAYMENT_MESSAGES = {
     UNKNOWN: "We couldn't confirm your payment yet. Refresh the payment status in a moment; you will not be charged twice.",
     // Payment never started (gateway or Checkout unavailable): nothing was charged.
     ERROR: "We couldn't start the payment. Nothing was charged; you can try again below.",
+    // The total is above the online payment limit: retrying cannot help.
+    UNPAYABLE: "This order's total is above the online payment limit, so it can't be paid online. Nothing was charged; you can cancel the order below.",
 };
+
+// The server's code for an order total Razorpay refuses (paymentService.js).
+const isAmountLimitError = (err) => err.response?.status === 422
+    && (err.response.data?.details ?? []).some((detail) => detail?.code === "PAYMENT_AMOUNT_LIMIT");
 
 // Opens Razorpay Checkout; resolves when it closes: { kind: "success", response }
 // after a payment, otherwise "failed" (an attempt failed) or "dismissed".
@@ -91,6 +97,7 @@ export function useRazorpayPayment() {
             try {
                 [session] = await Promise.all([orderService.startPayment(orderId), loadCheckoutScript()]);
             } catch (err) {
+                if (isAmountLimitError(err)) return outcome("UNPAYABLE");
                 return outcome("ERROR", null, err.response ? parseApiError(err).message : err.message);
             }
 

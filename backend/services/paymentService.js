@@ -62,8 +62,21 @@ export function setPaymentGateway(next) {
 
 const getGateway = () => (gateway ??= razorpayGateway());
 
-// Gateway errors become one generic 502; the log keeps only the HTTP status
-// and Razorpay's error code (never the request, response body or keys).
+// The client-visible code for an order total Razorpay refuses outright.
+export const PAYMENT_AMOUNT_LIMIT = "PAYMENT_AMOUNT_LIMIT";
+
+// Razorpay refused to create the gateway order because the amount is above the
+// account's maximum. The same amount fails every time, so it is not retryable.
+function isAmountLimitRejection(operation, err) {
+    return operation === "order create"
+        && err?.statusCode === 400
+        && err?.error?.code === "BAD_REQUEST_ERROR"
+        && /^amount exceeds maximum amount allowed\.?$/i.test(String(err.error.description ?? "").trim());
+}
+
+// Gateway errors become one generic 502 (except an amount-limit rejection: 422);
+// the log keeps only the HTTP status and Razorpay's error code (never the
+// request, response body or keys).
 async function callGateway(operation, orderNumber, fn) {
     try {
         return await fn(getGateway());
@@ -71,6 +84,18 @@ async function callGateway(operation, orderNumber, fn) {
         const status = Number.isInteger(err?.statusCode) ? err.statusCode : "network";
         const code = /^[A-Z_]{1,64}$/.test(err?.error?.code ?? "") ? err.error.code : "unknown";
         console.error(`Razorpay ${operation} failed for order ${orderNumber}: ${status} ${code}`);
+        if (process.env.NODE_ENV !== "production") {
+            // Development only: Razorpay's own validation text, allow-listed.
+            const clean = (v) => (typeof v === "string" ? v.replace(/[\r\n\t]/g, " ").slice(0, 200) : undefined);
+            const { description, field, reason, source, step } = err?.error ?? {};
+            console.error(`Razorpay ${operation} detail for order ${orderNumber}: ${JSON.stringify({
+                description: clean(description), field: clean(field), reason: clean(reason), source: clean(source), step: clean(step),
+            })}`);
+        }
+        if (isAmountLimitRejection(operation, err)) {
+            throw new ApiError(422, "This order's total is above the online payment limit, so it can't be paid online. You can cancel the order instead.",
+                [{ field: "amount", code: PAYMENT_AMOUNT_LIMIT, message: "Above the online payment limit" }]);
+        }
         throw new ApiError(502, "The payment provider could not be reached. Please try again.");
     }
 }
