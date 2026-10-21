@@ -17,9 +17,29 @@ import { Prisma } from "@prisma/client";
 | All arithmetic uses Prisma.Decimal (never JS numbers). Each component is
 | rounded to cents with ROUND_HALF_UP before the total is summed, so the
 | stored components always add up exactly to the stored total.
+|
+| Currency: every price is in its product's currency (Product.currency, set
+| when the product is created and never changed). A cart, a checkout and an
+| order each have exactly one currency; amounts in different currencies are
+| never added together, and nothing is ever converted between currencies.
 */
 
 const { Decimal } = Prisma;
+
+// The currencies a product can be priced in. Both use 2 decimal places.
+export const CURRENCIES = ["USD", "INR"];
+
+export const MIXED_CURRENCY = "MIXED_CURRENCY";
+
+export const MIXED_CURRENCY_MESSAGE = "Items priced in different currencies can't be bought together. Check out or remove the items already in your cart first.";
+
+// The one currency of a cart's products: null when there are none or when
+// they are priced in more than one currency (which must never be totalled).
+export function currencyOf(products) {
+    const currencies = new Set(products.map((product) => product.currency));
+
+    return currencies.size === 1 ? [...currencies][0] : null;
+}
 
 const ZERO = new Decimal(0);
 

@@ -96,8 +96,8 @@ export function useCheckout() {
         placeError.value = "";
 
         try {
-            // The displayed server total is sent only as a check, never as the price.
-            const order = await orderService.createOrder(selectedAddressId.value, summary.value?.total, paymentMethod);
+            // The displayed server total and currency are sent only as a check, never as the price.
+            const order = await orderService.createOrder(selectedAddressId.value, summary.value?.total, paymentMethod, summary.value?.currency);
 
             // The server emptied the cart; resync the header badge.
             cart.loadCart();

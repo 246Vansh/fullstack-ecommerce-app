@@ -24,9 +24,15 @@
         <div class="my-6 h-px bg-gray-100"></div>
 
         <!-- Summary -->
-        <summaryRow label="Subtotal" :value="formatPrice(subtotal)" :is-total="true" divider />
+        <!-- Amounts in different currencies are never added up into one subtotal. -->
+        <p v-if="mixedCurrency" role="alert"
+            class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            Your cart has items priced in different currencies. Remove the items in one currency to check out.
+        </p>
 
-        <summaryRow v-if="discount > 0" label="Discount" :value="`-${formatPrice(discount)}`"
+        <summaryRow v-else label="Subtotal" :value="formatPrice(subtotal, currency)" :is-total="true" divider />
+
+        <summaryRow v-if="discount > 0" label="Discount" :value="`-${formatPrice(discount, currency)}`"
             value-class="font-semibold text-emerald-600" divider />
 
         <!-- The cart never states a final total; checkout prices the order on the server. -->
@@ -39,7 +45,7 @@
             <p class="text-center text-sm font-medium text-emerald-700">
                 🎉 You saved
                 <span class="font-bold">
-                    {{ formatPrice(discount) }}
+                    {{ formatPrice(discount, currency) }}
                 </span>
                 on this order.
             </p>
@@ -63,6 +69,17 @@ defineProps({
     subtotal: {
         type: Number,
         default: 0,
+    },
+
+    // The cart's one currency; null when empty or mixed.
+    currency: {
+        type: String,
+        default: null,
+    },
+
+    mixedCurrency: {
+        type: Boolean,
+        default: false,
     },
 
     discount: {

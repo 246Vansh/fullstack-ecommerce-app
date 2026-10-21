@@ -9,6 +9,7 @@ import {
 import { listOrders, getOrder, updateOrderStatus } from "../controllers/adminOrderController.js";
 import { ADMIN_PAGINATION, MAX_STOCK } from "../services/adminCatalogService.js";
 import { ADMIN_ORDER_PAGINATION, FULFILMENT_STEPS, ORDER_STATUSES } from "../services/orderService.js";
+import { CURRENCIES } from "../services/pricingService.js";
 import { authenticate, authorize, requireCurrentAdmin } from "../middleware/auth.js";
 import { paginationRules, singleQuery, validate } from "../middleware/validate.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -152,8 +153,20 @@ const listRules = [
     singleQuery("categoryId").optional().isInt({ min: 1, max: MAX_ID }).withMessage("categoryId must be a positive integer").toInt(),
 ];
 
+// The currency of every price on the product and its variants: chosen once, on
+// create (USD when left out). Changing it would reinterpret the stored prices,
+// so an update that sends it is refused rather than silently ignored.
+const currencyOnCreate = body("currency").optional()
+    .isIn(CURRENCIES).withMessage(`currency must be one of: ${CURRENCIES.join(", ")}`);
+
+// optional() keeps an absent currency out of matchedData, or requireChanges
+// would count it as a change and accept an empty PATCH.
+const currencyFixed = body("currency").optional().not().exists()
+    .withMessage("currency is set when a product is created and cannot be changed");
+
 const createProductRules = [
     ...productFields({ required: true }),
+    currencyOnCreate,
     body("variants").exists().withMessage("variants is required").bail()
         .isArray({ min: 1, max: 100 }).withMessage("variants must be a list of 1 to 100 variants"),
     ...variantFields("variants.*.", { required: true }),
@@ -189,7 +202,7 @@ const orderStatusRules = [
 router.get("/products", listRules, validate, listProducts);
 router.post("/products", createProductRules, validate, createProduct);
 router.get("/products/:id", idParam, validate, getProduct);
-router.patch("/products/:id", idParam, productFields({ required: false }), validate, requireChanges, updateProduct);
+router.patch("/products/:id", idParam, productFields({ required: false }), currencyFixed, validate, requireChanges, updateProduct);
 // Soft delete (isActive = false); products are never removed from order history.
 router.delete("/products/:id", idParam, validate, deactivateProduct);
 router.put("/products/:id/images", idParam, imagesArray(true), imageFields("images.*."), validate, replaceImages);

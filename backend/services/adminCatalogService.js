@@ -50,6 +50,7 @@ export const ADMIN_PAGINATION = { defaultLimit: 20, maxLimit: 100 };
 // enough for any real count, and it catches typos like an extra few zeros.
 export const MAX_STOCK = 1_000_000;
 
+// `currency` is deliberately not here: it is written by createProduct only.
 const PRODUCT_FIELDS = ["name", "slug", "description", "brand", "price", "originalPrice", "isNew", "isActive", "categoryId"];
 const VARIANT_FIELDS = ["sku", "size", "color", "colorHex", "price", "originalPrice", "stock", "isActive"];
 const IMAGE_FIELDS = ["url", "altText"];
@@ -146,6 +147,7 @@ const adminProductSelect = {
     brand: true,
     price: true,
     originalPrice: true,
+    currency: true,
     isNew: true,
     isActive: true,
     createdAt: true,
@@ -269,7 +271,7 @@ export async function listAdminProducts({ page, limit, search, isActive, categor
         prisma.product.findMany({
             where,
             select: {
-                id: true, name: true, slug: true, brand: true, price: true, originalPrice: true,
+                id: true, name: true, slug: true, brand: true, price: true, originalPrice: true, currency: true,
                 isNew: true, isActive: true, createdAt: true, updatedAt: true,
                 category: { select: categorySelect },
                 images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 },
@@ -298,7 +300,8 @@ export async function listAdminProducts({ page, limit, search, isActive, categor
 export const getAdminProduct = (id) => loadProduct(id);
 
 export async function createProduct(input) {
-    const data = pick(input, PRODUCT_FIELDS);
+    // The currency is fixed from here on (USD when not given; see adminRoutes).
+    const data = { ...pick(input, PRODUCT_FIELDS), ...pick(input, ["currency"]) };
     const variants = input.variants.map((variant) => pick(variant, VARIANT_FIELDS));
     const images = (input.images ?? []).map((image, position) => ({ ...pick(image, IMAGE_FIELDS), position }));
 

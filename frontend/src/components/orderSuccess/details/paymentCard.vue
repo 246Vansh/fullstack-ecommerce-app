@@ -60,7 +60,7 @@
 
                 <span class="text-base font-bold text-orange-600">
 
-                    {{ formatPrice(order.total) }}
+                    {{ formatPrice(order.total, order.currency) }}
 
                 </span>
 
@@ -119,12 +119,12 @@ const props = defineProps({
 });
 
 const rows = computed(() => [
-    { label: "Subtotal", value: formatPrice(props.order.subtotal) },
-    { label: "Shipping", value: formatPrice(props.order.shipping) },
-    { label: "Tax", value: formatPrice(props.order.tax) },
+    { label: "Subtotal", value: formatPrice(props.order.subtotal, props.order.currency) },
+    { label: "Shipping", value: formatPrice(props.order.shipping, props.order.currency) },
+    { label: "Tax", value: formatPrice(props.order.tax, props.order.currency) },
     // A discount row is only shown for a real (non-zero) discount.
     ...(Number(props.order.discount) > 0
-        ? [{ label: "Discount", value: `-${formatPrice(props.order.discount)}` }]
+        ? [{ label: "Discount", value: `-${formatPrice(props.order.discount, props.order.currency)}` }]
         : []),
 ]);
 </script>

@@ -5,9 +5,10 @@ import { cartService } from "@/services/cartService";
 import { productService, BATCH_LIMIT } from "@/services/productService";
 import { parseApiError } from "@/services/apiClient";
 import { readGuestCart, writeGuestCart, GUEST_CART_KEY } from "@/services/guestCartStorage";
+import { addsSecondCurrency, cartCurrencyOf, MIXED_CURRENCY_MESSAGE } from "@/utils/cartCurrency";
 import { useAuthStore } from "./authStore";
 
-const EMPTY_CART = { id: null, items: [], itemCount: 0, subtotal: 0 };
+const EMPTY_CART = { id: null, items: [], itemCount: 0, currency: null, mixedCurrency: false, subtotal: 0 };
 
 // Merge responses that retrying cannot fix (bad input, variant removed, not
 // enough stock). The item is kept and reported instead of being retried.
@@ -74,6 +75,7 @@ export const useCartStore = defineStore("cart", () => {
                 // undefined = not loaded yet, null = removed from the catalog.
                 name: product?.name ?? (product === null ? "Item no longer available" : "Cart item"),
                 brand: product?.brand ?? "",
+                currency: product?.currency ?? null,
                 image: product?.image ?? null,
                 alt: product?.name ?? "",
             },
@@ -93,11 +95,16 @@ export const useCartStore = defineStore("cart", () => {
             .filter((item) => guestProducts.value[item.productId] !== undefined)
             .map(toGuestCartItem);
 
+        // Amounts in different currencies (e.g. added in two tabs at once) are never totalled.
+        const { currency, mixedCurrency } = cartCurrencyOf(items.map((item) => item.product.currency));
+
         return {
             id: null,
             items,
             itemCount: guestItems.value.reduce((count, item) => count + item.quantity, 0),
-            subtotal: toMoney(items.reduce((sum, item) => sum + (item.subtotal ?? 0), 0)),
+            currency,
+            mixedCurrency,
+            subtotal: mixedCurrency ? null : toMoney(items.reduce((sum, item) => sum + (item.subtotal ?? 0), 0)),
         };
     });
 
@@ -106,6 +113,8 @@ export const useCartStore = defineStore("cart", () => {
     const items = computed(() => activeCart.value.items);
     const itemCount = computed(() => activeCart.value.itemCount);
     const subtotal = computed(() => activeCart.value.subtotal);
+    const currency = computed(() => activeCart.value.currency);
+    const mixedCurrency = computed(() => activeCart.value.mixedCurrency);
     const isEmpty = computed(() => activeCart.value.items.length === 0);
 
     // Guest items the server rejected during the merge, shown on the cart page.
@@ -192,7 +201,10 @@ export const useCartStore = defineStore("cart", () => {
         return guestProducts.value[productId]?.variants.find((item) => item.id === variantId)?.stock;
     }
 
-    function addGuestItem(variantId, quantity, { productId, stock } = {}) {
+    // A stored item's currency: recorded when added, else from loaded catalog data.
+    const knownCurrency = (item) => item.currency ?? guestProducts.value[item.productId]?.currency;
+
+    function addGuestItem(variantId, quantity, { productId, stock, currency } = {}) {
         error.value = "";
 
         // Re-read so a change made in another tab is not overwritten.
@@ -207,9 +219,12 @@ export const useCartStore = defineStore("cart", () => {
 
         if (limit != null && next > limit) guestFail(stockMessage(limit));
 
+        // One currency per cart, as on the server (which enforces it again when merging).
+        if (addsSecondCurrency(current, { variantId, currency }, knownCurrency)) guestFail(MIXED_CURRENCY_MESSAGE);
+
         saveGuestItems(existing
             ? current.map((item) => (item.variantId === variantId ? { ...item, quantity: next } : item))
-            : [...current, { variantId, productId: id, quantity }]);
+            : [...current, { variantId, productId: id, quantity, ...(currency && { currency }) }]);
     }
 
     function updateGuestItem(variantId, quantity) {
@@ -431,6 +446,8 @@ export const useCartStore = defineStore("cart", () => {
         items,
         itemCount,
         subtotal,
+        currency,
+        mixedCurrency,
         isEmpty,
         isGuest,
         mergeIssues,

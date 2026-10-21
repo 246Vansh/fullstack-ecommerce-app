@@ -79,7 +79,8 @@
                 <aside class="sticky top-8 min-w-0" :class="{ 'opacity-60': loading }">
 
                     <orderSummary :products="products" :subtotal="summary.subtotal" :discount="summary.discount"
-                        :shipping="summary.shipping" :tax="summary.tax" :total="summary.total" :customer="auth.user"
+                        :shipping="summary.shipping" :tax="summary.tax" :total="summary.total" :currency="summary.currency"
+                        :customer="auth.user"
                         :address="selectedAddress" :can-proceed="validation.canProceed && !loading" :placing="placing"
                         @place-order="placeOrder(paymentMethod)" />
 
@@ -151,6 +152,7 @@ const products = computed(() => items.value.map((item) => ({
     quantity: item.quantity,
     price: item.unitPrice,
     subtotal: item.subtotal,
+    currency: item.product.currency,
     issue: item.issue,
 })));
 

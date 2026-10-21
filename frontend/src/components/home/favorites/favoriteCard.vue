@@ -29,7 +29,7 @@
             </div>
 
             <p class="text-sm font-medium text-gray-900">
-                {{ formatPrice(product.price) }}
+                {{ formatPrice(product.price, product.currency) }}
             </p>
 
         </div>

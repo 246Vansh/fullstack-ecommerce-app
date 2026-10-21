@@ -4,6 +4,7 @@ import { body, param, query } from "express-validator";
 import { createMyOrder, getMyOrder, getMyOrders, cancelMyOrder } from "../controllers/orderController.js";
 import { startMyPayment, verifyMyPayment, refreshMyPayment } from "../controllers/paymentController.js";
 import { ORDER_PAGINATION, PAYMENT_METHODS } from "../services/orderService.js";
+import { CURRENCIES } from "../services/pricingService.js";
 import { authenticate } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { orderMutationLimiter, paymentLimiter } from "../middleware/rateLimits.js";
@@ -17,6 +18,9 @@ const createRules = [
         .isDecimal({ decimal_digits: "0,2" }).withMessage("expectedTotal must be an amount with at most 2 decimals")
         .bail()
         .custom((value) => Number(value) >= 0).withMessage("expectedTotal cannot be negative"),
+    // Optional: the checkout currency the customer saw, compared (never stored).
+    body("expectedCurrency").optional()
+        .isIn(CURRENCIES).withMessage(`expectedCurrency must be one of: ${CURRENCIES.join(", ")}`),
     // Optional; COD when left out (the behaviour before online payment).
     body("paymentMethod").optional()
         .isIn(PAYMENT_METHODS).withMessage(`paymentMethod must be one of: ${PAYMENT_METHODS.join(", ")}`),

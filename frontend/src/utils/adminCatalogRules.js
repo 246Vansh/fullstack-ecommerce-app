@@ -22,6 +22,9 @@ export const LIMITS = {
     maxStock: 1_000_000,
 };
 
+// A product's prices are in one of these, chosen on create and fixed after.
+export const CURRENCIES = ["USD", "INR"];
+
 // Decimal(10, 2): up to 8 integer digits and 2 decimals.
 const MONEY = /^\d{1,8}(\.\d{1,2})?$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -97,7 +100,7 @@ export function wholeNumberError(value, { label, min, max }) {
 
 export const emptyProductForm = () => ({
     name: "", slug: "", brand: "", description: "",
-    price: "", originalPrice: "", categoryId: "", isNew: false, isActive: true,
+    price: "", originalPrice: "", currency: "USD", categoryId: "", isNew: false, isActive: true,
 });
 
 export const productFormFrom = (product) => ({
@@ -107,6 +110,8 @@ export const productFormFrom = (product) => ({
     description: product.description ?? "",
     price: Number(product.price).toFixed(2),
     originalPrice: product.originalPrice == null ? "" : Number(product.originalPrice).toFixed(2),
+    // Shown only: an existing product's currency cannot be changed.
+    currency: product.currency,
     categoryId: String(product.category.id),
     isNew: product.isNew,
     isActive: product.isActive,
@@ -143,7 +148,8 @@ export function productPayload(form, { create = false } = {}) {
         originalPrice: orNull(form.originalPrice),
         categoryId: Number(form.categoryId),
         isNew: Boolean(form.isNew),
-        ...(create && { isActive: Boolean(form.isActive) }),
+        // The currency is sent on create only; the server refuses it on update.
+        ...(create && { isActive: Boolean(form.isActive), currency: form.currency }),
     };
 }
 

@@ -1,5 +1,6 @@
 // Server-authoritative pricing, Decimal money, order price snapshots,
-// expectedTotal checks and payment state. Uses its own test category and
+// expectedTotal checks, payment state and currencies (one per cart/order,
+// never converted). Uses its own test category, a USD product and an INR
 // product (so seed prices are never touched) and throwaway users; after()
 // removes every row this run created.
 //
@@ -32,7 +33,7 @@ const D = (value) => new Prisma.Decimal(value);
 const RUN = crypto.randomBytes(4).toString("hex");
 const userIds = [];
 const created = { users: [], categories: [] };
-let server, product, fallback, override, whole;
+let server, product, fallback, override, whole, inrProduct, inrVariant;
 
 // ---------------------------------------------------------------- unit tests
 
@@ -138,6 +139,17 @@ before(async () => {
     });
     [fallback, override, whole] = product.variants;
 
+    // Priced in INR from creation: 499.00 is rupees, never a converted dollar amount.
+    inrProduct = await prisma.product.create({
+        data: {
+            categoryId: category.id, name: `Phase 8 INR Tee ${RUN}`, slug: `phase8-inr-${RUN}`,
+            description: "Pricing test fixture (INR)", brand: "Nike", price: D("499.00"), currency: "INR", isActive: true,
+            variants: { create: [{ sku: `P8-${RUN}-INR`, size: "M", color: "White", price: null, stock: 50 }] },
+        },
+        include: { variants: true },
+    });
+    [inrVariant] = inrProduct.variants;
+
     server = await startServer(testServerEnv(guard));
 
     // Before any request that writes: the server reads a product that exists
@@ -155,7 +167,9 @@ after(async () => {
             await prisma.order.update({ where: { id: order.id }, data: { status: "PENDING", paymentStatus: "UNPAID" } });
             await cancelOrder(order.userId, order.id);
         }
-        if (product) for (const v of product.variants) assert.equal(await stockOf(v.id), 50, "fixture stock restored");
+        for (const fixture of [product, inrProduct]) {
+            if (fixture) for (const v of fixture.variants) assert.equal(await stockOf(v.id), 50, "fixture stock restored");
+        }
 
         // Only this run's rows: its users' orders, carts and addresses, then the
         // users, its product (variants cascade) and its categories (child first).
@@ -167,8 +181,8 @@ after(async () => {
             expectDeleted("users", await tx.user.deleteMany({
                 where: { id: { in: created.users.map((u) => u.id) }, email: { in: created.users.map((u) => u.email) } },
             }), created.users.length);
-            if (product) {
-                expectDeleted("products", await tx.product.deleteMany({ where: { id: product.id, slug: product.slug } }), 1);
+            for (const fixture of [product, inrProduct]) {
+                if (fixture) expectDeleted("products", await tx.product.deleteMany({ where: { id: fixture.id, slug: fixture.slug } }), 1);
             }
             for (const category of created.categories) {
                 expectDeleted(`category ${category.slug}`, await tx.category.deleteMany({ where: { id: category.id, slug: category.slug } }), 1);
@@ -197,8 +211,8 @@ dbTest("1/3/4/5/6/7/8/17. server prices the order: lines, subtotal, shipping, ta
     const user = await shopper("totals", [[fallback, 3], [override, 2], [whole, 1]]);
 
     const checkout = (await call("GET", "/checkout", user)).body.data;
-    assert.deepEqual(Object.keys(checkout.summary).sort(), ["discount", "shipping", "subtotal", "tax", "total"]);
-    assert.deepEqual(checkout.summary, { subtotal: 118.97, shipping: 0, tax: 0, discount: 0, total: 118.97 });
+    assert.deepEqual(Object.keys(checkout.summary).sort(), ["currency", "discount", "shipping", "subtotal", "tax", "total"]);
+    assert.deepEqual(checkout.summary, { subtotal: 118.97, shipping: 0, tax: 0, discount: 0, total: 118.97, currency: "USD" });
     assert.deepEqual(checkout.items.map((i) => i.subtotal), [59.97, 49, 10]);
 
     const { status, body } = await call("POST", "/orders", user, { addressId: user.addressId });
@@ -206,7 +220,7 @@ dbTest("1/3/4/5/6/7/8/17. server prices the order: lines, subtotal, shipping, ta
     const order = body.data;
     assert.deepEqual(order.items.map((i) => [i.unitPrice, i.quantity, i.lineTotal]), [[19.99, 3, 59.97], [24.5, 2, 49], [10, 1, 10]]);
     assert.deepEqual(
-        { subtotal: order.subtotal, shipping: order.shipping, tax: order.tax, discount: order.discount, total: order.total },
+        { subtotal: order.subtotal, shipping: order.shipping, tax: order.tax, discount: order.discount, total: order.total, currency: order.currency },
         checkout.summary,
         "the stored order total is exactly the checkout total",
     );
@@ -338,4 +352,109 @@ dbTest("20. cancellation still restores stock; a paid order cannot be self-cance
     const blocked = await call("POST", `/orders/${paid.id}/cancel`, user);
     assert.equal(blocked.status, 409);
     assert.equal(await stockOf(whole.id), reserved);
+});
+
+// ------------------------------------------------------------ currencies
+
+dbTest("currency: existing (USD) products keep USD from catalog to cart, checkout and the stored order", async () => {
+    assert.equal((await call("GET", `/products/${product.id}`)).body.data.currency, "USD");
+    assert.equal((await prisma.product.findUnique({ where: { id: product.id } })).currency, "USD", "the column default");
+
+    const user = await shopper("usd", [[override, 1]]);
+    const cart = (await call("GET", "/cart", user)).body.data;
+    assert.equal(cart.currency, "USD");
+    assert.equal(cart.mixedCurrency, false);
+    assert.equal(cart.items[0].product.currency, "USD");
+
+    const checkout = (await call("GET", "/checkout", user)).body.data;
+    assert.equal(checkout.summary.currency, "USD");
+
+    const order = (await call("POST", "/orders", user, { addressId: user.addressId, expectedTotal: 24.5, expectedCurrency: "USD" })).body.data;
+    assert.equal(order.currency, "USD");
+    assert.equal(order.total, 24.5);
+    assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).currency, "USD");
+    assert.equal((await call("GET", "/orders", user)).body.data[0].currency, "USD");
+});
+
+dbTest("currency: an INR product makes an INR order with its genuine INR total, stored before any payment", async () => {
+    const detail = (await call("GET", `/products/${inrProduct.id}`)).body.data;
+    assert.equal(detail.currency, "INR");
+    assert.equal(detail.variants[0].price, 499);
+
+    const user = await shopper("inr", [[inrVariant, 3]]);
+    const cart = (await call("GET", "/cart", user)).body.data;
+    assert.deepEqual([cart.currency, cart.mixedCurrency, cart.subtotal], ["INR", false, 1497]);
+
+    const checkout = (await call("GET", "/checkout", user)).body.data;
+    assert.equal(checkout.summary.currency, "INR");
+    assert.equal(checkout.summary.total, 1497);
+    assert.equal(checkout.validation.canProceed, true);
+
+    const { status, body } = await call("POST", "/orders", user, {
+        addressId: user.addressId, expectedTotal: checkout.summary.total, expectedCurrency: checkout.summary.currency,
+    });
+    assert.equal(status, 201, JSON.stringify(body));
+    assert.equal(body.data.currency, "INR");
+    assert.equal(body.data.paymentStatus, "UNPAID");
+
+    const stored = await prisma.order.findUnique({ where: { id: body.data.id }, include: { items: true } });
+    assert.equal(stored.currency, "INR");
+    assert.equal(stored.total.toFixed(2), "1497.00", "rupees as priced; nothing converted");
+    assert.equal(stored.items[0].unitPrice.toFixed(2), "499.00");
+    assert.equal(await stockOf(inrVariant.id), 47);
+});
+
+dbTest("currency: adding an item in another currency to a cart is refused and the cart is unchanged", async () => {
+    const user = await shopper("mixed-add", [[override, 1]]);
+
+    const refused = await call("POST", "/cart/items", user, { variantId: inrVariant.id, quantity: 1 });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.details[0].code, "MIXED_CURRENCY");
+
+    const cart = (await call("GET", "/cart", user)).body.data;
+    assert.deepEqual(cart.items.map((i) => i.variant.id), [override.id]);
+    assert.equal(cart.currency, "USD");
+
+    // The other way round too, and more of the same currency is still fine.
+    const inrUser = await shopper("mixed-add-inr", [[inrVariant, 1]]);
+    assert.equal((await call("POST", "/cart/items", inrUser, { variantId: fallback.id, quantity: 1 })).status, 409);
+    assert.equal((await call("POST", "/cart/items", inrUser, { variantId: inrVariant.id, quantity: 1 })).status, 201);
+});
+
+dbTest("currency: a cart that mixes currencies is never totalled and cannot be ordered", async () => {
+    // Bypasses addItem (which refuses this) to model a cart that is mixed anyway.
+    const user = await shopper("mixed-cart", [[override, 1]]);
+    const cart = await prisma.cart.findUnique({ where: { userId: user.id } });
+    await prisma.cartItem.create({ data: { cartId: cart.id, variantId: inrVariant.id, quantity: 1 } });
+    const stockBefore = [await stockOf(override.id), await stockOf(inrVariant.id)];
+
+    const shown = (await call("GET", "/cart", user)).body.data;
+    assert.deepEqual([shown.currency, shown.mixedCurrency, shown.subtotal], [null, true, null]);
+
+    const checkout = (await call("GET", "/checkout", user)).body.data;
+    assert.deepEqual([checkout.summary.currency, checkout.summary.subtotal, checkout.summary.total], [null, null, null],
+        "no combined amount across currencies");
+    assert.equal(checkout.validation.canProceed, false);
+    const issue = checkout.validation.issues.find((i) => i.variantId === inrVariant.id);
+    assert.equal(issue?.code, "MIXED_CURRENCY");
+
+    const ordersBefore = await prisma.order.count({ where: { userId: user.id } });
+    const { status } = await call("POST", "/orders", user, { addressId: user.addressId });
+    assert.equal(status, 409);
+    assert.equal(await prisma.order.count({ where: { userId: user.id } }), ordersBefore, "no order");
+    assert.deepEqual([await stockOf(override.id), await stockOf(inrVariant.id)], stockBefore, "no stock taken");
+});
+
+dbTest("currency: a checkout currency that no longer matches is a stale price; unknown currencies are rejected", async () => {
+    const user = await shopper("expected-currency", [[inrVariant, 1]]);
+    const stockBefore = await stockOf(inrVariant.id);
+
+    const stale = await call("POST", "/orders", user, { addressId: user.addressId, expectedTotal: 499, expectedCurrency: "USD" });
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.details[0].code, "PRICE_CHANGED");
+
+    for (const bad of ["EUR", "inr", 1]) {
+        assert.equal((await call("POST", "/orders", user, { addressId: user.addressId, expectedCurrency: bad })).status, 422, String(bad));
+    }
+    assert.equal(await stockOf(inrVariant.id), stockBefore, "no stock taken");
 });

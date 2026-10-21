@@ -147,6 +147,9 @@ model Category {
   @@map("categories")
 }
 
+// `currency` is the currency of every price on the product and its variants.
+// It is set when the product is created and never changed afterwards, so a
+// stored amount is never reinterpreted in another currency (pricingService).
 model Product {
   id            Int      @id @default(autoincrement())
   categoryId    Int
@@ -156,6 +159,7 @@ model Product {
   brand         String?  @db.VarChar(100)
   price         Decimal  @db.Decimal(10, 2)
   originalPrice Decimal? @db.Decimal(10, 2)
+  currency      String   @default("USD") @db.Char(3)
   isNew         Boolean  @default(false)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())

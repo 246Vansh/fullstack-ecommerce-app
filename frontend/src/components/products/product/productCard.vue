@@ -27,7 +27,7 @@
 
                 <ProductInfo :brand="product.brand" :name="product.name" />
 
-                <ProductPrice :price="product.price" :originalPrice="product.originalPrice" />
+                <ProductPrice :price="product.price" :originalPrice="product.originalPrice" :currency="product.currency" />
 
             </div>
 

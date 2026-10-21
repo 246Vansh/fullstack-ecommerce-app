@@ -38,7 +38,8 @@
 
         <orderItems :products="products" />
 
-        <orderTotals :subtotal="subtotal" :discount="discount" :shipping="shipping" :tax="tax" :total="total" />
+        <orderTotals :subtotal="subtotal" :discount="discount" :shipping="shipping" :tax="tax" :total="total"
+            :currency="currency" />
 
         <checkoutButton :disabled="!canProceed" :loading="placing" @place="$emit('place-order')" />
 
@@ -67,6 +68,8 @@ defineProps({
     tax: Number,
 
     total: Number,
+
+    currency: String,
 
     customer: Object,
 

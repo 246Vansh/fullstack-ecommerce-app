@@ -32,9 +32,9 @@
                         <span v-if="!product.category.isActive" class="block text-xs text-amber-700">Category inactive</span>
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <span class="font-semibold text-slate-900">{{ formatPrice(product.price) }}</span>
+                        <span class="font-semibold text-slate-900">{{ formatPrice(product.price, product.currency) }}</span>
                         <span v-if="product.originalPrice != null" class="block text-xs text-slate-500 line-through">
-                            <span class="sr-only">Was </span>{{ formatPrice(product.originalPrice) }}
+                            <span class="sr-only">Was </span>{{ formatPrice(product.originalPrice, product.currency) }}
                         </span>
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
@@ -76,9 +76,9 @@
                 <div>
                     <dt class="text-slate-500">Price</dt>
                     <dd class="font-semibold text-slate-900">
-                        {{ formatPrice(product.price) }}
+                        {{ formatPrice(product.price, product.currency) }}
                         <span v-if="product.originalPrice != null" class="ml-1 text-xs font-normal text-slate-500 line-through">
-                            <span class="sr-only">Was </span>{{ formatPrice(product.originalPrice) }}
+                            <span class="sr-only">Was </span>{{ formatPrice(product.originalPrice, product.currency) }}
                         </span>
                     </dd>
                 </div>

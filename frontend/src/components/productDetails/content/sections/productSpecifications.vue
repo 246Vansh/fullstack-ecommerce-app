@@ -278,18 +278,18 @@ const props = defineProps({
 ---------------------------------- */
 
 const formattedPrice = computed(() =>
-    formatPrice(props.product.price)
+    formatPrice(props.product.price, props.product.currency)
 );
 
 const formattedOriginalPrice = computed(() =>
-    formatPrice(props.product.originalPrice)
+    formatPrice(props.product.originalPrice, props.product.currency)
 );
 
 const savedAmount = computed(() => {
     const original = Number(props.product.originalPrice || 0);
     const current = Number(props.product.price || 0);
 
-    return formatPrice(Math.max(original - current, 0));
+    return formatPrice(Math.max(original - current, 0), props.product.currency);
 });
 
 const hasDiscount = computed(() =>

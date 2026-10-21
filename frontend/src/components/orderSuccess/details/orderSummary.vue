@@ -55,7 +55,7 @@
                 </span>
 
                 <span class="text-base font-bold text-orange-600">
-                    {{ formatPrice(order.total) }}
+                    {{ formatPrice(order.total, order.currency) }}
                 </span>
 
             </div>

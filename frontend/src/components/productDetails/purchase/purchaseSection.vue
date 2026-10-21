@@ -167,7 +167,7 @@ const handleAddToCart = async () => {
     adding.value = true;
 
     try {
-        await cart.addItem(variant.id, quantity.value, { productId: props.product.id, stock: variant.stock });
+        await cart.addItem(variant.id, quantity.value, { productId: props.product.id, stock: variant.stock, currency: props.product.currency });
 
         feedback.value = { type: "success", text: "Added to your cart." };
     } catch (err) {

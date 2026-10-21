@@ -6,11 +6,15 @@ import { STORAGE_KEYS } from "@/config/storage";
 //
 // Only ids and quantities are stored. productId is a lookup key for the
 // catalog API (there is no variant endpoint); prices and stock are always
-// fetched fresh. Two optional fields are used while merging after login:
+// fetched fresh. `currency` (optional) is the product's currency when it was
+// added, so a guest cart can stay in one currency before catalog data loads.
+// Two optional fields are used while merging after login:
 //   pending: { userId, baseQty, quantity } - an add was sent for this user (see cartStore)
 //   failed:  "message"            - the server rejected the item (stock, removed)
 
 const isPositiveInt = (value) => Number.isInteger(value) && value > 0;
+
+const CURRENCY = /^[A-Z]{3}$/;
 
 function sanitize(item) {
     if (!item || !isPositiveInt(item.variantId) || !isPositiveInt(item.productId) || !isPositiveInt(item.quantity)) {
@@ -18,6 +22,8 @@ function sanitize(item) {
     }
 
     const clean = { variantId: item.variantId, productId: item.productId, quantity: item.quantity };
+
+    if (typeof item.currency === "string" && CURRENCY.test(item.currency)) clean.currency = item.currency;
 
     const { pending } = item;
 

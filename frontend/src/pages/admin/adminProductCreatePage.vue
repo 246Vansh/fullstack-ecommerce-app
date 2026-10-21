@@ -22,7 +22,7 @@
                         @click="loadCategories">Try again</button>
                 </div>
                 <ProductDetailsFields class="mt-4" :form="form" :errors="save.errors" prefix="new-product"
-                    :category-options="categoryOptions" :categories-error="categoriesError" show-active />
+                    :category-options="categoryOptions" :categories-error="categoriesError" show-active currency-editable />
             </section>
 
             <section aria-labelledby="new-variants-heading" class="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
@@ -41,7 +41,7 @@
                             </button>
                         </div>
                         <VariantFields :form="variant" :errors="save.errors" :prefix="`new-${variant.key}`" with-stock
-                            :error-key="(name) => `variants[${index}].${name}`"
+                            :error-key="(name) => `variants[${index}].${name}`" :currency="form.currency"
                             :inherited-price="form.price" :inherited-original="form.originalPrice" />
                     </li>
                 </ol>

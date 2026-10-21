@@ -155,7 +155,7 @@
                     </div>
                     <div class="flex justify-between border-t border-slate-200 pt-2 text-base">
                         <dt class="font-bold text-slate-900">Total<span v-if="order.currency"> ({{ order.currency }})</span></dt>
-                        <dd class="font-bold text-slate-900">{{ formatPrice(order.total) }}</dd>
+                        <dd class="font-bold text-slate-900">{{ formatPrice(order.total, order.currency) }}</dd>
                     </div>
                 </dl>
             </section>

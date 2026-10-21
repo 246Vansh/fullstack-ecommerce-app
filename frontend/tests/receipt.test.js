@@ -5,7 +5,9 @@ import assert from "node:assert/strict";
 
 import { receiptAddressLines, receiptLines, receiptTotals } from "../src/utils/receipt.js";
 
+// A historical order: placed in USD, before INR products existed.
 const order = {
+    currency: "USD",
     subtotal: "50.00",
     shipping: "0.00",
     discount: "0.00",
@@ -64,7 +66,7 @@ test("address lines skip missing optional fields", () => {
     assert.deepEqual(receiptAddressLines(null), []);
 });
 
-test("every amount on a (USD-only) order is formatted as USD", () => {
+test("every amount on a historical USD order is still formatted as USD", () => {
     const usd = { ...order, currency: "USD", shipping: "5.00", discount: "4.50", tax: "2.25" };
     const amounts = [
         ...receiptLines(usd).flatMap((line) => [line.unitPrice, line.lineTotal]),
@@ -73,6 +75,23 @@ test("every amount on a (USD-only) order is formatted as USD", () => {
 
     assert.equal(amounts.length, 8);
     for (const amount of amounts) assert.match(amount, /^-?\$\d{1,3}(,\d{3})*\.\d{2}$/, amount);
+});
+
+test("every amount on an INR order is formatted as INR, from its stored currency", () => {
+    const inr = {
+        ...order, currency: "INR", subtotal: "1497.00", shipping: "50.00", discount: "0.00", tax: "0.00", total: "1547.00",
+        items: [{ ...order.items[0], unitPrice: "499.00", quantity: 3, lineTotal: "1497.00" }],
+    };
+
+    assert.deepEqual(receiptLines(inr).map((line) => [line.unitPrice, line.lineTotal]), [["₹499.00", "₹1,497.00"]]);
+    assert.deepEqual(receiptTotals(inr).map((row) => row.value), ["₹1,497.00", "₹50.00"]);
+});
+
+test("an order's amounts are never shown in a guessed currency", () => {
+    const { currency, ...withoutCurrency } = order;
+
+    assert.equal(receiptLines(withoutCurrency)[0].unitPrice, "—");
+    assert.equal(receiptTotals(withoutCurrency)[0].value, "—");
 });
 
 test("large saved amounts use thousands separators", () => {

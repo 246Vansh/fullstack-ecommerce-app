@@ -3,7 +3,7 @@
     <div class="space-y-5">
 
         <!-- Stock is shown per selected variant in the purchase section. -->
-        <ProductPrice :price="price" :original-price="originalPrice" />
+        <ProductPrice :price="price" :original-price="originalPrice" :currency="product.currency" />
 
     </div>
 

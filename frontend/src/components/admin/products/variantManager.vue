@@ -19,6 +19,7 @@
                 <h3 class="text-sm font-semibold text-slate-900">New variant</h3>
                 <AdminFormStatus :alert="save.alert.value" />
                 <VariantFields :form="newVariant" :errors="save.errors" prefix="new-variant" with-stock
+                    :currency="productPrices.currency"
                     :inherited-price="productPrices.price" :inherited-original="productPrices.originalPrice" />
                 <div class="flex gap-2">
                     <button type="submit" :disabled="save.saving.value"
@@ -61,6 +62,7 @@ const emit = defineEmits(["updated", "dirty"]);
 const productPrices = computed(() => ({
     price: Number(props.product.price).toFixed(2),
     originalPrice: props.product.originalPrice == null ? "" : Number(props.product.originalPrice).toFixed(2),
+    currency: props.product.currency,
 }));
 
 // ------------------------------------------------------------ dirty tracking

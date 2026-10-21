@@ -314,6 +314,55 @@ dbTest("verify: mismatched gateway order, amount or currency is refused", async 
     assert.equal((await stored(order.id)).paymentStatus, "UNPAID");
 });
 
+// ------------------------------------------------------------ INR orders
+
+// An order stored in INR (as order creation persists for an INR cart): the
+// gateway gets that stored amount in paise and "INR", and only a payment of
+// exactly that amount and currency pays it.
+const inrOrder = { subtotal: "1497.00", total: "1497.00", currency: "INR" };
+
+dbTest("INR: the gateway order is the stored INR total in paise, in INR", async () => {
+    const order = await makeOrder(alice, inrOrder);
+
+    const session = await payments.initiatePayment(alice.id, order.id);
+    assert.equal(session.amount, 149700, "1497.00 rupees = 149700 paise");
+    assert.equal(session.currency, "INR");
+    assert.deepEqual([gatewayOrders.at(-1).amount, gatewayOrders.at(-1).currency], [149700, "INR"]);
+
+    // The stored order is untouched by initiation.
+    const row = await stored(order.id);
+    assert.deepEqual([row.currency, row.total.toFixed(2)], ["INR", "1497.00"]);
+});
+
+dbTest("INR: a captured payment of exactly the stored paise and INR pays the order", async () => {
+    const order = await initiatedOrder(alice, inrOrder);
+    const payment = gatewayPayment(order.razorpayOrderId, { amount: 149700, currency: "INR" });
+
+    const result = await payments.verifyPayment(alice.id, order.id, checkoutResult(order, payment));
+    assert.equal(result.state, "PAID");
+    assert.equal(result.order.currency, "INR");
+    assert.equal((await stored(order.id)).razorpayPaymentId, payment.id);
+});
+
+dbTest("INR: the same number in another currency, or rupees sent as paise, does not pay the order", async () => {
+    const order = await initiatedOrder(alice, inrOrder);
+
+    for (const overrides of [{ amount: 149700, currency: "USD" }, { amount: 1497, currency: "INR" }, { amount: 149699, currency: "INR" }]) {
+        const wrong = gatewayPayment(order.razorpayOrderId, overrides);
+        await rejectsWith(payments.verifyPayment(alice.id, order.id, checkoutResult(order, wrong)), 409);
+    }
+
+    assert.equal((await stored(order.id)).paymentStatus, "UNPAID");
+});
+
+dbTest("legacy: a stored USD order is still charged in USD cents, never as INR", async () => {
+    const order = await makeOrder(alice, { subtotal: "40.00", total: "40.00" });
+
+    const session = await payments.initiatePayment(alice.id, order.id);
+    assert.deepEqual([session.amount, session.currency], [4000, "USD"]);
+    assert.equal((await stored(order.id)).currency, "USD");
+});
+
 dbTest("verify: authorized or failed payments do not mark the order paid", async () => {
     const order = await initiatedOrder();
 

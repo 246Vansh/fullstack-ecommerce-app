@@ -5,17 +5,17 @@
 
             <!-- Current Price (none for an item no longer in the catalog) -->
             <p v-if="product.price != null" class="text-3xl font-bold text-slate-900">
-                {{ formatPrice(product.price) }}
+                {{ formatPrice(product.price, product.currency) }}
             </p>
 
             <!-- Original Price -->
             <p v-if="hasDiscount" class="mt-1 text-lg text-gray-400 line-through">
-                {{ formatPrice(product.originalPrice) }}
+                {{ formatPrice(product.originalPrice, product.currency) }}
             </p>
 
             <!-- Line Subtotal (from the server) -->
             <p v-if="product.subtotal != null" class="mt-1 text-sm text-gray-500">
-                Subtotal: <span class="font-semibold text-slate-900">{{ formatPrice(product.subtotal) }}</span>
+                Subtotal: <span class="font-semibold text-slate-900">{{ formatPrice(product.subtotal, product.currency) }}</span>
             </p>
 
         </div>

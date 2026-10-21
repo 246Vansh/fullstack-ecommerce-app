@@ -87,7 +87,7 @@
 
                             <div class="flex items-center gap-4 sm:shrink-0">
                                 <OrderStatusBadge :status="order.status" />
-                                <span class="font-bold text-slate-900">{{ formatPrice(order.total) }}</span>
+                                <span class="font-bold text-slate-900">{{ formatPrice(order.total, order.currency) }}</span>
                                 <ChevronRightIcon class="ml-auto h-5 w-5 text-slate-400 sm:ml-0" aria-hidden="true" />
                             </div>
 

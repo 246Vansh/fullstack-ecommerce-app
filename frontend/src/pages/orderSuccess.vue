@@ -57,7 +57,7 @@
                 <!-- Products -->
                 <section class="mt-5">
 
-                    <purchasedProducts :products="order.items" />
+                    <purchasedProducts :products="order.items" :currency="order.currency" />
 
                 </section>
 

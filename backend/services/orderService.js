@@ -141,7 +141,8 @@ const stockConflict = (details) => new ApiError(409, "Some items in your cart ar
 |    edits from the same user queue here; the second order then finds the
 |    cart already emptied and fails with 409.
 | 2. Validate the address and every cart item against current data.
-| 3. Price everything with pricingService.
+| 3. Price everything with pricingService. The order takes the cart's one
+|    currency (a cart with items in another currency has an issue and stops at 2).
 | 4. Decrement stock with a conditional UPDATE (stock >= quantity). MySQL
 |    row-locks the variant and re-checks the condition on the latest committed
 |    row, so two buyers can never both take the last units; the loser's
@@ -153,7 +154,7 @@ const stockConflict = (details) => new ApiError(409, "Some items in your cart ar
 | steps; the HTTP controller never passes it.
 */
 
-async function placeOrder(tx, userId, { addressId, expectedTotal, paymentMethod = "COD" }, hooks) {
+async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurrency, paymentMethod = "COD" }, hooks) {
     const step = async (name) => hooks?.afterStep?.(name, tx);
 
     // A bare UPDATE takes the row lock before any read, so the reads below
@@ -177,7 +178,7 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, paymentMethod 
             incomplete.map((field) => ({ field, message: "Required for shipping" })));
     }
 
-    const { priced, issues } = await loadCartItems(tx, userId);
+    const { priced, issues, currency } = await loadCartItems(tx, userId);
 
     if (priced.length === 0) {
         throw new ApiError(409, "Your cart is empty", [{ field: "cart", message: "Your cart is empty" }]);
@@ -192,11 +193,12 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, paymentMethod 
     // Decimals from the one pricing policy; stored exactly as calculated.
     const totals = calculateTotals(priced, { address });
 
-    // The total the customer saw at checkout. If prices changed since, stop
-    // before touching stock so they can review the new total.
-    if (expectedTotal != null && !roundMoney(expectedTotal).equals(totals.total)) {
+    // The total (and currency) the customer saw at checkout. If either changed
+    // since, stop before touching stock so they can review the new total.
+    if ((expectedTotal != null && !roundMoney(expectedTotal).equals(totals.total))
+        || (expectedCurrency != null && expectedCurrency !== currency)) {
         throw new ApiError(409, "Prices have changed since you opened checkout. Please review the updated total.", [
-            { field: "expectedTotal", code: "PRICE_CHANGED", message: `The total is now ${toMoney(totals.total).toFixed(2)}` },
+            { field: "expectedTotal", code: "PRICE_CHANGED", message: `The total is now ${toMoney(totals.total).toFixed(2)} ${currency}` },
         ]);
     }
 
@@ -238,6 +240,7 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, paymentMethod 
             userId,
             paymentMethod,
             ...totals,
+            currency,
             shippingFirstName: address.firstName,
             shippingLastName: address.lastName,
             shippingPhone: address.phone,
@@ -282,10 +285,10 @@ const isOrderNumberClash = (err) => err instanceof Prisma.PrismaClientKnownReque
 // No payment is taken here: the order is created PENDING and UNPAID, with the
 // server's prices. For RAZORPAY orders, paymentService then collects payment
 // against this stored total and marks it PAID only after verification.
-export async function createOrder(userId, { addressId, expectedTotal, paymentMethod }, hooks) {
+export async function createOrder(userId, { addressId, expectedTotal, expectedCurrency, paymentMethod }, hooks) {
     for (let attempt = 1; ; attempt++) {
         try {
-            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal, paymentMethod }, hooks), TRANSACTION_OPTIONS);
+            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal, expectedCurrency, paymentMethod }, hooks), TRANSACTION_OPTIONS);
 
             return toOrderResponse(order);
         } catch (err) {
@@ -338,6 +341,7 @@ export async function listOrders(userId, { page, limit }) {
                 paymentStatus: true,
                 paymentMethod: true,
                 total: true,
+                currency: true,
                 createdAt: true,
                 items: { select: { quantity: true } },
             },
@@ -410,6 +414,7 @@ export async function listAdminOrders({ page, limit, status }) {
                 paymentStatus: true,
                 paymentMethod: true,
                 total: true,
+                currency: true,
                 createdAt: true,
                 shippingFirstName: true,
                 shippingLastName: true,

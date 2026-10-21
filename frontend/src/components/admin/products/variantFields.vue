@@ -27,13 +27,13 @@
             </div>
         </AdminField>
 
-        <AdminField :id="`${prefix}-price`" label="Price (USD)" optional :error="errors[errorKey('price')]"
+        <AdminField :id="`${prefix}-price`" :label="`Price (${currency})`" optional :error="errors[errorKey('price')]"
             hint="Blank uses the product price" v-slot="f">
             <input :id="f.id" v-bind="f.attrs" v-model="form.price" type="text" inputmode="decimal"
                 autocomplete="off" :placeholder="inheritedPrice" :class="f.controlClass" />
         </AdminField>
 
-        <AdminField :id="`${prefix}-original-price`" label="Compare-at price" optional
+        <AdminField :id="`${prefix}-original-price`" :label="`Compare-at price (${currency})`" optional
             :error="errors[errorKey('originalPrice')]" hint="Blank uses the product's" v-slot="f">
             <input :id="f.id" v-bind="f.attrs" v-model="form.originalPrice" type="text" inputmode="decimal"
                 autocomplete="off" :placeholder="inheritedOriginal" :class="f.controlClass" />
@@ -60,6 +60,8 @@ const props = defineProps({
     prefix: { type: String, required: true },
     errorKey: { type: Function, default: (name) => name },
     withStock: { type: Boolean, default: false },
+    // The product's currency: a variant's own prices are in it too.
+    currency: { type: String, required: true },
     // The product's prices, shown as placeholders for "inherit".
     inheritedPrice: { type: String, default: "" },
     inheritedOriginal: { type: String, default: "" },

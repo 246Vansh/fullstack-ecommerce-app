@@ -29,6 +29,7 @@ const listSelect = {
     brand: true,
     price: true,
     originalPrice: true,
+    currency: true,
     isNew: true,
     createdAt: true,
     category: { select: categorySelect },
@@ -218,6 +219,7 @@ const detailSelect = {
     brand: true,
     price: true,
     originalPrice: true,
+    currency: true,
     isNew: true,
     createdAt: true,
     category: {

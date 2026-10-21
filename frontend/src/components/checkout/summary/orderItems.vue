@@ -73,13 +73,13 @@
 
                         <p class="font-bold text-slate-900">
 
-                            {{ formatPrice(product.subtotal) }}
+                            {{ formatPrice(product.subtotal, product.currency) }}
 
                         </p>
 
                         <p v-if="product.quantity > 1" class="text-xs text-slate-500">
 
-                            {{ formatPrice(product.price) }} each
+                            {{ formatPrice(product.price, product.currency) }} each
 
                         </p>
 

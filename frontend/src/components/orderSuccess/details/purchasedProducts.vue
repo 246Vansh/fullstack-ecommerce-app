@@ -91,7 +91,7 @@
 
                     <p class="mt-2 text-base font-bold sm:text-lg">
 
-                        {{ formatPrice(product.unitPrice) }}
+                        {{ formatPrice(product.unitPrice, currency) }}
 
                     </p>
 
@@ -123,7 +123,7 @@
 
                     <p class="mt-2 text-base font-semibold text-orange-600 sm:text-xl">
 
-                        {{ formatPrice(product.lineTotal) }}
+                        {{ formatPrice(product.lineTotal, currency) }}
 
                     </p>
 
@@ -149,6 +149,12 @@ defineProps({
     products: {
         type: Array,
         default: () => [],
+    },
+
+    // The order's stored currency (every item is priced in it).
+    currency: {
+        type: String,
+        required: true,
     },
 
 });

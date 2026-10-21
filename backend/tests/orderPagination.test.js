@@ -124,7 +124,7 @@ dbTest("default page: first page of the default size, with accurate totals", asy
         total,
         totalPages: Math.ceil(total / ORDER_PAGINATION.defaultLimit),
     });
-    assert.deepEqual(Object.keys(body.data[0]).sort(), ["createdAt", "id", "itemCount", "orderNumber", "payable", "paymentMethod", "paymentStatus", "status", "total"]);
+    assert.deepEqual(Object.keys(body.data[0]).sort(), ["createdAt", "currency", "id", "itemCount", "orderNumber", "payable", "paymentMethod", "paymentStatus", "status", "total"]);
 });
 
 dbTest("walking every page gives each order exactly once, newest first, ties by id", async () => {

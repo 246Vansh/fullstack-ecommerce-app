@@ -4,7 +4,7 @@
     <!-- Authentication -->
     <AuthLinks />
 
-    <!-- Prices and orders are USD only; there is no currency selector. -->
+    <!-- No currency selector: each product, cart and order is shown in its own stored currency. -->
 
     <!-- Search -->
     <SearchButton />

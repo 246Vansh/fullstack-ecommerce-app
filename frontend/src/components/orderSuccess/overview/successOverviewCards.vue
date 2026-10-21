@@ -16,7 +16,7 @@
 
         <!-- Amount -->
 
-        <successOverviewCard :icon="CurrencyDollarIcon" title="Total Amount" :value="formatPrice(order.total)"
+        <successOverviewCard :icon="CurrencyDollarIcon" title="Total Amount" :value="formatPrice(order.total, order.currency)"
             :subtitle="`Payment: ${paymentStatusLabel(order.paymentStatus)}`" icon-background="bg-orange-100" icon-color="text-orange-600"
             value-color="text-orange-600" />
 

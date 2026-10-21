@@ -5,18 +5,18 @@ import { cancelOrderAfterPaymentCheck, isOnlinePaymentEnabled } from "../service
 import { ApiError } from "../utils/ApiError.js";
 
 // Only addressId, the payment method (default COD) and optionally the total
-// the customer saw (as a check) are read from the body; prices, totals, stock
-// and product data all come from the database, and expectedTotal is never
-// stored. The user comes from the token.
+// and currency the customer saw (as a check) are read from the body; prices,
+// totals, the currency, stock and product data all come from the database,
+// and neither expected value is ever stored. The user comes from the token.
 export async function createMyOrder(req, res) {
-    const { addressId, expectedTotal, paymentMethod = "COD" } = matchedData(req, { locations: ["body"] });
+    const { addressId, expectedTotal, expectedCurrency, paymentMethod = "COD" } = matchedData(req, { locations: ["body"] });
 
     // Refused before anything is reserved, so no unpayable online order is created.
     if (paymentMethod === "RAZORPAY" && !isOnlinePaymentEnabled()) {
         throw new ApiError(503, "Online payment is not available right now");
     }
 
-    const data = await createOrder(req.user.id, { addressId, expectedTotal, paymentMethod });
+    const data = await createOrder(req.user.id, { addressId, expectedTotal, expectedCurrency, paymentMethod });
 
     res.status(201).json({ success: true, data });
 }

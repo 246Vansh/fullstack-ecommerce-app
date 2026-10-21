@@ -104,7 +104,8 @@
                             <div class="sticky top-8">
 
                                 <!-- Shipping and tax are priced by the server at checkout -->
-                                <orderSummary :subtotal="cart.subtotal" />
+                                <orderSummary :subtotal="cart.subtotal" :currency="cart.currency"
+                                    :mixed-currency="cart.mixedCurrency" />
 
                             </div>
 
@@ -170,6 +171,7 @@ function toCartProduct(item) {
         price: item.unitPrice,
         originalPrice: item.originalPrice,
         subtotal: item.subtotal,
+        currency: item.product.currency,
     };
 }
 

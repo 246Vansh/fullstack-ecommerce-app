@@ -1,6 +1,8 @@
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
-import { toMoney, unitPriceOf, originalPriceOf, lineTotalOf } from "./pricingService.js";
+import {
+    toMoney, unitPriceOf, originalPriceOf, lineTotalOf, currencyOf, MIXED_CURRENCY, MIXED_CURRENCY_MESSAGE,
+} from "./pricingService.js";
 
 const itemSelect = {
     id: true,
@@ -24,6 +26,7 @@ const itemSelect = {
                     brand: true,
                     price: true,
                     originalPrice: true,
+                    currency: true,
                     isActive: true,
                     images: {
                         select: { url: true, altText: true },
@@ -55,6 +58,7 @@ function toCartItem({ id, quantity, variant }) {
             name: product.name,
             slug: product.slug,
             brand: product.brand,
+            currency: product.currency,
             image: product.images[0]?.url ?? null,
             alt: product.images[0]?.altText ?? product.name,
         },
@@ -95,6 +99,10 @@ export async function getCart(userId) {
 
     const cartItems = items.map(toCartItem);
 
+    // addItem keeps a cart to one currency; a mixed cart is still never totalled.
+    const currency = currencyOf(items.map(({ variant }) => variant.product));
+    const mixedCurrency = items.length > 0 && currency === null;
+
     // Merchandise only; shipping, tax and discount are priced at checkout.
     const subtotal = items.reduce(
         (sum, { quantity, variant }) => sum.add(lineTotalOf(unitPriceOf(variant, variant.product), quantity)),
@@ -105,7 +113,9 @@ export async function getCart(userId) {
         id: cartId,
         items: cartItems,
         itemCount: cartItems.reduce((count, item) => count + item.quantity, 0),
-        subtotal: toMoney(subtotal),
+        currency,
+        mixedCurrency,
+        subtotal: mixedCurrency ? null : toMoney(subtotal),
     };
 }
 
@@ -120,7 +130,7 @@ function stockError(stock) {
 async function findPurchasableVariant(variantId) {
     const variant = await prisma.productVariant.findFirst({
         where: { id: variantId, isActive: true, product: { isActive: true } },
-        select: { id: true, stock: true },
+        select: { id: true, stock: true, product: { select: { currency: true } } },
     });
 
     if (!variant) {
@@ -142,6 +152,18 @@ export async function addItem(userId, { variantId, quantity }) {
         // one after another. updateMany is a bare UPDATE, so it takes the lock
         // before the read below and that read sees the previous add's result.
         await tx.cart.updateMany({ where: { id: cartId }, data: { updatedAt: new Date() } });
+
+        // One currency per cart: amounts in different currencies are never totalled.
+        const otherCurrency = await tx.cartItem.findFirst({
+            where: { cartId, variant: { product: { currency: { not: variant.product.currency } } } },
+            select: { id: true },
+        });
+
+        if (otherCurrency) {
+            throw new ApiError(409, MIXED_CURRENCY_MESSAGE, [
+                { field: "variantId", code: MIXED_CURRENCY, message: MIXED_CURRENCY_MESSAGE },
+            ]);
+        }
 
         const existing = await tx.cartItem.findUnique({
             where: { cartId_variantId: { cartId, variantId } },

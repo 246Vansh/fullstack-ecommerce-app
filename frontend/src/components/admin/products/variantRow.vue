@@ -16,7 +16,7 @@
                 <div>
                     <dt class="text-xs text-slate-500">Price</dt>
                     <dd class="font-semibold text-slate-900">
-                        {{ formatPrice(variant.effectivePrice) }}
+                        {{ formatPrice(variant.effectivePrice, productPrices.currency) }}
                         <span v-if="variant.price == null" class="block text-xs font-normal text-slate-500">product price</span>
                     </dd>
                 </div>
@@ -59,6 +59,7 @@
             class="space-y-3 border-t border-slate-200 p-3" :aria-label="`Edit variant ${variant.sku}`" @submit.prevent="saveEdit">
             <AdminFormStatus :alert="save.alert.value" :success="save.success.value" />
             <VariantFields :form="editForm" :errors="save.errors" :prefix="`${prefix}-edit`"
+                :currency="productPrices.currency"
                 :inherited-price="productPrices.price" :inherited-original="productPrices.originalPrice" />
             <div class="flex gap-2">
                 <button type="submit" :disabled="save.saving.value" :class="primaryClass">
@@ -118,7 +119,7 @@ import {
 
 const props = defineProps({
     variant: { type: Object, required: true },
-    // { price, originalPrice } of the product as strings, for inherited prices.
+    // { price, originalPrice, currency } of the product (prices as strings, for inherited prices).
     productPrices: { type: Object, required: true },
 });
 

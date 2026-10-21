@@ -13,7 +13,7 @@
                 </span>
 
                 <span class="font-semibold">
-                    {{ formatPrice(subtotal) }}
+                    {{ formatPrice(subtotal, currency) }}
                 </span>
 
             </div>
@@ -26,7 +26,7 @@
                 </span>
 
                 <span class="font-semibold text-emerald-600">
-                    -{{ formatPrice(discount) }}
+                    -{{ formatPrice(discount, currency) }}
                 </span>
 
             </div>
@@ -40,7 +40,7 @@
                 <!-- The server's shipping amount, shown as-is (never relabelled "free"). -->
                 <span class="font-semibold">
 
-                    {{ formatPrice(shipping) }}
+                    {{ formatPrice(shipping, currency) }}
 
                 </span>
 
@@ -53,7 +53,7 @@
                 </span>
 
                 <span class="font-semibold">
-                    {{ formatPrice(tax) }}
+                    {{ formatPrice(tax, currency) }}
                 </span>
 
             </div>
@@ -73,7 +73,7 @@
             </h3>
 
             <span class="text-2xl font-bold text-slate-900 sm:text-3xl">
-                {{ formatPrice(total) }}
+                {{ formatPrice(total, currency) }}
             </span>
 
         </div>
@@ -89,7 +89,7 @@
                 <div>
 
                     <h4 class="font-semibold text-emerald-700">
-                        You saved {{ formatPrice(discount) }}
+                        You saved {{ formatPrice(discount, currency) }}
                     </h4>
 
                     <p class="mt-1 text-sm text-emerald-600">
@@ -121,6 +121,9 @@ defineProps({
     tax: Number,
 
     total: Number,
+
+    // The checkout's one currency; null when the cart mixes currencies (shown as a dash).
+    currency: String,
 
 });
 

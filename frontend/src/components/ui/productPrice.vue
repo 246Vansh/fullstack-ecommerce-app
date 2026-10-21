@@ -17,6 +17,8 @@
 <script setup>
 import { computed } from "vue";
 
+import { formatPrice } from "@/utils/money";
+
 const props = defineProps({
 
     price: {
@@ -29,28 +31,22 @@ const props = defineProps({
         default: null,
     },
 
+    // The product's currency; there is no default, so a price is never shown in a guessed one.
     currency: {
         type: String,
-        default: "USD",
+        required: true,
     },
 
 });
 
-const formatter = new Intl.NumberFormat("en-US", {
-
-    style: "currency",
-    currency: props.currency,
-
-});
-
 const formattedPrice = computed(() => {
-    return formatter.format(props.price);
+    return formatPrice(props.price, props.currency);
 
 });
 
 const formattedOriginalPrice = computed(() => {
     if (!props.originalPrice) return "";
-    return formatter.format(props.originalPrice);
+    return formatPrice(props.originalPrice, props.currency);
 
 });
 

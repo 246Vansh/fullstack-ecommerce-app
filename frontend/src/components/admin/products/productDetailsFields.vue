@@ -29,12 +29,20 @@
             </select>
         </AdminField>
 
-        <AdminField :id="`${prefix}-price`" label="Price (USD)" required :error="errors.price" v-slot="f">
+        <AdminField v-if="currencyEditable" :id="`${prefix}-currency`" label="Currency" required :error="errors.currency"
+            hint="Every price of this product and its variants is in this currency. It cannot be changed later."
+            class="sm:col-span-2" v-slot="f">
+            <select :id="f.id" v-bind="f.attrs" v-model="form.currency" :class="f.controlClass">
+                <option v-for="code in CURRENCIES" :key="code" :value="code">{{ code }}</option>
+            </select>
+        </AdminField>
+
+        <AdminField :id="`${prefix}-price`" :label="`Price (${form.currency})`" required :error="errors.price" v-slot="f">
             <input :id="f.id" v-bind="f.attrs" v-model="form.price" type="text" inputmode="decimal"
                 autocomplete="off" placeholder="0.00" :class="f.controlClass" />
         </AdminField>
 
-        <AdminField :id="`${prefix}-original-price`" label="Compare-at price (USD)" optional
+        <AdminField :id="`${prefix}-original-price`" :label="`Compare-at price (${form.currency})`" optional
             :error="errors.originalPrice" hint="The crossed-out &quot;was&quot; price. Must be higher than the price." v-slot="f">
             <input :id="f.id" v-bind="f.attrs" v-model="form.originalPrice" type="text" inputmode="decimal"
                 autocomplete="off" placeholder="0.00" :class="f.controlClass" />
@@ -69,7 +77,7 @@
 import { computed } from "vue";
 
 import AdminField from "@/components/admin/form/adminField.vue";
-import { LIMITS, slugify } from "@/utils/adminCatalogRules";
+import { CURRENCIES, LIMITS, slugify } from "@/utils/adminCatalogRules";
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -80,6 +88,8 @@ const props = defineProps({
     // Edit: the slug must stay set. Create: blank means "generate".
     slugRequired: { type: Boolean, default: false },
     showActive: { type: Boolean, default: false },
+    // Create only: an existing product's currency is fixed.
+    currencyEditable: { type: Boolean, default: false },
     // An existing product's current (possibly inactive) category stays selectable.
     currentCategoryId: { type: String, default: "" },
 });

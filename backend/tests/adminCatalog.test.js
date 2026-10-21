@@ -170,7 +170,7 @@ dbTest("products: create normalizes input, ignores unknown fields, and is visibl
     const pub = await call("GET", `/products/${product.id}`);
     assert.equal(pub.status, 200);
     assert.deepEqual(Object.keys(pub.body.data).sort(),
-        ["brand", "category", "createdAt", "description", "id", "image", "images", "inStock", "isNew", "name", "originalPrice", "price", "slug", "variants"]);
+        ["brand", "category", "createdAt", "currency", "description", "id", "image", "images", "inStock", "isNew", "name", "originalPrice", "price", "slug", "variants"]);
     assert.equal(pub.body.data.image, "https://images.example.com/a.jpg");
 });
 
@@ -233,7 +233,18 @@ dbTest("products: duplicate and conflicting data return 409 without partial writ
 dbTest("products: PATCH updates only sent fields and checks the merged price pair", async () => {
     const product = await createProduct("patch");
 
-    const updated = await call("PATCH", `/admin/products/${product.id}`, admin, { price: 39.99, originalPrice: null, isNew: true, slug: "  P12-Patched-" + RUN + " " });
+    const updated = await call(
+        "PATCH",
+        `/admin/products/${product.id}`,
+        admin,
+        {
+            price: 39.99,
+            originalPrice: null,
+            isNew: true,
+            slug: "  P12-Patched-" + RUN + " "
+        }
+    );
+
     assert.equal(updated.status, 200, JSON.stringify(updated.body));
     assert.equal(updated.body.data.price, 39.99);
     assert.equal(updated.body.data.originalPrice, null);
@@ -246,6 +257,36 @@ dbTest("products: PATCH updates only sent fields and checks the merged price pai
     assert.equal((await call("PATCH", `/admin/products/${product.id}`, admin, { id: 5, role: "ADMIN" })).status, 422);
     assert.equal((await call("PATCH", `/admin/products/${product.id}`, admin, { categoryId: inactiveCategoryId })).status, 409);
     assert.equal((await call("PATCH", "/admin/products/2147483647", admin, { price: 10 })).status, 404);
+});
+
+dbTest("products: the currency is chosen on create (USD by default) and can never be changed", async () => {
+    const usd = await createProduct("currency-default");
+    assert.equal(usd.currency, "USD", "left out: USD, like every existing product");
+
+    const inr = await createProduct("currency-inr", { currency: "INR", price: "499.00", originalPrice: "799.00" });
+    assert.equal(inr.currency, "INR");
+    assert.equal(inr.price, 499, "stored as given; nothing converted");
+    assert.equal((await call("GET", `/products/${inr.id}`)).body.data.currency, "INR");
+    assert.equal((await call("GET", `/admin/products?search=${encodeURIComponent(sku("currency-inr"))}`, admin)).body.data[0].currency, "INR");
+
+    for (const currency of ["EUR", "inr", "", null, 1]) {
+        const { status } = await call("POST", "/admin/products", admin, productBody(`currency-bad-${String(currency)}`, { currency }));
+        assert.equal(status, 422, String(currency));
+    }
+
+    // Any update that sends a currency is refused as a whole; prices and currency stay as they were.
+    for (const body of [{ currency: "USD" }, { currency: "INR", price: "6.00" }, { currency: "INR" }]) {
+        const { status } = await call("PATCH", `/admin/products/${inr.id}`, admin, body);
+        assert.equal(status, 422, JSON.stringify(body));
+    }
+    const stored = await prisma.product.findUnique({ where: { id: inr.id } });
+    assert.deepEqual([stored.currency, stored.price.toFixed(2)], ["INR", "499.00"]);
+    assert.equal((await prisma.product.findUnique({ where: { id: usd.id } })).currency, "USD");
+
+    // Other fields still update normally.
+    const repriced = await call("PATCH", `/admin/products/${inr.id}`, admin, { price: "549.00" });
+    assert.equal(repriced.status, 200);
+    assert.deepEqual([repriced.body.data.currency, repriced.body.data.price], ["INR", 549]);
 });
 
 dbTest("products: DELETE deactivates; carts and order history keep working and it can be restored", async () => {

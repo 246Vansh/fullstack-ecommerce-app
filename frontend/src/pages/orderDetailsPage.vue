@@ -72,7 +72,7 @@
                         </div>
                         <div class="flex justify-between border-t border-gray-100 pt-2">
                             <dt class="font-bold text-slate-900">Total</dt>
-                            <dd class="font-bold text-slate-900">{{ formatPrice(order.total) }}</dd>
+                            <dd class="font-bold text-slate-900">{{ formatPrice(order.total, order.currency) }}</dd>
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-slate-600">Payment</dt>
@@ -98,7 +98,7 @@
                             <button type="button" :disabled="paying"
                                 class="rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50 cursor-pointer"
                                 @click="payNow">
-                                {{ paying ? "Please wait…" : `Pay ${formatPrice(order.total)}` }}
+                                {{ paying ? "Please wait…" : `Pay ${formatPrice(order.total, order.currency)}` }}
                             </button>
                             <button type="button" :disabled="paying"
                                 class="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
@@ -214,10 +214,10 @@ async function refreshStatus() {
 }
 
 const totals = computed(() => [
-    { label: "Subtotal", value: formatPrice(order.value.subtotal) },
-    { label: "Shipping", value: formatPrice(order.value.shipping) },
-    { label: "Tax", value: formatPrice(order.value.tax) },
-    ...(Number(order.value.discount) > 0 ? [{ label: "Discount", value: `-${formatPrice(order.value.discount)}` }] : []),
+    { label: "Subtotal", value: formatPrice(order.value.subtotal, order.value.currency) },
+    { label: "Shipping", value: formatPrice(order.value.shipping, order.value.currency) },
+    { label: "Tax", value: formatPrice(order.value.tax, order.value.currency) },
+    ...(Number(order.value.discount) > 0 ? [{ label: "Discount", value: `-${formatPrice(order.value.discount, order.value.currency)}` }] : []),
 ]);
 
 // Latest navigation wins; a stale response never overwrites the current order.
