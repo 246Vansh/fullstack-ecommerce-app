@@ -1,6 +1,24 @@
-import { query, validationResult } from "express-validator";
+import { body, query, validationResult } from "express-validator";
 
 import { ApiError } from "../utils/ApiError.js";
+
+// A password being set (registration, password change). bcrypt only uses the
+// first 72 bytes, so the limit is on the UTF-8 byte length, not characters:
+// an accented letter is 2 bytes, most emoji 4. Longer passwords would be
+// silently truncated.
+export const MAX_PASSWORD_BYTES = 72;
+
+export const newPasswordRule = (field) => body(field)
+    .isString().withMessage("Password is required").bail()
+    .isLength({ min: 8 }).withMessage("Password must be at least 8 characters").bail()
+    .custom((value) => Buffer.byteLength(value, "utf8") <= MAX_PASSWORD_BYTES)
+    .withMessage("Password is too long (at most 72 bytes; accented letters and emoji count as more than one)");
+
+// Upper bound for a password being checked (login, current password), so a
+// huge string never reaches bcrypt. Far above anything ever accepted when
+// setting one (72 characters before the byte rule), so no stored password is
+// locked out.
+export const MAX_PASSWORD_INPUT_LENGTH = 1024;
 
 // A query value that must be given once. A repeated parameter (?page=1&page=2)
 // arrives as an array, which validators would check item by item and then pass

@@ -19,6 +19,7 @@ import {
 // Database modules load only after the switch to the test database.
 const { guard, skip, prisma } = await openTestDatabase();
 const { loginUser } = guard.ok ? await import("../services/authService.js") : {};
+const { revokeAllUserSessions } = guard.ok ? await import("../services/refreshTokenService.js") : {};
 
 const dbTest = (name, fn) => test(name, { skip }, fn);
 testDatabaseGuardTest(test, guard);
@@ -28,11 +29,55 @@ const RUN = crypto.randomBytes(4).toString("hex");
 // against the app's dummy hash, so both must cost the same.
 const SALT_ROUNDS = 12;
 const USER = { email: `phase6-auth-${RUN}@example.test`, password: `Auth-${RUN}-Pass1` };
+// Its password is changed by the concurrent-login test.
+const RACE_USER = { email: `phase6-auth-race-${RUN}@example.test`, password: `Race-${RUN}-Pass1` };
+const INVALID_LOGIN = { success: false, message: "Invalid email or password" };
 
 const sha256 = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const row = (token) => prisma.refreshToken.findUnique({ where: { tokenHash: sha256(token) } });
 
-let server, user;
+// Resolves once another connection to the test database has spent at least a
+// second on one statement: the request under test is waiting for a lock held
+// by the test's open transaction. TIME counts whole seconds since the
+// statement started, so TIME >= 1 can show a few milliseconds in; >= 2 means
+// at least one full second. PROCESSLIST lists this database user's own
+// connections without any extra privilege; the holding transaction is idle
+// (Sleep) between statements, so it does not match. The driver sends prepared
+// statements, which show as Execute rather than Query.
+async function waitForBlockedStatement(timeoutMs = 10_000) {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        const [{ n }] = await prisma.$queryRaw`
+            SELECT COUNT(*) AS n FROM information_schema.PROCESSLIST
+            WHERE DB = DATABASE() AND COMMAND IN ('Query', 'Execute') AND TIME >= 2 AND ID <> CONNECTION_ID()`;
+        if (Number(n) > 0) return;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    throw new Error("the request never waited for the open transaction, so the race was not exercised");
+}
+
+// Runs revoke(tx) in a transaction and, while it is still uncommitted, starts
+// request() and waits until it is blocked on that transaction; then runs
+// whileBlocked(tx), if given, and commits. Returns the request's response.
+async function raceAgainstOpenTransaction(revoke, request, whileBlocked) {
+    let pending;
+
+    await prisma.$transaction(async (tx) => {
+        await revoke(tx);
+        pending = request();
+        pending.catch(() => {});
+        await waitForBlockedStatement();
+        await whileBlocked?.(tx);
+    }, { timeout: 20_000 });
+
+    return pending;
+}
+
+let server, user, raceUser;
+// Accounts created through /auth/register by this run.
+const registered = [];
 const issuedTokens = [];
 const bodies = [];
 
@@ -53,6 +98,9 @@ before(async () => {
     user = await prisma.user.create({
         data: { email: USER.email, passwordHash: await bcrypt.hash(USER.password, SALT_ROUNDS), firstName: "Test", lastName: "Auth", role: "CUSTOMER" },
     });
+    raceUser = await prisma.user.create({
+        data: { email: RACE_USER.email, passwordHash: await bcrypt.hash(RACE_USER.password, SALT_ROUNDS), firstName: "Test", lastName: "Race", role: "CUSTOMER" },
+    });
 
     server = await startServer(testServerEnv(guard));
 
@@ -66,11 +114,16 @@ after(async () => {
     if (!guard.ok) return;
 
     try {
-        // Only this run's user and its refresh tokens (carts cascade with it).
-        if (user) {
+        // Only this run's users and their refresh tokens (carts cascade with them).
+        const created = [user, raceUser, ...registered].filter(Boolean);
+
+        if (created.length) {
             await deleteInTestDatabase(prisma, async (tx) => {
-                await tx.refreshToken.deleteMany({ where: { userId: user.id } });
-                expectDeleted("users", await tx.user.deleteMany({ where: { id: user.id, email: USER.email } }), 1);
+                const ids = created.map((u) => u.id);
+                await tx.refreshToken.deleteMany({ where: { userId: { in: ids } } });
+                expectDeleted("users", await tx.user.deleteMany({
+                    where: { id: { in: ids }, email: { in: created.map((u) => u.email) } },
+                }), created.length);
             });
         }
     } finally {
@@ -196,6 +249,59 @@ dbTest("5b. concurrent refreshes with the same token (two tabs) both succeed", a
     assert.notEqual(refreshCookie(a), refreshCookie(b));
 });
 
+dbTest("5c. a refresh that waits on a revocation (password change, logout) issues no token", async () => {
+    const { token } = await login(server.url, USER);
+    issuedTokens.push(token);
+    const { familyId } = await row(token);
+
+    // Revoked the way a password change does, committed while the refresh is in progress.
+    const res = await track(await raceAgainstOpenTransaction(
+        (tx) => revokeAllUserSessions(user.id, { db: tx }),
+        () => post(`${server.url}/auth/refresh`, undefined, { cookie: token }),
+    ));
+
+    assert.equal(res.status, 401);
+    assert.match(setCookieHeader(res), /refreshToken=;/, "cookie cleared, no new token set");
+    assert.equal(await prisma.refreshToken.count({ where: { familyId, revokedAt: null } }), 0, "no active token in the revoked family");
+});
+
+dbTest("5d. a just-rotated token (grace window) issues no token once its family is revoked mid-refresh", async () => {
+    const { token: first } = await login(server.url, USER);
+    const second = refreshCookie(await track(await post(`${server.url}/auth/refresh`, undefined, { cookie: first })));
+    issuedTokens.push(first);
+    const { familyId } = await row(first);
+    assert.equal((await row(second)).revokedAt, null);
+
+    const res = await track(await raceAgainstOpenTransaction(
+        (tx) => revokeAllUserSessions(user.id, { db: tx }),
+        () => post(`${server.url}/auth/refresh`, undefined, { cookie: first }),
+    ));
+
+    assert.equal(res.status, 401);
+    assert.equal(await prisma.refreshToken.count({ where: { familyId, revokedAt: null } }), 0, "no active token in the revoked family");
+});
+
+dbTest("5e. a refresh racing a password change takes the user row before its token (no deadlock)", async () => {
+    const { token } = await login(server.url, USER);
+    issuedTokens.push(token);
+    const { familyId } = await row(token);
+    const { passwordHash } = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+
+    // accountService.changePassword's order: the user row (rewritten with the
+    // same hash, so USER keeps its password), then, with the refresh already
+    // waiting, every session revoked. A refresh that locked its token first
+    // would hold it while waiting for the user row: a deadlock.
+    const res = await track(await raceAgainstOpenTransaction(
+        (tx) => tx.user.update({ where: { id: user.id }, data: { passwordHash } }),
+        () => post(`${server.url}/auth/refresh`, undefined, { cookie: token }),
+        (tx) => revokeAllUserSessions(user.id, { db: tx }),
+    ));
+
+    assert.equal(res.status, 401);
+    assert.match(setCookieHeader(res), /refreshToken=;/, "cookie cleared, no new token set");
+    assert.equal(await prisma.refreshToken.count({ where: { familyId, revokedAt: null } }), 0, "no active token in the revoked family");
+});
+
 dbTest("6. logout revokes the refresh session", async () => {
     const { token } = await login(server.url, USER);
     const rotated = refreshCookie(await track(await post(`${server.url}/auth/refresh`, undefined, { cookie: token })));
@@ -231,6 +337,61 @@ dbTest("7. expired, forged, revoked or missing tokens give a clean 401", async (
 
     const none = await track(await post(`${server.url}/auth/refresh`));
     assert.equal(none.status, 401);
+});
+
+dbTest("6b. a login that checked the old password creates no session once a password change commits", async () => {
+    const existing = await login(server.url, RACE_USER);
+    assert.equal(existing.res.status, 200);
+    issuedTokens.push(existing.token);
+    const newHash = await bcrypt.hash(`Race-${RUN}-Changed2`, SALT_ROUNDS);
+
+    // What accountService.changePassword commits: the new hash, then every session revoked.
+    const res = await track(await raceAgainstOpenTransaction(
+        async (tx) => {
+            await tx.user.update({ where: { id: raceUser.id }, data: { passwordHash: newHash } });
+            await revokeAllUserSessions(raceUser.id, { db: tx });
+        },
+        () => post(`${server.url}/auth/login`, RACE_USER),
+    ));
+
+    assert.equal(res.status, 401);
+    assert.deepEqual(await res.json(), INVALID_LOGIN, "same answer as a wrong password");
+    assert.equal(refreshCookie(res), null);
+    assert.equal(await prisma.refreshToken.count({ where: { userId: raceUser.id, revokedAt: null } }), 0, "no active session survives the change");
+});
+
+dbTest("8. registration limits passwords to 72 UTF-8 bytes, not 72 characters", async () => {
+    const register = (key, password) => post(`${server.url}/auth/register`, {
+        firstName: "Test", lastName: "Bytes", email: `phase1-bytes-${key}-${RUN}@example.test`, password,
+    });
+    const cases = [
+        ["below", "é".repeat(35) + "a", 201], // 71 bytes
+        ["at", "é".repeat(36), 201], // 72 bytes
+        ["above", "é".repeat(37), 422], // 37 characters, 74 bytes
+    ];
+
+    for (const [key, password, status] of cases) {
+        const res = await track(await register(key, password));
+        const body = await res.json();
+        if (res.status === 201) registered.push(body.user);
+
+        assert.equal(res.status, status, `${key} (${Buffer.byteLength(password)} bytes)`);
+        if (status === 422) assert.equal(body.details[0].field, "password");
+    }
+
+    const atLimit = await prisma.user.findUnique({ where: { email: `phase1-bytes-at-${RUN}@example.test` } });
+    assert.ok(await bcrypt.compare("é".repeat(36), atLimit.passwordHash), "the 72-byte password is stored whole");
+});
+
+dbTest("8b. an oversized login password is rejected by validation, before bcrypt", async () => {
+    const res = await track(await post(`${server.url}/auth/login`, { email: USER.email, password: "x".repeat(1025) }));
+    const body = await res.json();
+
+    // 422 from the validator, not the 401 that comparing the password would give.
+    assert.equal(res.status, 422);
+    assert.equal(body.details[0].field, "password");
+    assert.match(body.details[0].message, /too long/i);
+    assert.equal(refreshCookie(res), null);
 });
 
 dbTest("15. no secrets in responses or server output", async () => {

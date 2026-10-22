@@ -48,6 +48,22 @@ export const paymentLimiter = limiter({
     message: { success: false, message: "Too many payment attempts, please try again later" },
 });
 
+// Profile edits, keyed by user (use after authenticate).
+export const profileUpdateLimiter = limiter({
+    limit: 20,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many profile changes, please try again later" },
+});
+
+// Password changes, keyed by user (use after authenticate). Each attempt
+// checks the current password, so this also bounds guessing with a stolen
+// access token. Counts every attempt, successful or not.
+export const passwordChangeLimiter = limiter({
+    limit: 5,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many password change attempts, please try again later" },
+});
+
 // Review create/edit/delete, keyed by user (use after authenticate). A
 // customer has one review per product, so normal use is a handful of writes.
 export const reviewMutationLimiter = limiter({

@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 
-const SALT_ROUNDS = 12;
+export const SALT_ROUNDS = 12;
 
 // Compared against when the email is unknown, so both failure paths do the
 // same bcrypt work and response time does not reveal which emails exist.
@@ -64,7 +64,8 @@ export async function loginUser({ email, password }) {
 
     const { passwordHash, ...safeUser } = user;
 
-    return safeUser;
+    // passwordHash is for createSession's check only; it is never sent.
+    return { user: safeUser, passwordHash };
 }
 
 export async function getUserById(id) {

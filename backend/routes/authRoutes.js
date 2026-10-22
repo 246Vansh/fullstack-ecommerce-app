@@ -9,7 +9,7 @@ import {
     me,
 } from "../controllers/authController.js";
 import { authenticate } from "../middleware/auth.js";
-import { validate } from "../middleware/validate.js";
+import { validate, newPasswordRule, MAX_PASSWORD_INPUT_LENGTH } from "../middleware/validate.js";
 import { credentialsLimiter, sessionLimiter } from "../middleware/rateLimits.js";
 
 const router = Router();
@@ -22,14 +22,14 @@ const registerRules = [
     body("email").trim().isEmail().withMessage("Enter a valid email address")
         .isLength({ max: 191 }).withMessage("Email is too long")
         .normalizeEmail({ gmail_remove_dots: false }),
-    body("password").isString()
-        .isLength({ min: 8, max: 72 }).withMessage("Password must be 8 to 72 characters"),
+    newPasswordRule("password"),
 ];
 
 const loginRules = [
     body("email").trim().isEmail().withMessage("Enter a valid email address")
         .normalizeEmail({ gmail_remove_dots: false }),
-    body("password").isString().notEmpty().withMessage("Password is required"),
+    body("password").isString().notEmpty().withMessage("Password is required")
+        .isLength({ max: MAX_PASSWORD_INPUT_LENGTH }).withMessage("Password is too long"),
     body("remember").optional().isBoolean().toBoolean(),
 ];
 

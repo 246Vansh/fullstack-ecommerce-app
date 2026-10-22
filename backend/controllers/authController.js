@@ -40,14 +40,16 @@ export async function register(req, res) {
 export async function login(req, res) {
     const { email, password, remember } = req.body;
 
-    const user = await loginUser({ email, password });
+    const { user, passwordHash } = await loginUser({ email, password });
 
-    setRefreshCookie(res, await createSession(user.id, Boolean(remember)));
+    const session = await createSession(user.id, Boolean(remember), { verifiedPasswordHash: passwordHash });
+
+    setRefreshCookie(res, session);
 
     res.json({
         success: true,
         user,
-        accessToken: signAccessToken(user),
+        accessToken: signAccessToken(user, session.familyId),
     });
 }
 
@@ -76,7 +78,7 @@ export async function refresh(req, res) {
     res.json({
         success: true,
         user,
-        accessToken: signAccessToken(user),
+        accessToken: signAccessToken(user, session.familyId),
     });
 }
 

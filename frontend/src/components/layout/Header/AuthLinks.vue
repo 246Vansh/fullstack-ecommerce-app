@@ -14,6 +14,12 @@
         Orders
       </RouterLink>
 
+      <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
+
+      <RouterLink :to="ROUTES.ACCOUNT" class="text-sm font-medium text-gray-700 hover:text-gray-800">
+        Account
+      </RouterLink>
+
       <template v-if="auth.isAdmin">
         <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
 

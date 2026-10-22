@@ -14,7 +14,8 @@ export function authenticate(req, res, next) {
     try {
         const payload = verifyAccessToken(token);
 
-        req.user = { id: Number(payload.sub), role: payload.role };
+        // sessionId is null for tokens issued without one (see signAccessToken).
+        req.user = { id: Number(payload.sub), role: payload.role, sessionId: payload.sid ?? null };
 
         next();
     } catch {

@@ -6,14 +6,14 @@ import { parseApiError } from "@/services/apiClient";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function clearErrors(errors) {
+export function clearErrors(errors) {
     for (const key of Object.keys(errors)) {
         errors[key] = "";
     }
 }
 
 // Copies server field errors onto the form; unknown fields fall back to `fallbackField`.
-function applyApiError(errors, error, fallbackField) {
+export function applyApiError(errors, error, fallbackField) {
     const { message, fields } = parseApiError(error);
 
     const matched = Object.keys(fields).filter((field) => field in errors);

@@ -27,9 +27,12 @@ function getSecret(name) {
     return secret;
 }
 
-export function signAccessToken(user) {
+// sid is the login session (refresh-token family) the token was issued for, so
+// account routes outside /api/auth (which never see the refresh cookie) know
+// which session is the caller's own.
+export function signAccessToken(user, sessionId) {
     return jwt.sign(
-        { sub: String(user.id), role: user.role, type: "access" },
+        { sub: String(user.id), role: user.role, type: "access", ...(sessionId && { sid: sessionId }) },
         getSecret("JWT_ACCESS_SECRET"),
         { expiresIn: ACCESS_EXPIRES_IN },
     );

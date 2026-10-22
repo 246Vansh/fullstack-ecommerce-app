@@ -55,6 +55,11 @@ export const useAuthStore = defineStore("auth", () => {
         await login({ email: details.email, password: details.password, remember: false });
     }
 
+    // After a profile edit: the server's updated user, same shape as login's.
+    function updateUser(updated) {
+        user.value = updated;
+    }
+
     async function logout() {
         try {
             await authService.logout();
@@ -73,6 +78,7 @@ export const useAuthStore = defineStore("auth", () => {
         restoreSession,
         login,
         register,
+        updateUser,
         logout,
     };
 

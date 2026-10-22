@@ -149,6 +149,16 @@
 
                                 </div>
 
+                                <div class="flow-root">
+
+                                    <RouterLink :to="ROUTES.ACCOUNT"
+                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        @click="closeMenu">
+                                        Account Settings
+                                    </RouterLink>
+
+                                </div>
+
                                 <div v-if="auth.isAdmin" class="flow-root">
 
                                     <RouterLink :to="ROUTES.ADMIN"
