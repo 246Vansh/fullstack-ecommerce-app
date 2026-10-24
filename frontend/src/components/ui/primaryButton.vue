@@ -34,7 +34,7 @@ const props = defineProps({
     },
     variant: {
         type: String,
-        default: "primary", // primary | secondary | outline | light | ghost | danger
+        default: "primary", // primary | secondary | outline | light | ghost | danger | danger-outline
     },
     size: {
         type: String,
@@ -94,6 +94,17 @@ const variantClasses = {
         "text-white",
         "shadow-sm",
         "hover:bg-red-700",
+        "outline-red-600",
+    ],
+    // Reversible destructive actions (deactivate): visibly different from a
+    // neutral outline, quieter than `danger`.
+    "danger-outline": [
+        "border",
+        "border-red-200",
+        "bg-white",
+        "text-red-700",
+        "hover:border-red-300",
+        "hover:bg-red-50",
         "outline-red-600",
     ],
 };

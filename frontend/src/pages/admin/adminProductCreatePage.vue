@@ -1,44 +1,44 @@
 <template>
     <div class="mx-auto max-w-5xl">
 
-        <RouterLink :to="{ name: 'admin-products' }"
-            class="inline-flex items-center gap-1 rounded text-sm font-medium text-indigo-700 hover:underline focus-visible:outline-2 focus-visible:outline-indigo-600">
-            <ChevronLeftIcon class="h-4 w-4" aria-hidden="true" />
-            Back to products
-        </RouterLink>
-
-        <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">New product</h1>
-        <p class="mt-1 text-sm text-slate-500">Fields marked <span aria-hidden="true">*</span><span class="sr-only">required</span> are required.</p>
+        <AdminPageHeader title="New product" :back="{ label: 'Back to products', to: { name: 'admin-products' } }">
+            <template #meta>
+                <p>Fields marked <span class="text-red-700" aria-hidden="true">*</span><span class="sr-only">required</span> are required.</p>
+            </template>
+        </AdminPageHeader>
 
         <form ref="formEl" novalidate class="mt-6 space-y-6" @submit.prevent="submit">
 
             <AdminFormStatus :alert="save.alert.value" />
 
-            <section aria-labelledby="new-details-heading" class="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-                <h2 id="new-details-heading" class="text-lg font-bold text-slate-900">Details</h2>
-                <div v-if="categoriesError" class="mt-2 flex items-center gap-3 text-sm text-red-700">
+            <section aria-labelledby="new-details-heading" :class="CARD">
+                <AdminSectionHeading heading-id="new-details-heading" step="1" title="Details"
+                    text="Name, category and pricing as shoppers will see them." />
+                <div v-if="categoriesError" role="alert"
+                    class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                     Categories could not be loaded.
-                    <button type="button" class="rounded font-semibold underline focus-visible:outline-2 focus-visible:outline-indigo-600 cursor-pointer"
+                    <button type="button"
+                        class="rounded font-semibold underline underline-offset-2 outline-red-600 focus-visible:outline-2 cursor-pointer"
                         @click="loadCategories">Try again</button>
                 </div>
-                <ProductDetailsFields class="mt-4" :form="form" :errors="save.errors" prefix="new-product"
+                <ProductDetailsFields class="mt-5" :form="form" :errors="save.errors" prefix="new-product"
                     :category-options="categoryOptions" :categories-error="categoriesError" show-active currency-editable />
             </section>
 
-            <section aria-labelledby="new-variants-heading" class="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-                <h2 id="new-variants-heading" class="text-lg font-bold text-slate-900">Variants</h2>
-                <p class="mt-1 text-sm text-slate-500">At least one. Each size/color combination needs its own SKU.</p>
+            <section aria-labelledby="new-variants-heading" :class="CARD">
+                <AdminSectionHeading heading-id="new-variants-heading" step="2" title="Variants"
+                    text="At least one. Each size/color combination needs its own SKU." />
 
-                <ol class="mt-4 space-y-4">
+                <ol class="mt-5 space-y-4">
                     <li v-for="(variant, index) in variants" :key="variant.key"
-                        class="rounded-lg border border-slate-200 p-3">
-                        <div class="mb-2 flex items-center justify-between">
-                            <h3 class="text-sm font-semibold text-slate-700">Variant {{ index + 1 }}</h3>
-                            <button v-if="variants.length > 1" type="button"
-                                class="rounded-md px-2 py-1 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-indigo-600 cursor-pointer"
+                        class="rounded-control border border-slate-200 bg-slate-50/60 p-4">
+                        <div class="mb-3 flex min-h-9 items-center justify-between gap-3">
+                            <h3 class="text-sm font-semibold text-slate-900">Variant {{ index + 1 }}</h3>
+                            <PrimaryButton v-if="variants.length > 1" tag="button" variant="danger-outline" size="sm"
                                 @click="removeVariant(index)">
+                                <TrashIcon class="-ml-1 h-4 w-4" aria-hidden="true" />
                                 Remove<span class="sr-only"> variant {{ index + 1 }}</span>
-                            </button>
+                            </PrimaryButton>
                         </div>
                         <VariantFields :form="variant" :errors="save.errors" :prefix="`new-${variant.key}`" with-stock
                             :error-key="(name) => `variants[${index}].${name}`" :currency="form.currency"
@@ -46,29 +46,27 @@
                     </li>
                 </ol>
 
-                <button type="button" :disabled="variants.length >= LIMITS.variants"
-                    class="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50 cursor-pointer"
-                    @click="addVariant">
-                    <PlusIcon class="h-4 w-4" aria-hidden="true" />
-                    Add variant
-                </button>
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <PrimaryButton tag="button" variant="outline" size="sm" :disabled="variants.length >= LIMITS.variants"
+                        @click="addVariant">
+                        <PlusIcon class="-ml-1 h-4 w-4" aria-hidden="true" />
+                        Add variant
+                    </PrimaryButton>
+                    <span v-if="variants.length >= LIMITS.variants" class="text-xs text-slate-600">Up to {{ LIMITS.variants }} variants.</span>
+                </div>
             </section>
 
-            <section aria-labelledby="new-images-heading" class="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-                <h2 id="new-images-heading" class="text-lg font-bold text-slate-900">Images</h2>
-                <p class="mt-1 text-sm text-slate-500">Full https:// image addresses; the first is the main image. Uploading files is not supported.</p>
-                <GalleryEditor class="mt-4" :images="images" :errors="save.errors" prefix="new-image" />
+            <section aria-labelledby="new-images-heading" :class="CARD">
+                <AdminSectionHeading heading-id="new-images-heading" step="3" title="Images"
+                    text="Full https:// image addresses; the first is the main image. Uploading files is not supported." />
+                <GalleryEditor class="mt-5" :images="images" :errors="save.errors" prefix="new-image" />
             </section>
 
-            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <RouterLink :to="{ name: 'admin-products' }"
-                    class="rounded-lg border border-slate-300 px-5 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600">
-                    Cancel
-                </RouterLink>
-                <button type="submit" :disabled="save.saving.value"
-                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 cursor-pointer">
+            <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-end">
+                <PrimaryButton :to="{ name: 'admin-products' }" variant="outline">Cancel</PrimaryButton>
+                <PrimaryButton tag="button" type="submit" :loading="save.saving.value">
                     {{ save.saving.value ? "Creating…" : "Create product" }}
-                </button>
+                </PrimaryButton>
             </div>
         </form>
     </div>
@@ -76,9 +74,12 @@
 
 <script setup>
 import { nextTick, onMounted, reactive, ref } from "vue";
-import { RouterLink, useRouter } from "vue-router";
-import { ChevronLeftIcon, PlusIcon } from "@heroicons/vue/20/solid";
+import { useRouter } from "vue-router";
+import { PlusIcon, TrashIcon } from "@heroicons/vue/20/solid";
 
+import AdminPageHeader from "@/components/admin/ui/adminPageHeader.vue";
+import AdminSectionHeading from "@/components/admin/ui/adminSectionHeading.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 import AdminFormStatus from "@/components/admin/form/adminFormStatus.vue";
 import ProductDetailsFields from "@/components/admin/products/productDetailsFields.vue";
 import VariantFields from "@/components/admin/products/variantFields.vue";
@@ -92,6 +93,8 @@ import {
     LIMITS, emptyProductForm, emptyVariantForm, hasErrors, imageErrors, imagesPayload,
     productErrors, productPayload, variantErrors, variantPayload,
 } from "@/utils/adminCatalogRules";
+
+const CARD = "rounded-card border border-slate-200 bg-white p-4 shadow-card sm:p-6";
 
 const router = useRouter();
 const save = useAdminSave();

@@ -8,35 +8,30 @@
         <!-- Add a variant -->
         <div class="mt-4">
             <button v-if="!adding" ref="addButton" type="button"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 cursor-pointer"
+                class="inline-flex min-h-9 items-center gap-1.5 rounded-control border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-900 transition-colors hover:border-slate-400 hover:bg-slate-50 outline-brand focus-visible:outline-2 focus-visible:outline-offset-2 cursor-pointer"
                 @click="openAdd">
-                <PlusIcon class="h-4 w-4" aria-hidden="true" />
+                <PlusIcon class="-ml-1 h-4 w-4" aria-hidden="true" />
                 Add variant
             </button>
 
             <form v-else ref="addForm" novalidate aria-label="New variant"
-                class="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3" @submit.prevent="submitAdd">
+                class="space-y-4 rounded-control border border-brand/25 bg-brand-soft/50 p-4" @submit.prevent="submitAdd">
                 <h3 class="text-sm font-semibold text-slate-900">New variant</h3>
                 <AdminFormStatus :alert="save.alert.value" />
                 <VariantFields :form="newVariant" :errors="save.errors" prefix="new-variant" with-stock
                     :currency="productPrices.currency"
                     :inherited-price="productPrices.price" :inherited-original="productPrices.originalPrice" />
-                <div class="flex gap-2">
-                    <button type="submit" :disabled="save.saving.value"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 cursor-pointer">
+                <div class="flex flex-wrap gap-2">
+                    <PrimaryButton tag="button" type="submit" size="sm" :loading="save.saving.value">
                         {{ save.saving.value ? "Adding…" : "Add variant" }}
-                    </button>
-                    <button type="button" :disabled="save.saving.value"
-                        class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 cursor-pointer"
-                        @click="cancelAdd">
+                    </PrimaryButton>
+                    <PrimaryButton tag="button" variant="outline" size="sm" :disabled="save.saving.value" @click="cancelAdd">
                         Cancel
-                    </button>
+                    </PrimaryButton>
                 </div>
             </form>
 
-            <p v-if="!adding && save.success.value" role="status" class="mt-2 text-sm font-medium text-green-800">
-                {{ save.success.value }}
-            </p>
+            <AdminFormStatus v-if="!adding && save.success.value" class="mt-3" :success="save.success.value" />
         </div>
     </div>
 </template>
@@ -46,6 +41,7 @@ import { computed, nextTick, reactive, ref, watch } from "vue";
 import { PlusIcon } from "@heroicons/vue/20/solid";
 
 import AdminFormStatus from "@/components/admin/form/adminFormStatus.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 import VariantFields from "./variantFields.vue";
 import VariantRow from "./variantRow.vue";
 import { adminCatalogService } from "@/services/adminCatalogService";

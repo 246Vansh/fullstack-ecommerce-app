@@ -55,16 +55,16 @@
         </AdminField>
 
         <fieldset class="sm:col-span-2">
-            <legend class="text-sm font-medium text-slate-700">Options</legend>
-            <div class="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+            <legend class="text-sm font-medium text-slate-900">Options</legend>
+            <div class="mt-1 flex flex-wrap gap-x-6">
+                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-slate-900">
                     <input v-model="form.isNew" type="checkbox"
-                        class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus-visible:outline-2 focus-visible:outline-indigo-600" />
+                        class="h-5 w-5 cursor-pointer rounded accent-brand outline-brand focus-visible:outline-2 focus-visible:outline-offset-2" />
                     Mark as new arrival
                 </label>
-                <label v-if="showActive" class="inline-flex items-center gap-2 text-sm text-slate-700">
+                <label v-if="showActive" class="inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-slate-900">
                     <input v-model="form.isActive" type="checkbox"
-                        class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus-visible:outline-2 focus-visible:outline-indigo-600" />
+                        class="h-5 w-5 cursor-pointer rounded accent-brand outline-brand focus-visible:outline-2 focus-visible:outline-offset-2" />
                     Visible in the store (active)
                 </label>
             </div>

@@ -1,31 +1,20 @@
 <template>
     <div class="mx-auto max-w-7xl">
 
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Products</h1>
-                <p class="mt-1 text-sm text-slate-500">All products, including inactive ones hidden from the store.</p>
-            </div>
-            <RouterLink :to="{ name: 'admin-product-new' }"
-                class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                <PlusIcon class="h-5 w-5" aria-hidden="true" />
-                Add product
-            </RouterLink>
-        </div>
+        <AdminPageHeader title="Products" description="Every product in the catalog, including inactive ones hidden from the store.">
+            <template #actions>
+                <PrimaryButton :to="{ name: 'admin-product-new' }" class="w-full sm:w-auto">
+                    <PlusIcon class="-ml-1 h-5 w-5" aria-hidden="true" />
+                    Add product
+                </PrimaryButton>
+            </template>
+        </AdminPageHeader>
 
         <!-- Access revoked server-side (403): filters would not help. -->
-        <section v-if="forbidden"
-            class="mt-6 flex min-h-60 flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-white px-4 text-center">
-            <h2 class="text-xl font-bold text-slate-900">Admin access required</h2>
-            <p class="mt-2 max-w-md text-slate-500">
-                The server did not accept your account as an administrator. If your access changed recently,
-                sign out and sign in again.
-            </p>
-            <RouterLink :to="ROUTES.HOME"
-                class="mt-6 rounded-lg border border-slate-200 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600">
-                Back to the store
-            </RouterLink>
-        </section>
+        <AdminStatePanel v-if="forbidden" kind="forbidden" class="mt-6" title="Admin access required"
+            message="The server did not accept your account as an administrator. If your access changed recently, sign out and sign in again.">
+            <PrimaryButton :to="ROUTES.HOME" variant="outline">Back to the store</PrimaryButton>
+        </AdminStatePanel>
 
         <template v-else>
 
@@ -37,46 +26,33 @@
             <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
 
             <!-- First load: nothing to show yet -->
-            <section v-if="loading && !pagination"
-                class="mt-6 flex min-h-60 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white">
-                <LoadingSpinner class="text-slate-400" label="Loading products" />
-            </section>
+            <AdminStatePanel v-if="loading && !pagination" kind="loading" class="mt-4" title="Loading products" />
 
             <!-- Error -->
-            <section v-else-if="error"
-                class="mt-6 flex min-h-60 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-center">
-                <h2 class="text-xl font-bold text-slate-900">Products unavailable</h2>
-                <p class="mt-2 text-slate-500">{{ error }}</p>
-                <button type="button" :disabled="loading"
-                    class="mt-6 rounded-lg border border-slate-200 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50 cursor-pointer"
-                    @click="retry">
+            <AdminStatePanel v-else-if="error" kind="error" class="mt-4" title="Products unavailable" :message="error">
+                <PrimaryButton tag="button" variant="outline" :loading="loading" @click="retry">
                     {{ loading ? "Retrying…" : "Try again" }}
-                </button>
-            </section>
+                </PrimaryButton>
+            </AdminStatePanel>
 
             <!-- Empty -->
-            <section v-else-if="!products.length"
-                class="mt-6 flex min-h-60 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-center">
-                <template v-if="hasFilters">
-                    <h2 class="text-xl font-bold text-slate-900">No matching products</h2>
-                    <p class="mt-2 text-slate-500">Try a different search or clear the filters.</p>
-                    <button type="button"
-                        class="mt-6 rounded-lg border border-slate-200 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 cursor-pointer"
-                        @click="clearFilters">
-                        Clear filters
-                    </button>
-                </template>
-                <template v-else>
-                    <h2 class="text-xl font-bold text-slate-900">No products yet</h2>
-                    <p class="mt-2 text-slate-500">Products you add will appear here.</p>
-                </template>
-            </section>
+            <AdminStatePanel v-else-if="!products.length && hasFilters" kind="empty" class="mt-4"
+                title="No matching products" message="Try a different search or clear the filters.">
+                <PrimaryButton tag="button" variant="outline" @click="clearFilters">Clear filters</PrimaryButton>
+            </AdminStatePanel>
+            <AdminStatePanel v-else-if="!products.length" kind="empty" class="mt-4" :icon="CubeIcon"
+                title="No products yet" message="Products you add will appear here.">
+                <PrimaryButton :to="{ name: 'admin-product-new' }">Add product</PrimaryButton>
+            </AdminStatePanel>
 
             <!-- Results (kept on screen, dimmed, while the next page/filter loads) -->
-            <section v-else class="mt-6" :aria-busy="loading" aria-labelledby="admin-products-count">
-                <p id="admin-products-count" class="mb-3 text-sm text-slate-600">{{ rangeText }}</p>
+            <section v-else class="mt-4" :aria-busy="loading" aria-labelledby="admin-products-count">
+                <div class="mb-3 flex min-h-6 items-center gap-2">
+                    <p id="admin-products-count" class="text-sm text-slate-600">{{ rangeText }}</p>
+                    <LoadingSpinner v-if="loading" class="h-4 w-4 text-slate-400 [&>svg]:h-4 [&>svg]:w-4" />
+                </div>
 
-                <div :class="{ 'pointer-events-none opacity-60 transition-opacity': loading }">
+                <div class="transition-opacity" :class="{ 'pointer-events-none opacity-60': loading }">
                     <AdminProductList :products="products" :caption="rangeText" />
                 </div>
 
@@ -91,13 +67,16 @@
 
 <script setup>
 import { computed } from "vue";
-import { RouterLink } from "vue-router";
 import { PlusIcon } from "@heroicons/vue/20/solid";
+import { CubeIcon } from "@heroicons/vue/24/outline";
 
+import AdminPageHeader from "@/components/admin/ui/adminPageHeader.vue";
+import AdminStatePanel from "@/components/admin/ui/adminStatePanel.vue";
 import AdminProductFilters from "@/components/admin/products/adminProductFilters.vue";
 import AdminProductList from "@/components/admin/products/adminProductList.vue";
 import Pagination from "@/components/products/pagination.vue";
 import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 
 import { ROUTES } from "@/config";
 import { useAdminProducts } from "@/composables/useAdminProducts";

@@ -23,7 +23,7 @@
             <div class="flex items-center gap-2">
                 <input :id="f.id" v-bind="f.attrs" v-model="form.colorHex" type="text" maxlength="7"
                     autocomplete="off" spellcheck="false" placeholder="#000000" :class="[f.controlClass, 'font-mono uppercase']" />
-                <span class="h-8 w-8 shrink-0 rounded-md border border-slate-300" :style="swatch" aria-hidden="true"></span>
+                <span class="h-11 w-11 shrink-0 rounded-control border border-slate-300" :style="swatch" aria-hidden="true"></span>
             </div>
         </AdminField>
 

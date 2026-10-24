@@ -1,113 +1,88 @@
 <template>
     <div class="mx-auto max-w-5xl">
 
-        <RouterLink :to="{ name: 'admin-products' }"
-            class="inline-flex items-center gap-1 rounded text-sm font-medium text-indigo-700 hover:underline focus-visible:outline-2 focus-visible:outline-indigo-600">
-            <ChevronLeftIcon class="h-4 w-4" aria-hidden="true" />
-            Back to products
-        </RouterLink>
-
         <!-- Loading -->
         <template v-if="state === 'loading'">
-            <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Edit product</h1>
-            <section class="mt-6 flex min-h-60 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white">
-                <LoadingSpinner class="text-slate-400" label="Loading product" />
-            </section>
+            <AdminPageHeader title="Edit product" :back="BACK" />
+            <AdminStatePanel kind="loading" class="mt-6" title="Loading product" />
         </template>
 
-        <!-- Load failed -->
+        <!-- Load failed: the panel's heading is the page's h1 -->
         <template v-else-if="state !== 'ready'">
-            <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{{ LOAD_STATES[state].title }}</h1>
-            <section class="mt-6 flex min-h-60 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-center">
-                <p class="max-w-md text-slate-500">{{ state === "error" ? loadError : LOAD_STATES[state].text }}</p>
-                <button v-if="state === 'error'" type="button"
-                    class="mt-6 rounded-lg border border-slate-200 px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 cursor-pointer"
-                    @click="load">
-                    Try again
-                </button>
-            </section>
+            <AdminPageHeader :back="BACK" />
+            <AdminStatePanel :kind="state === 'forbidden' ? 'forbidden' : 'error'" :heading-level="1" class="mt-4"
+                :title="LOAD_STATES[state].title" :message="state === 'error' ? loadError : LOAD_STATES[state].text">
+                <PrimaryButton v-if="state === 'error'" tag="button" variant="outline" @click="load">Try again</PrimaryButton>
+                <PrimaryButton v-else :to="{ name: 'admin-products' }" variant="outline">Back to products</PrimaryButton>
+            </AdminStatePanel>
         </template>
 
         <template v-else>
-            <!-- Header -->
-            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div class="min-w-0">
-                    <h1 class="wrap-anywhere text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{{ product.name }}</h1>
-                    <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                            :class="product.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-700'">
-                            {{ product.isActive ? "Active" : "Inactive" }}
-                        </span>
-                        <span>#{{ product.id }}</span>
-                        <span>· In {{ product.orderItemCount }} order {{ product.orderItemCount === 1 ? "line" : "lines" }}</span>
-                    </p>
-                </div>
-                <div class="flex shrink-0 flex-wrap gap-2">
-                    <RouterLink v-if="product.isActive" :to="{ name: 'product-details', params: { id: product.id } }"
-                        class="rounded-lg px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600">
+            <AdminPageHeader :title="product.name" :back="BACK">
+                <template #meta>
+                    <AdminBadge :tone="product.isActive ? 'success' : 'neutral'">{{ product.isActive ? "Active" : "Inactive" }}</AdminBadge>
+                    <span class="font-mono text-xs text-slate-500">#{{ product.id }}</span>
+                    <span aria-hidden="true" class="text-slate-300">·</span>
+                    <span>In {{ product.orderItemCount }} order {{ product.orderItemCount === 1 ? "line" : "lines" }}</span>
+                </template>
+                <template #actions>
+                    <PrimaryButton v-if="product.isActive" :to="{ name: 'product-details', params: { id: product.id } }"
+                        variant="outline" size="sm">
+                        <ArrowTopRightOnSquareIcon class="-ml-1 h-4 w-4" aria-hidden="true" />
                         View in store
-                    </RouterLink>
-                    <button type="button" :disabled="statusSave.saving.value"
-                        class="rounded-lg border px-3 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-60 cursor-pointer"
-                        :class="product.isActive ? 'border-red-200 text-red-700 hover:bg-red-50' : 'border-green-300 text-green-800 hover:bg-green-50'"
-                        @click="toggleProductActive">
+                    </PrimaryButton>
+                    <PrimaryButton tag="button" size="sm" :variant="product.isActive ? 'danger-outline' : 'primary'"
+                        :disabled="statusSave.saving.value" @click="toggleProductActive">
                         {{ statusSave.saving.value ? "Saving…" : product.isActive ? "Deactivate product" : "Activate product" }}
-                    </button>
-                </div>
-            </div>
+                    </PrimaryButton>
+                </template>
+            </AdminPageHeader>
 
             <AdminFormStatus class="mt-4" :alert="statusSave.alert.value" :success="statusSave.success.value || createdMessage" />
 
             <!-- Details -->
-            <form ref="detailsEl" novalidate aria-labelledby="details-heading"
-                class="mt-6 rounded-xl border border-slate-200 bg-white p-4 sm:p-6" @submit.prevent="saveDetails">
-                <h2 id="details-heading" class="text-lg font-bold text-slate-900">Details</h2>
-                <AdminFormStatus class="mt-3" :alert="detailsSave.alert.value" :success="detailsSave.success.value" />
-                <ProductDetailsFields class="mt-4" :form="details" :errors="detailsSave.errors" prefix="edit-product"
+            <form ref="detailsEl" novalidate aria-labelledby="details-heading" :class="[CARD, 'mt-6']" @submit.prevent="saveDetails">
+                <AdminSectionHeading heading-id="details-heading" title="Details"
+                    text="Name, category and pricing. The currency is fixed once a product exists." />
+                <AdminFormStatus class="mt-4" :alert="detailsSave.alert.value" :success="detailsSave.success.value" />
+                <ProductDetailsFields class="mt-5" :form="details" :errors="detailsSave.errors" prefix="edit-product"
                     :category-options="categoryOptions" :categories-error="categoriesError" slug-required
                     :current-category-id="String(product.category.id)" />
-                <div class="mt-4 flex justify-end gap-2">
-                    <button type="button" :disabled="!detailsDirty || detailsSave.saving.value"
-                        class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50 cursor-pointer"
+                <div :class="FOOTER">
+                    <p v-if="detailsDirty" class="mr-auto text-sm font-medium text-amber-800">Unsaved changes</p>
+                    <PrimaryButton tag="button" variant="outline" :disabled="!detailsDirty || detailsSave.saving.value"
                         @click="resetDetails">
                         Undo changes
-                    </button>
-                    <button type="submit" :disabled="detailsSave.saving.value"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 cursor-pointer">
+                    </PrimaryButton>
+                    <PrimaryButton tag="button" type="submit" :loading="detailsSave.saving.value">
                         {{ detailsSave.saving.value ? "Saving…" : "Save details" }}
-                    </button>
+                    </PrimaryButton>
                 </div>
             </form>
 
             <!-- Variants -->
-            <section aria-labelledby="variants-heading" class="mt-6 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-                <h2 id="variants-heading" class="text-lg font-bold text-slate-900">Variants</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    Each change saves on its own. Deactivated variants stay in order history and can be activated again.
-                </p>
-                <VariantManager class="mt-4" :product="product" @updated="replaceProduct" @dirty="variantsDirty = $event" />
+            <section aria-labelledby="variants-heading" :class="[CARD, 'mt-6']">
+                <AdminSectionHeading heading-id="variants-heading" title="Variants"
+                    text="Each change saves on its own. Deactivated variants stay in order history and can be activated again." />
+                <VariantManager class="mt-5" :product="product" @updated="replaceProduct" @dirty="variantsDirty = $event" />
             </section>
 
             <!-- Gallery -->
-            <form ref="galleryEl" novalidate aria-labelledby="gallery-heading"
-                class="mt-6 rounded-xl border border-slate-200 bg-white p-4 sm:p-6" @submit.prevent="saveGallery">
-                <h2 id="gallery-heading" class="text-lg font-bold text-slate-900">Images</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    Reorder, replace or remove image addresses, then save. Saving replaces the whole gallery; the first image is the main one.
-                </p>
-                <AdminFormStatus class="mt-3" :alert="gallerySave.alert.value" :success="gallerySave.success.value" />
-                <GalleryEditor class="mt-4" :images="gallery" :errors="gallerySave.errors" prefix="edit-image"
+            <form ref="galleryEl" novalidate aria-labelledby="gallery-heading" :class="[CARD, 'mt-6']" @submit.prevent="saveGallery">
+                <AdminSectionHeading heading-id="gallery-heading" title="Images"
+                    text="Reorder, replace or remove image addresses, then save. Saving replaces the whole gallery; the first image is the main one." />
+                <AdminFormStatus class="mt-4" :alert="gallerySave.alert.value" :success="gallerySave.success.value" />
+                <GalleryEditor class="mt-5" :images="gallery" :errors="gallerySave.errors" prefix="edit-image"
                     :disabled="gallerySave.saving.value" />
-                <div class="mt-4 flex justify-end gap-2">
-                    <button type="button" :disabled="!galleryDirty || gallerySave.saving.value"
-                        class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50 cursor-pointer"
+                <div :class="FOOTER">
+                    <p v-if="galleryDirty" class="mr-auto text-sm font-medium text-amber-800">Unsaved changes</p>
+                    <PrimaryButton tag="button" variant="outline" :disabled="!galleryDirty || gallerySave.saving.value"
                         @click="resetGallery">
                         Undo changes
-                    </button>
-                    <button type="submit" :disabled="gallerySave.saving.value"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 cursor-pointer">
+                    </PrimaryButton>
+                    <PrimaryButton tag="button" type="submit" :loading="gallerySave.saving.value">
                         {{ gallerySave.saving.value ? "Saving…" : "Save images" }}
-                    </button>
+                    </PrimaryButton>
                 </div>
             </form>
         </template>
@@ -116,14 +91,18 @@
 
 <script setup>
 import { computed, reactive, ref } from "vue";
-import { RouterLink, useRoute, useRouter } from "vue-router";
-import { ChevronLeftIcon } from "@heroicons/vue/20/solid";
+import { useRoute, useRouter } from "vue-router";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/vue/20/solid";
 
+import AdminBadge from "@/components/admin/ui/adminBadge.vue";
+import AdminPageHeader from "@/components/admin/ui/adminPageHeader.vue";
+import AdminSectionHeading from "@/components/admin/ui/adminSectionHeading.vue";
+import AdminStatePanel from "@/components/admin/ui/adminStatePanel.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 import AdminFormStatus from "@/components/admin/form/adminFormStatus.vue";
 import GalleryEditor from "@/components/admin/products/galleryEditor.vue";
 import ProductDetailsFields from "@/components/admin/products/productDetailsFields.vue";
 import VariantManager from "@/components/admin/products/variantManager.vue";
-import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
 import { adminCatalogService } from "@/services/adminCatalogService";
 import { parseApiError } from "@/services/apiClient";
 import { toCategoryOptions } from "@/composables/useAdminProducts";
@@ -135,6 +114,10 @@ import {
     changedFields, hasErrors, imageErrors, imageFormsFrom, imagesPayload,
     productErrors, productFormFrom, productPayload,
 } from "@/utils/adminCatalogRules";
+
+const BACK = { label: "Back to products", to: { name: "admin-products" } };
+const CARD = "rounded-card border border-slate-200 bg-white p-4 shadow-card sm:p-6";
+const FOOTER = "mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-4";
 
 const LOAD_STATES = {
     notFound: { title: "Product not found", text: "This product does not exist. It may have been removed from the database." },

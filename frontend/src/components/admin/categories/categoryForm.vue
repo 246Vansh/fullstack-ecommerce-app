@@ -38,28 +38,25 @@
             </AdminField>
 
             <div class="sm:col-span-2">
-                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-slate-900">
                     <input v-model="form.isActive" type="checkbox" :aria-describedby="`${prefix}-active-hint`"
-                        class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus-visible:outline-2 focus-visible:outline-indigo-600" />
+                        class="h-5 w-5 cursor-pointer rounded accent-brand outline-brand focus-visible:outline-2 focus-visible:outline-offset-2" />
                     Active (shown in the store)
                 </label>
-                <p :id="`${prefix}-active-hint`" class="mt-1 text-xs text-slate-500">
+                <p :id="`${prefix}-active-hint`" class="text-xs leading-5 text-slate-600">
                     A category can only be deactivated once it has no active products or active subcategories.
                     <span v-if="save.errors.isActive" class="block font-medium text-red-700">{{ save.errors.isActive }}</span>
                 </p>
             </div>
         </div>
 
-        <div class="flex gap-2">
-            <button type="submit" :disabled="save.saving.value"
-                class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 cursor-pointer">
+        <div class="flex flex-wrap gap-2 pt-1">
+            <PrimaryButton tag="button" type="submit" size="sm" :loading="save.saving.value">
                 {{ save.saving.value ? "Saving…" : category ? "Save category" : "Create category" }}
-            </button>
-            <button type="button" :disabled="save.saving.value"
-                class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-indigo-600 cursor-pointer"
-                @click="cancel">
+            </PrimaryButton>
+            <PrimaryButton tag="button" variant="outline" size="sm" :disabled="save.saving.value" @click="cancel">
                 Cancel
-            </button>
+            </PrimaryButton>
         </div>
     </form>
 </template>
@@ -69,6 +66,7 @@ import { computed, reactive, ref, watch } from "vue";
 
 import AdminField from "@/components/admin/form/adminField.vue";
 import AdminFormStatus from "@/components/admin/form/adminFormStatus.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 import { adminCatalogService } from "@/services/adminCatalogService";
 import { useAdminSave } from "@/composables/useAdminSave";
 import { useFocusFirstError } from "@/composables/useFocusFirstError";
