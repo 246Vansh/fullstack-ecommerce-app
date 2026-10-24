@@ -4,15 +4,15 @@ export const badges = [
         id: 1,
         name: "New",
         slug: "new",
-        background: "bg-gradient-to-r from-violet-500 to-indigo-600",
-        text: "text-white",
+        background: "bg-white/95 backdrop-blur-sm",
+        text: "text-slate-900",
     },
 
     {
         id: 2,
         name: "Sale",
         slug: "sale",
-        background: "bg-gradient-to-r from-green-500 to-emerald-600",
+        background: "bg-brand",
         text: "text-white",
     },
 
@@ -20,8 +20,8 @@ export const badges = [
         id: 3,
         name: "Best Seller",
         slug: "best-seller",
-        background: "bg-gradient-to-r from-amber-400 to-orange-500",
-        text: "text-black",
+        background: "bg-slate-900",
+        text: "text-white",
     },
 
 ];

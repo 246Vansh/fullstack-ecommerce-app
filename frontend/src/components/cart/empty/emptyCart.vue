@@ -15,15 +15,15 @@
 
         </p>
 
-        <RouterLink to="/products"
-            class="mt-10 rounded-2xl bg-slate-900 px-8 py-4 font-semibold text-white transition hover:bg-slate-800">
+        <PrimaryButton to="/products" size="lg" class="mt-10">
             Start Shopping
-        </RouterLink>
+        </PrimaryButton>
 
     </section>
 </template>
 
 <script setup>
 import { ShoppingCartIcon } from "@heroicons/vue/24/outline";
-import { RouterLink } from "vue-router";
+
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 </script>

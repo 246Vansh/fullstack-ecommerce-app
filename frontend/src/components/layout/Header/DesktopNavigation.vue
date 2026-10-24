@@ -8,14 +8,14 @@
 
                     <PopoverButton :class="[
                         open
-                            ? 'text-indigo-600'
-                            : 'text-gray-700 hover:text-gray-800',
-                        'relative flex items-center justify-center text-sm font-medium transition-colors duration-200 ease-out '
+                            ? 'text-brand'
+                            : 'text-slate-700 hover:text-slate-900',
+                        'relative flex items-center justify-center text-sm font-medium transition-colors duration-200 ease-out cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand'
                     ]">
                         {{ category.name }}
 
                         <span :class="[
-                            open ? 'bg-indigo-600' : '',
+                            open ? 'bg-brand' : '',
                             'absolute inset-x-0 -bottom-px h-0.5 transition duration-200 ease-out'
                         ]" aria-hidden="true"></span>
                     </PopoverButton>

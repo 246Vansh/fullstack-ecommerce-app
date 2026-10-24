@@ -1,6 +1,6 @@
 <template>
 
-    <div v-if="badge" class="pointer-events-none absolute left-0 top-0 z-20 h-[92px] w-[92px] overflow-hidden">
+    <div v-if="badge" class="pointer-events-none absolute left-3 top-3 z-10">
 
         <div :class="badgeClasses">
 
@@ -45,30 +45,19 @@ const props = defineProps({
 
 });
 
+// A small pill over the photo's corner; colors come from constants/catalog/badges.js.
 const badgeClasses = computed(() => [
-    "absolute",
-    "left-[-27px]",
-    "top-[17px]",
-    "flex",
-    "w-[115px]",
-    "-rotate-45",
+    "inline-flex",
     "items-center",
-    "justify-center",
     "gap-1",
-    "py-2",
-    "text-[10px]",
-    "font-black",
-    "uppercase",
-    "tracking-[0.1em]",
+    "rounded-full",
+    "px-2.5",
+    "py-1",
+    "text-xs",
+    "font-semibold",
     "leading-none",
     "whitespace-nowrap",
-    "border-y",
-    "border-white/30",
-    "shadow-[0_4px_12px_rgba(15,23,42,0.18)]",
-    "transition-all",
-    "duration-300",
-    "group-hover:translate-x-0.5",
-    "group-hover:shadow-[0_7px_18px_rgba(15,23,42,0.22)]",
+    "shadow-sm",
     props.badge?.background,
     props.badge?.text,
 ]);

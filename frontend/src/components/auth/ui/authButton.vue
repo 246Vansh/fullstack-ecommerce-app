@@ -1,21 +1,15 @@
 <template>
-    <button :type="type" :disabled="disabled || loading" :class="[
-        'inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
-
-        disabled || loading
-            ? 'cursor-not-allowed bg-gray-300 text-white'
-            : 'bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-900'
-    ]">
-
-        <loadingSpinner v-if="loading" class="mr-2" />
-
+    <!-- The store's primary button, full width. The root is still a <button>:
+         callers' type="submit", @click and classes (e.g. the account forms'
+         "sm:w-auto sm:px-8") fall through to it. While loading it is disabled
+         and shows a spinner. -->
+    <PrimaryButton tag="button" :type="type" :disabled="disabled" :loading="loading" full-width>
         <slot />
-
-    </button>
+    </PrimaryButton>
 </template>
 
 <script setup>
-import loadingSpinner from "./loadingSpinner.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 
 defineProps({
 

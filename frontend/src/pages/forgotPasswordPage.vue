@@ -4,7 +4,7 @@
 
         <forgotPasswordForm v-model:email="forgotPassword.email" :errors="forgotPassword.errors" :loading="loading"
             :success="forgotPassword.success"
-            @submit="handleForgotPassword" />
+            @submit="handleForgotPassword" @try-again="forgotPassword.success = ''" />
 
     </authLayout>
 

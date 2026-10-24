@@ -1,5 +1,5 @@
 <template>
-  <div class="ml-auto flex items-center">
+  <div class="ml-auto flex items-center gap-1 sm:gap-2">
 
     <!-- Authentication -->
     <AuthLinks />

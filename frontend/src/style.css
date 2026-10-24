@@ -1,8 +1,72 @@
 @import "tailwindcss";
 
+/* Design tokens. Each one becomes a utility (bg-primary, rounded-control,
+   shadow-card, ...). Added alongside Tailwind's defaults, so existing
+   gray/slate/indigo classes keep working while pages migrate. */
+@theme {
+    /* Inter is loaded in index.html; the system stack covers it until then. */
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji";
+
+    /* Main actions are brand green (same values as --color-brand below);
+       indigo stays the accent (links, focus, selection). White text: 8.1:1
+       on primary, 10.6:1 on hover. */
+    --color-primary: #285943;
+    --color-primary-hover: #1f4634;
+    --color-accent: var(--color-indigo-600);
+    --color-accent-hover: var(--color-indigo-700);
+
+    /* Brand: forest green. */
+    --color-brand: #285943;
+    --color-brand-hover: #1f4634;
+    --color-brand-soft: #eaf1ec;
+
+    /* Warm off-white for alternating page sections. */
+    --color-surface: #f7f6f3;
+
+    /* Three radii: controls (buttons, inputs), cards, large panels. */
+    --radius-control: 0.75rem;
+    --radius-card: 1rem;
+    --radius-panel: 1.5rem;
+
+    --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+    --shadow-raised: 0 4px 12px rgb(15 23 42 / 0.08), 0 2px 4px rgb(15 23 42 / 0.04);
+}
+
+@layer base {
+    /* Keeps focused fields and #anchors clear of the sticky header (4rem + gap). */
+    html {
+        scroll-padding-top: 5rem;
+    }
+
+    body {
+        @apply bg-white text-slate-900 antialiased;
+    }
+}
+
 /* Programmatic focus targets (skip link, route changes) are not controls, so
    they get no focus ring. */
 #main-content:focus,
 #main-content h1:focus {
     outline: none;
+}
+
+/* Visitors who ask for less motion get instant transitions and no hover lifts.
+   Transitions still finish (and fire transitionend), so Headless UI dialogs
+   open and close as before. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    /* A spinner reports progress rather than decorating, so it keeps turning. */
+    .animate-spin {
+        animation-duration: 1s !important;
+        animation-iteration-count: infinite !important;
+    }
 }

@@ -8,33 +8,30 @@
 
         <!-- Status Card -->
 
-        <div :class="['rounded-2xl border px-6 py-8 text-center', STATE_STYLES[state].card]">
+        <div :class="['rounded-card border px-5 py-7 text-center sm:px-6 sm:py-8', STATE_STYLES[state].card]">
 
             <!-- Icon -->
 
-            <div :class="['mx-auto flex h-16 w-16 items-center justify-center rounded-full', STATE_STYLES[state].iconBg]">
+            <!-- Each state has its own icon as well as colour. -->
+            <div :class="['mx-auto flex h-14 w-14 items-center justify-center rounded-full', STATE_STYLES[state].iconBg]">
 
-                <svg :class="['h-8 w-8', STATE_STYLES[state].icon]" aria-hidden="true" fill="none" stroke="currentColor"
-                    stroke-width="2" viewBox="0 0 24 24">
+                <loadingSpinner v-if="state === 'verifying'" :class="STATE_STYLES[state].icon" />
 
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-
-                </svg>
+                <component :is="STATE_ICONS[state]" v-else :class="['h-7 w-7', STATE_STYLES[state].icon]" aria-hidden="true" />
 
             </div>
 
             <div role="status">
 
-                <h2 class="mt-6 text-lg font-semibold text-gray-900">
+                <h2 class="mt-5 text-lg font-semibold text-slate-900">
                     {{ STATE_TEXT[state].title }}
                 </h2>
 
-                <p class="mt-3 text-sm leading-6 text-gray-600">
+                <p class="mt-2 text-sm leading-6 text-pretty text-slate-600">
                     {{ STATE_TEXT[state].body }}
                 </p>
 
-                <p v-if="resendMessage" class="mt-3 text-sm font-medium text-gray-800">
+                <p v-if="resendMessage" class="mt-3 text-sm font-medium text-slate-800">
                     {{ resendMessage }}
                 </p>
 
@@ -49,6 +46,12 @@
             <authButton v-if="canResend" type="button" :loading="resending" @click="resend">
                 Send a new verification link
             </authButton>
+
+            <!-- The main action once verified; a quieter one while a link is still needed. -->
+            <PrimaryButton v-if="state !== 'verifying'" :to="ROUTES.PRODUCTS" full-width
+                :variant="state === 'verified' ? 'primary' : 'outline'">
+                Continue shopping
+            </PrimaryButton>
 
             <authFooter v-if="!auth.isAuthenticated" text="Have an account?" link-text="Sign In" :to="ROUTES.LOGIN" />
 
@@ -67,6 +70,9 @@ import { useRoute, useRouter } from "vue-router";
 import authHeader from "../ui/authHeader.vue";
 import authButton from "../ui/authButton.vue";
 import authFooter from "../ui/authFooter.vue";
+import loadingSpinner from "../ui/loadingSpinner.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
+import { CheckCircleIcon, EnvelopeIcon, ExclamationTriangleIcon } from "@heroicons/vue/24/outline";
 
 import { ROUTES } from "@/config";
 import { authPages } from "@/constants/auth/authPageContent";
@@ -95,11 +101,19 @@ const STATE_TEXT = {
     },
 };
 
+// Waiting states are warm neutral, success is brand green, failure is red.
 const STATE_STYLES = {
-    pending: { card: "border-blue-200 bg-blue-50", iconBg: "bg-blue-100", icon: "text-blue-600" },
-    verifying: { card: "border-blue-200 bg-blue-50", iconBg: "bg-blue-100", icon: "text-blue-600" },
-    verified: { card: "border-green-200 bg-green-50", iconBg: "bg-green-100", icon: "text-green-600" },
-    invalid: { card: "border-red-200 bg-red-50", iconBg: "bg-red-100", icon: "text-red-600" },
+    pending: { card: "border-slate-200 bg-surface", iconBg: "bg-white ring-1 ring-slate-200", icon: "text-brand" },
+    verifying: { card: "border-slate-200 bg-surface", iconBg: "bg-white ring-1 ring-slate-200", icon: "text-slate-500" },
+    verified: { card: "border-brand/20 bg-brand-soft", iconBg: "bg-brand", icon: "text-white" },
+    invalid: { card: "border-red-200 bg-red-50", iconBg: "bg-white ring-1 ring-red-200", icon: "text-red-700" },
+};
+
+// verifying shows the spinner instead.
+const STATE_ICONS = {
+    pending: EnvelopeIcon,
+    verified: CheckCircleIcon,
+    invalid: ExclamationTriangleIcon,
 };
 
 const route = useRoute();

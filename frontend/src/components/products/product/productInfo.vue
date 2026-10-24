@@ -1,13 +1,16 @@
 <template>
-    <div class="mt-2 space-y-1">
+    <div class="mt-4 space-y-1">
 
-        <!-- Brand -->
-        <p v-if="brand" class="text-sm font-medium uppercase tracking-wide text-gray-500">
+        <!-- Brand. Without one the line stays as empty space (hidden from
+             screen readers), so names and prices line up across a row. -->
+        <p v-if="brand" class="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
             {{ brand }}
         </p>
+        <p v-else aria-hidden="true" class="text-xs">&nbsp;</p>
 
-        <!-- Product Name -->
-        <h3 class="text-base font-semibold leading-6 text-gray-900">
+        <!-- Product Name: two lines at most, so prices line up across a row. -->
+        <h3
+            class="line-clamp-2 text-sm leading-6 font-medium text-slate-900 transition-colors duration-200 group-hover:text-brand sm:text-base">
             {{ name }}
         </h3>
 

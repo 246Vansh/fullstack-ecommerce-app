@@ -1,8 +1,7 @@
 <template>
 
-    <div class="print:hidden">
-        <Header />
-    </div>
+    <!-- The class lands on Header's own sticky wrapper; an extra wrapper div would stop it sticking. -->
+    <Header class="print:hidden" />
 
     <main id="main-content" tabindex="-1" class="bg-slate-50 print:bg-white">
 

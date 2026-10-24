@@ -1,65 +1,57 @@
-//import signInBanner from "@/assets/images/auth/sign-in-banner.jpg";
-//import signUpBanner from "@/assets/images/auth/sign-up-banner.jpg";
-//import forgotPasswordBanner from "@/assets/images/auth/forgot-password-banner.jpg";
-//import resetPasswordBanner from "@/assets/images/auth/reset-password-banner.jpg";
+// Copy for the desktop brand panel beside each auth form (authBanner.vue).
+// Only what the store actually does: no customer counts, guarantees or
+// product claims. Lifetimes match backend/services/userTokenService.js.
 
 export const authBanners = {
 
     signIn: {
 
-        badge: "Welcome Back",
+        badge: "Welcome back",
 
-        title: "Shop Smarter. Faster. Better.",
+        title: "Pick up where you left off",
 
-        description: "Sign in to continue exploring premium products curated just for you.",
-
-        //image: signInBanner,
+        description: "Sign in to see your orders, use your saved addresses and keep the items in your cart.",
 
     },
 
     signUp: {
 
-        badge: "Join Us",
+        badge: "New account",
 
-        title: "Create Your Shopping Journey.",
+        // /checkout requires sign-in (route meta.requiresAuth).
+        title: "Create an account to check out",
 
-        description: "Become part of our growing community and unlock exclusive shopping experiences.",
-
-        //image: signUpBanner,
+        description: "It keeps your order history, saved addresses and cart in one place.",
 
     },
 
     forgotPassword: {
 
-        badge: "Account Recovery",
+        badge: "Account recovery",
 
-        title: "Forgot Your Password?",
+        title: "Reset your password by email",
 
-        description: "We'll help you securely regain access to your account.",
-
-        //image: forgotPasswordBanner,
+        description: "If the address matches an account, we'll email a link that works once and expires after 30 minutes.",
 
     },
 
     resetPassword: {
 
-        badge: "Reset Password",
+        badge: "Account recovery",
 
-        title: "Create a Strong Password",
+        title: "Choose a new password",
 
-        description: "Choose a secure password to protect your account.",
-
-        //image: resetPasswordBanner,
+        description: "Use at least 8 characters. Saving it signs you out on every device, so you'll sign in again with the new password.",
 
     },
 
     verifyEmail: {
 
-        badge: "Email Verification",
+        badge: "Email verification",
 
-        title: "Confirm Your Email",
+        title: "Confirm your email address",
 
-        description: "A verified email address lets us reach you about your orders and account security.",
+        description: "Verification links work once and expire after 24 hours. You can request a new one from your account settings.",
 
     },
 

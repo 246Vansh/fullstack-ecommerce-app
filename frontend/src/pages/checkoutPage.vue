@@ -76,7 +76,8 @@
                 </section>
 
                 <!-- RIGHT COLUMN -->
-                <aside class="sticky top-8 min-w-0" :class="{ 'opacity-60': loading }">
+                <!-- top-24: clears the sticky header (h-16 + border) with the old 2rem gap. -->
+                <aside class="sticky top-24 min-w-0" :class="{ 'opacity-60': loading }">
 
                     <orderSummary :products="products" :subtotal="summary.subtotal" :discount="summary.discount"
                         :shipping="summary.shipping" :tax="summary.tax" :total="summary.total" :currency="summary.currency"

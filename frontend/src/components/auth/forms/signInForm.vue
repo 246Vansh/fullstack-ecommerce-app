@@ -1,8 +1,8 @@
 <template>
 
-    <form ref="formEl" class="space-y-6" @submit.prevent="$emit('submit')">
+    <form ref="formEl" class="space-y-6" novalidate @submit.prevent="$emit('submit')">
 
-        <authHeader title="Welcome Back" description="Sign in to your account to continue shopping." />
+        <authHeader :title="authPages.signIn.title" :description="authPages.signIn.description" />
 
         <authInput id="email" v-model="email" label="Email Address" type="email" placeholder="Enter your email"
             autocomplete="email" required :error="errors.email" />
@@ -14,7 +14,10 @@
 
             <checkboxField id="remember" v-model="remember" label="Remember me" />
 
-            <!-- No "Forgot password?" link until password reset exists. -->
+            <RouterLink :to="ROUTES.FORGOT_PASSWORD"
+                class="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-brand underline-offset-4 transition-colors hover:text-brand-hover hover:underline outline-brand focus-visible:outline-2 focus-visible:outline-offset-2">
+                Forgot password?
+            </RouterLink>
 
         </div>
 
@@ -30,6 +33,7 @@
 
 <script setup>
 import { ref } from "vue";
+import { RouterLink } from "vue-router";
 
 import authHeader from "../ui/authHeader.vue";
 import authInput from "../fields/authInput.vue";
@@ -38,6 +42,7 @@ import checkboxField from "../fields/checkboxField.vue";
 import authButton from "../ui/authButton.vue";
 import authFooter from "../ui/authFooter.vue";
 import { ROUTES } from "@/config";
+import { authPages } from "@/constants/auth/authPageContent";
 import { useFocusFirstError } from "@/composables/useFocusFirstError";
 
 const props = defineProps({

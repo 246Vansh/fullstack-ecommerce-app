@@ -1,18 +1,20 @@
 <template>
+
     <div class="text-center">
 
-        <p class="text-sm text-gray-600">
+        <p class="text-sm text-slate-600">
 
             {{ text }}
 
             <RouterLink :to="to"
-                class="ml-1 font-semibold text-gray-900 transition-colors duration-200 hover:text-gray-700">
+                class="ml-1 rounded-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 transition-colors duration-200 hover:text-brand-hover hover:decoration-current outline-brand focus-visible:outline-2 focus-visible:outline-offset-2">
                 {{ linkText }}
             </RouterLink>
 
         </p>
 
     </div>
+
 </template>
 
 <script setup>

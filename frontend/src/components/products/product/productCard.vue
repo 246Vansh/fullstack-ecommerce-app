@@ -4,8 +4,8 @@
         params: {
             id: product.id,
         },
-    }">
-        <article class="group relative flex flex-col">
+    }" class="group block rounded-card focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">
+        <article class="relative flex h-full flex-col">
 
             <!-- Product Image -->
 

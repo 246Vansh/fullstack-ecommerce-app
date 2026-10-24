@@ -1,35 +1,29 @@
 <template>
-    <section aria-labelledby="cause-heading">
-        <div class="mx-auto max-w-9xl px-4 sm:px-6 lg:px-8">
+    <section aria-labelledby="cause-heading" class="bg-surface">
+        <div class="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8">
 
-            <div class="relative overflow-hidden rounded-2xl">
+            <div class="rounded-panel bg-brand px-6 py-14 text-center sm:px-12 sm:py-20">
 
-                <!-- Background -->
-                <div class="absolute inset-0">
-                    <img src="https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-feature-section-full-width.jpg"
-                        alt="" class="h-full w-full object-cover object-center" />
-                </div>
+                <h2 id="cause-heading" class="text-3xl font-semibold tracking-tight text-balance text-white sm:text-4xl">
+                    Looking for something specific?
+                </h2>
 
-                <!-- Overlay -->
-                <div class="absolute inset-0 bg-gray-900/50" aria-hidden="true"></div>
+                <!-- What the catalog's search and filters actually do (see useProducts). -->
+                <p class="mx-auto mt-4 max-w-2xl text-lg leading-8 text-pretty text-white/85">
+                    Search by product name, brand or description, then narrow the results by
+                    category, size, colour and price, and sort by newest, best selling or price.
+                </p>
 
-                <!-- Content -->
-                <div
-                    class="relative mx-auto flex max-w-3xl flex-col items-center px-6 py-32 text-center sm:px-12 sm:py-40">
-                    <h2 id="cause-heading" class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Search the whole catalog
-                    </h2>
-
-                    <p class="mt-4 text-xl leading-8 text-white">
-                        Use the search in the header to find products by name, brand
-                        or description, and sort results by newest, best selling or
-                        price.
-                    </p>
-
-                </div>
+                <PrimaryButton to="/products" variant="light" size="lg" class="mt-8">
+                    Browse the catalog
+                </PrimaryButton>
 
             </div>
 
         </div>
     </section>
 </template>
+
+<script setup>
+import PrimaryButton from "@/components/ui/primaryButton.vue";
+</script>

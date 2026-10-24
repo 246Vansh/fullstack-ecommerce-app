@@ -3,9 +3,9 @@
 export const categories = [
   {
     id: 1,
-    title: "New Arrivals",
-    // The catalog's default sort is newest first.
-    to: { name: "products" },
+    // New Arrivals has its own homepage section; this photo shows women's tees.
+    title: "Women",
+    to: { name: "products", query: { category: "women" } },
     image:
       "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-featured-category.jpg",
     alt: "Two models wearing women's black cotton crewneck tee and off-white cotton crewneck tee.",

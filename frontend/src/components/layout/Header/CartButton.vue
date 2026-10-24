@@ -1,9 +1,10 @@
 <template>
-  <div class="ml-4 flow-root lg:ml-6">
+  <div class="flex">
 
-    <RouterLink to="/cart" class="group -m-2 flex items-center p-2">
-      <ShoppingBagIcon class="size-6 shrink-0 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
-      <span class="ml-2 text-sm font-medium text-gray-700 group-hover:text-gray-800">{{ cart.itemCount }}</span>
+    <RouterLink to="/cart"
+      class="group inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-2.5 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-brand">
+      <ShoppingBagIcon class="size-6 shrink-0 text-slate-600 group-hover:text-slate-900" aria-hidden="true" />
+      <span class="text-sm font-semibold tabular-nums text-slate-900">{{ cart.itemCount }}</span>
       <span class="sr-only">items in cart, view bag</span>
     </RouterLink>
 

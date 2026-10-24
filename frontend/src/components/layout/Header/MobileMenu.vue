@@ -26,11 +26,12 @@
                                 Menu
                             </h2>
 
-                            <button type="button" class="rounded-md p-2 text-gray-400 hover:text-gray-500"
+                            <button type="button"
+                                class="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand cursor-pointer"
                                 @click="closeMenu">
                                 <span class="sr-only">Close menu</span>
 
-                                <XMarkIcon class="h-6 w-6" />
+                                <XMarkIcon class="h-6 w-6" aria-hidden="true" />
                             </button>
 
                         </div>
@@ -47,9 +48,9 @@
 
                                         <button :class="[
                                             selected
-                                                ? 'border-indigo-600 text-indigo-600'
-                                                : 'border-transparent text-gray-900',
-                                            'flex-1 whitespace-nowrap border-b-2 px-1 py-4 text-base font-medium'
+                                                ? 'border-brand text-brand'
+                                                : 'border-transparent text-slate-900 hover:text-brand',
+                                            'flex-1 whitespace-nowrap border-b-2 px-1 py-4 text-base font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand'
                                         ]">
                                             {{ category.name }}
                                         </button>
@@ -112,7 +113,7 @@
                                             <li v-for="item in section.items" :key="item.name" class="flow-root">
 
                                                 <RouterLink :to="item.to"
-                                                    class="-m-2 block p-2 text-gray-500 hover:text-gray-800"
+                                                    class="-m-2 block rounded-md p-2 text-slate-600 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
                                                     @click="closeMenu">
                                                     {{ item.name }}
                                                 </RouterLink>
@@ -142,7 +143,7 @@
                                 <div class="flow-root">
 
                                     <RouterLink :to="ROUTES.ORDERS"
-                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
                                         @click="closeMenu">
                                         My Orders
                                     </RouterLink>
@@ -152,7 +153,7 @@
                                 <div class="flow-root">
 
                                     <RouterLink :to="ROUTES.ACCOUNT"
-                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
                                         @click="closeMenu">
                                         Account Settings
                                     </RouterLink>
@@ -162,7 +163,7 @@
                                 <div v-if="auth.isAdmin" class="flow-root">
 
                                     <RouterLink :to="ROUTES.ADMIN"
-                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
                                         @click="closeMenu">
                                         Admin
                                     </RouterLink>
@@ -172,7 +173,7 @@
                                 <div class="flow-root">
 
                                     <button type="button" :disabled="loggingOut"
-                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600 cursor-pointer disabled:opacity-50"
+                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand cursor-pointer disabled:opacity-50"
                                         @click="logout">
                                         Logout
                                     </button>
@@ -185,7 +186,7 @@
 
                                 <div class="flow-root">
 
-                                    <RouterLink :to="ROUTES.LOGIN" class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                    <RouterLink :to="ROUTES.LOGIN" class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
                                         @click="closeMenu">
                                         Sign In
                                     </RouterLink>
@@ -195,7 +196,7 @@
                                 <div class="flow-root">
 
                                     <RouterLink :to="ROUTES.REGISTER"
-                                        class="-m-2 block p-2 font-medium text-gray-900 hover:text-indigo-600"
+                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
                                         @click="closeMenu">
                                         Create Account
                                     </RouterLink>

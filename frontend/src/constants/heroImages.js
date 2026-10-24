@@ -1,52 +1,13 @@
-export const heroColumns = [
-  [
-    {
-      id: 1,
-      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-hero-image-tile-01.jpg",
-      alt: "Model wearing women's clothing",
-      class: "h-64 w-44",
-    },
-    {
-      id: 2,
-      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-hero-image-tile-02.jpg",
-      alt: "Woman wearing summer dress",
-      class: "h-64 w-44",
-    },
-  ],
-
-  [
-    {
-      id: 3,
-      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-hero-image-tile-03.jpg",
-      alt: "Man wearing casual clothes",
-      class: "h-64 w-44",
-    },
-    {
-      id: 4,
-      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-hero-image-tile-04.jpg",
-      alt: "Woman wearing jacket",
-      class: "h-64 w-44",
-    },
-    {
-      id: 5,
-      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-hero-image-tile-05.jpg",
-      alt: "Fashion accessories",
-      class: "h-64 w-44",
-    },
-  ],
-
-  [
-    {
-      id: 6,
-      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-hero-image-tile-06.jpg",
-      alt: "Man wearing jacket",
-      class: "h-64 w-44",
-    },
-    {
-      id: 7,
-      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-03-hero-image-tile-07.jpg",
-      alt: "Woman with sunglasses",
-      class: "h-64 w-44",
-    },
-  ],
+// Homepage hero photos (Unsplash, so utils/images.js can request each at the
+// width it is shown; all three are already used elsewhere in the catalog
+// constants). The first is the large tile. Chosen to show no third-party
+// logos or labels. They are decorative: the hero's text and links say what
+// the store sells.
+export const heroImages = [
+    // Woman in a coat carrying shopping bags (the Women category photo).
+    { id: "women", src: "https://images.unsplash.com/photo-1483985988355-763728e1935b" },
+    // Man in a plain white tee, beside "Shop men".
+    { id: "men", src: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab" },
+    // A rail of plain tees.
+    { id: "rail", src: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f" },
 ];

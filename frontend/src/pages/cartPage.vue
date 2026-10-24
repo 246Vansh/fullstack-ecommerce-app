@@ -101,7 +101,8 @@
 
                         <aside class="min-w-0 bg-white p-4 sm:p-8">
 
-                            <div class="sticky top-8">
+                            <!-- top-24: clears the sticky header (h-16 + border) with the old 2rem gap. -->
+                            <div class="sticky top-24">
 
                                 <!-- Shipping and tax are priced by the server at checkout -->
                                 <orderSummary :subtotal="cart.subtotal" :currency="cart.currency"

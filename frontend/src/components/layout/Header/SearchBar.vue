@@ -5,10 +5,10 @@
 
     <input id="site-search" ref="input" v-model="term" type="search" name="search" maxlength="100"
       placeholder="Search products" autocomplete="off"
-      class="block w-full min-w-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 sm:text-sm" />
+      class="block min-h-11 w-full min-w-0 rounded-control border border-slate-300 bg-white px-4 py-2 text-base text-slate-900 placeholder:text-slate-500 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 sm:text-sm" />
 
     <button type="submit"
-      class="shrink-0 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 cursor-pointer">
+      class="min-h-11 shrink-0 rounded-control bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer">
       Search
     </button>
 

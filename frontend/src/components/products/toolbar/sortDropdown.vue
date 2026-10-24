@@ -1,5 +1,6 @@
 <template>
-    <Menu as="div" class="relative z-30 inline-block text-left">
+    <!-- z-20: above product cards, below the sticky header (z-30); on mobile it has no wrapper. -->
+    <Menu as="div" class="relative z-20 inline-block text-left">
 
         <!-- Button -->
 

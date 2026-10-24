@@ -1,10 +1,9 @@
 <template>
 
-    <form ref="formEl" class="space-y-6" @submit.prevent="$emit('submit')">
+    <form ref="formEl" class="space-y-6" novalidate @submit.prevent="$emit('submit')">
 
         <!-- Header -->
-        <authHeader title="Create Your Account"
-            description="Join thousands of customers and start your premium shopping experience." />
+        <authHeader :title="authPages.signUp.title" :description="authPages.signUp.description" />
 
         <!-- Name -->
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -52,6 +51,7 @@ import passwordInput from "../fields/passwordInput.vue";
 import authButton from "../ui/authButton.vue";
 import authFooter from "../ui/authFooter.vue";
 import { ROUTES } from "@/config";
+import { authPages } from "@/constants/auth/authPageContent";
 import { useFocusFirstError } from "@/composables/useFocusFirstError";
 
 const props = defineProps({

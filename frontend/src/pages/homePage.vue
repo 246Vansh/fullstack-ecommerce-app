@@ -12,9 +12,11 @@ import Footer from "../components/layout/Footer/Footer.vue"
     <Header />
     <main id="main-content" tabindex="-1">
         <Hero />
+        <!-- Real products straight after the hero; then departments; the
+             catalog band shares the categories' warm background. -->
+        <Favorites />
         <Category />
         <Featured />
-        <Favorites />
     </main>
     <Footer />
 </template>

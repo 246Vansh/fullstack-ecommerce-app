@@ -2,8 +2,8 @@
   <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 translate-y-2"
     enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-150"
     leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-2">
-    <!-- z-60: above the catalog toolbar (z-50) so the menu stays usable on /products -->
-    <PopoverPanel v-slot="{ close }" class="absolute inset-x-0 top-full z-60 bg-white text-sm text-gray-500 shadow-lg">
+    <!-- Stacks inside the sticky header (z-30), which already sits above the catalog toolbar (z-20). -->
+    <PopoverPanel v-slot="{ close }" class="absolute inset-x-0 top-full z-60 bg-white text-sm text-slate-600 shadow-lg">
       <!-- Shadow -->
       <div class="absolute inset-0 top-1/2 bg-white shadow-sm" aria-hidden="true"></div>
 
@@ -26,7 +26,7 @@
 
                 </div>
 
-                <RouterLink :to="item.to" class="mt-6 block font-medium text-gray-900" @click="close()">
+                <RouterLink :to="item.to" class="mt-6 block rounded-sm font-medium text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" @click="close()">
                   <span class="absolute inset-0 z-10" aria-hidden="true"></span>
 
                   {{ item.name }}
@@ -56,7 +56,7 @@
 
                   <li v-for="item in section.items" :key="item.name">
 
-                    <RouterLink :to="item.to" class="transition hover:text-gray-900" @click="close()">
+                    <RouterLink :to="item.to" class="rounded-sm transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" @click="close()">
                       {{ item.name }}
                     </RouterLink>
 

@@ -7,14 +7,16 @@
                 :placeholder="placeholder" :autocomplete="autocomplete" :required="required" :disabled="disabled"
                 :autofocus="autofocus" :error="error" :described-by="describedBy" class="pr-12" />
 
-            <button type="button" :disabled="disabled" :aria-label="showPassword ? 'Hide password' : 'Show password'"
-                :aria-controls="id"
-                class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 transition-colors hover:text-gray-700"
+            <!-- Full input height and 44px wide; the outline is drawn inside the
+                 button so the input's edge cannot clip it. -->
+            <button type="button" :disabled="disabled" aria-label="Show password"
+                :aria-pressed="showPassword" :aria-controls="id"
+                class="absolute inset-y-0 right-0 flex min-w-11 cursor-pointer items-center justify-center rounded-r-control px-3 text-slate-500 transition-colors hover:text-slate-800 outline-brand focus-visible:outline-2 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 @click="showPassword = !showPassword">
 
-                <EyeIcon v-if="!showPassword" class="h-5 w-5" />
+                <EyeIcon v-if="!showPassword" class="h-5 w-5" aria-hidden="true" />
 
-                <EyeSlashIcon v-else class="h-5 w-5" />
+                <EyeSlashIcon v-else class="h-5 w-5" aria-hidden="true" />
 
             </button>
 
