@@ -1,6 +1,6 @@
 <template>
 
-    <checkoutSection number="02" title="Shipping Address" subtitle="Where should we deliver your order?"
+    <checkoutSection number="02" title="Shipping address" subtitle="Where should we deliver your order?"
         :icon="MapPinIcon" :editable="false">
 
         <!-- Add / Edit -->
@@ -10,42 +10,48 @@
 
         <template v-else>
 
-            <p v-if="!addresses.length" class="text-slate-600">
+            <p v-if="!addresses.length" class="rounded-card border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-600">
                 You have no saved addresses yet. Add one to continue.
             </p>
 
             <!-- Saved addresses. Only the radio and its address text are the label;
                  Edit and Delete sit beside it so they are not part of the radio. -->
 
-            <fieldset v-if="addresses.length" class="space-y-4">
+            <fieldset v-if="addresses.length" class="space-y-3">
 
                 <legend class="sr-only">Choose a shipping address</legend>
 
                 <div v-for="address in addresses" :key="address.id" :data-address-card="address.id">
 
-                <div class="flex items-start justify-between gap-4 rounded-2xl border p-4 transition sm:p-5"
-                    :class="address.id === selectedId ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 hover:border-gray-300'">
+                <!-- Below sm the actions sit in a row under the address (full width for the text);
+                     from sm they form a column beside it. -->
+                <div class="flex flex-col gap-2 rounded-card border p-4 transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                    :class="address.id === selectedId ? 'border-brand bg-brand-soft/50' : 'border-slate-200 hover:border-slate-300'">
 
                     <label :for="`shipping-address-${address.id}`"
                         class="flex min-w-0 flex-1 cursor-pointer items-start gap-3 sm:gap-4">
 
                         <input :id="`shipping-address-${address.id}`" type="radio" name="shipping-address"
-                            class="mt-1.5 h-4 w-4 shrink-0" :value="address.id"
+                            class="mt-1 h-4.5 w-4.5 shrink-0 accent-brand" :value="address.id"
                             :checked="address.id === selectedId" @change="$emit('select', address.id)" />
 
                         <!-- Address -->
 
                         <div :id="`shipping-address-summary-${address.id}`" class="min-w-0">
 
-                            <h3 class="text-xl font-semibold text-slate-900">
+                            <h3 class="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
                                 {{ TYPE_LABELS[address.type] ?? address.type }}
+                                <span v-if="address.isDefault"
+                                    class="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
+                                    Default
+                                </span>
                             </h3>
 
-                            <p class="mt-1 font-medium text-slate-700">
+                            <p class="mt-1 text-sm font-medium text-slate-700">
                                 {{ address.firstName }} {{ address.lastName }} · {{ address.phone }}
                             </p>
 
-                            <p class="mt-2 max-w-xl leading-7 text-slate-600">
+                            <p class="mt-1 max-w-xl text-sm leading-6 text-slate-600">
                                 {{ formatAddress(address) }}
                             </p>
 
@@ -53,28 +59,22 @@
 
                     </label>
 
-                    <div class="flex shrink-0 flex-col items-end gap-3">
-
-                        <!-- Badge -->
-
-                        <span v-if="address.isDefault"
-                            class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-600">
-                            Default
-                        </span>
+                    <!-- pl-7.5 lines the row up with the address text (radio 18px + 12px gap). -->
+                    <div class="-ml-2 flex shrink-0 flex-wrap gap-1 pl-7.5 sm:ml-0 sm:flex-col sm:items-end sm:pl-0">
 
                         <button :id="`edit-address-${address.id}`" type="button"
                             :aria-describedby="`shipping-address-summary-${address.id}`"
-                            class="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                            :class="[ROW_BUTTON, 'text-brand hover:text-brand-hover']"
                             @click="openForm(address, `edit-address-${address.id}`)">
-                            <PencilSquareIcon class="h-4 w-4" />
+                            <PencilSquareIcon class="h-4 w-4" aria-hidden="true" />
                             Edit
                         </button>
 
                         <button :id="`delete-address-button-${address.id}`" type="button"
                             :aria-describedby="`shipping-address-summary-${address.id}`"
-                            class="flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700 cursor-pointer"
+                            :class="[ROW_BUTTON, 'text-red-700 hover:text-red-800']"
                             @click="confirmDelete(address.id)">
-                            <TrashIcon class="h-4 w-4" />
+                            <TrashIcon class="h-4 w-4" aria-hidden="true" />
                             Delete
                         </button>
 
@@ -85,18 +85,18 @@
                 <!-- Delete confirmation -->
                 <div v-if="deletingId === address.id" role="alertdialog" :aria-labelledby="`delete-address-${address.id}`"
                     :aria-describedby="`delete-address-note-${address.id}`"
-                    class="mt-2 rounded-2xl border border-red-200 bg-red-50 p-4">
+                    class="mt-2 rounded-card border border-red-200 bg-red-50 p-4">
                     <p :id="`delete-address-${address.id}`" class="font-semibold text-slate-900">Delete this address?</p>
                     <p :id="`delete-address-note-${address.id}`" class="mt-1 text-sm text-slate-600">Orders already placed keep their shipping details.</p>
-                    <p v-if="deleteError" role="alert" class="mt-2 text-sm font-medium text-red-600">{{ deleteError }}</p>
+                    <p v-if="deleteError" role="alert" class="mt-2 text-sm font-medium text-red-700">{{ deleteError }}</p>
                     <div class="mt-3 flex flex-wrap gap-3">
                         <button type="button" :disabled="deleting"
-                            class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                            class="inline-flex min-h-11 items-center rounded-control bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:opacity-50 cursor-pointer"
                             @click="deleteAddress(address.id)">
                             {{ deleting ? "Deleting..." : "Delete" }}
                         </button>
                         <button :id="`keep-address-${address.id}`" type="button" :disabled="deleting"
-                            class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+                            class="inline-flex min-h-11 items-center rounded-control border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50 cursor-pointer"
                             @click="cancelDelete(address.id)">
                             Keep
                         </button>
@@ -108,9 +108,9 @@
             </fieldset>
 
             <button id="add-address" type="button"
-                class="mt-5 flex items-center gap-2 font-medium text-indigo-600 transition hover:text-indigo-700 cursor-pointer"
+                class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-control border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-900 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer"
                 @click="openForm({}, 'add-address')">
-                <PlusIcon class="h-5 w-5" />
+                <PlusIcon class="h-5 w-5 text-brand" aria-hidden="true" />
                 Add New Address
             </button>
 
@@ -153,6 +153,8 @@ const props = defineProps({
 defineEmits(["select"]);
 
 const TYPE_LABELS = { HOME: "Home", WORK: "Work", OTHER: "Other" };
+
+const ROW_BUTTON = "inline-flex min-h-11 items-center gap-1 rounded-control px-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer";
 
 // null = list view, {} = adding, an address = editing it.
 const editing = ref(null);

@@ -1,113 +1,53 @@
 <template>
 
-    <section class="border-t border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
+    <section class="border-t border-slate-100 px-5 py-4 text-sm sm:px-6">
 
-        <!-- Price Rows -->
+        <!-- Price Rows (all from the server) -->
 
-        <div class="space-y-4">
+        <dl class="space-y-2.5">
 
             <div class="flex justify-between">
-
-                <span class="text-slate-500">
-                    Subtotal
-                </span>
-
-                <span class="font-semibold">
-                    {{ formatPrice(subtotal, currency) }}
-                </span>
-
+                <dt class="text-slate-600">Subtotal</dt>
+                <dd class="font-medium text-slate-900">{{ formatPrice(subtotal, currency) }}</dd>
             </div>
 
             <!-- Only a real (non-zero) discount from the server is shown. -->
             <div v-if="discount > 0" class="flex justify-between">
-
-                <span class="text-slate-500">
-                    Discount
-                </span>
-
-                <span class="font-semibold text-emerald-600">
-                    -{{ formatPrice(discount, currency) }}
-                </span>
-
+                <dt class="text-slate-600">Discount</dt>
+                <dd class="font-medium text-brand">-{{ formatPrice(discount, currency) }}</dd>
             </div>
 
             <div class="flex justify-between">
-
-                <span class="text-slate-500">
-                    Shipping
-                </span>
-
+                <dt class="text-slate-600">Shipping</dt>
                 <!-- The server's shipping amount, shown as-is (never relabelled "free"). -->
-                <span class="font-semibold">
-
-                    {{ formatPrice(shipping, currency) }}
-
-                </span>
-
+                <dd class="font-medium text-slate-900">{{ formatPrice(shipping, currency) }}</dd>
             </div>
 
             <div class="flex justify-between">
-
-                <span class="text-slate-500">
-                    Tax
-                </span>
-
-                <span class="font-semibold">
-                    {{ formatPrice(tax, currency) }}
-                </span>
-
+                <dt class="text-slate-600">Tax</dt>
+                <dd class="font-medium text-slate-900">{{ formatPrice(tax, currency) }}</dd>
             </div>
 
-        </div>
+            <!-- Total -->
 
-        <!-- Divider -->
-
-        <div class="my-6 border-t border-dashed border-gray-200"></div>
-
-        <!-- Total -->
-
-        <div class="flex items-center justify-between">
-
-            <h3 class="text-xl font-bold text-slate-900">
-                Total
-            </h3>
-
-            <span class="text-2xl font-bold text-slate-900 sm:text-3xl">
-                {{ formatPrice(total, currency) }}
-            </span>
-
-        </div>
-
-        <!-- Savings -->
-
-        <div v-if="discount > 0" class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-
-            <div class="flex items-center gap-3">
-
-                <GiftIcon class="h-6 w-6 text-emerald-600" />
-
-                <div>
-
-                    <h4 class="font-semibold text-emerald-700">
-                        You saved {{ formatPrice(discount, currency) }}
-                    </h4>
-
-                    <p class="mt-1 text-sm text-emerald-600">
-                        Great choice! Your discounts have been applied.
-                    </p>
-
-                </div>
-
+            <div class="flex items-baseline justify-between border-t border-slate-200 pt-3">
+                <dt class="text-base font-semibold text-slate-900">Total</dt>
+                <dd class="text-xl font-semibold tracking-tight text-slate-900">{{ formatPrice(total, currency) }}</dd>
             </div>
 
-        </div>
+        </dl>
+
+        <!-- Savings (a real server discount only) -->
+
+        <p v-if="discount > 0" class="mt-4 rounded-control bg-brand-soft px-4 py-3 text-sm font-medium text-brand">
+            You saved {{ formatPrice(discount, currency) }} on this order.
+        </p>
 
     </section>
 
 </template>
 
 <script setup>
-import { GiftIcon } from "@heroicons/vue/24/outline";
 import { formatPrice } from "@/utils/money";
 
 defineProps({

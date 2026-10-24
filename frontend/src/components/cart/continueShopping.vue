@@ -1,13 +1,8 @@
 <template>
-    <RouterLink to="/products" class="group mt-10 inline-flex items-center gap-3 rounded-2xl border border-indigo-100 px-6 py-3 font-semibold text-indigo-700
-        transition-all duration-300
-        bg-[radial-gradient(circle_at_82%_18%,rgba(99,102,241,0.18),transparent_48%),radial-gradient(circle_at_18%_8%,rgba(59,130,246,0.10),transparent_42%),linear-gradient(180deg,#ffffff_0%,#f8faff_100%)]
-        hover:border-indigo-300
-        hover:shadow-lg
-        hover:shadow-indigo-100/70
-        hover:-translate-y-0.5">
+    <RouterLink to="/products"
+        class="group inline-flex min-h-11 items-center gap-2 rounded-control px-2 text-sm font-semibold text-brand transition-colors hover:text-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
 
-        <ArrowLeftIcon class="h-5 w-5 transition-transform duration-300 group-hover:-translate-x-1" />
+        <ArrowLeftIcon class="h-4 w-4 transition-transform duration-200 motion-safe:group-hover:-translate-x-0.5" aria-hidden="true" />
 
         <span>Continue Shopping</span>
 

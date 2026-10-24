@@ -1,72 +1,48 @@
 <template>
-    <div class="flex items-center" role="list" aria-label="Checkout progress">
+    <ol class="flex items-center gap-2 text-sm" aria-label="Checkout progress">
 
         <template v-for="(step, index) in steps" :key="step.id">
 
             <!-- Step -->
 
-            <div class="flex shrink-0 flex-col items-center" role="listitem"
-                :aria-current="isCurrent(step.id) ? 'step' : undefined">
-
-                <!-- Circle -->
-
-                <div :class="[
-                    'relative flex h-14 w-14 items-center justify-center rounded-full border transition-all duration-500',
-
-                    isCompleted(step.id)
-                        ? 'border-indigo-600 bg-gradient-to-br from-indigo-600 to-violet-500 text-white shadow-lg shadow-indigo-200'
-                        : isCurrent(step.id)
-                            ? 'border-indigo-500 bg-white text-indigo-600 ring-8 ring-indigo-100'
-                            : 'border-gray-200 bg-white text-gray-400'
-                ]">
-
-                    <component :is="step.icon" class="h-6 w-6" />
-
-                </div>
-
-                <!-- Label -->
+            <li class="flex items-center gap-2" :aria-current="isCurrent(step.id) ? 'step' : undefined">
 
                 <span :class="[
-                    'mt-3 text-sm font-semibold transition',
-
-                    isCurrent(step.id)
-                        ? 'text-slate-900'
-                        : isCompleted(step.id)
-                            ? 'text-indigo-600'
-                            : 'text-gray-400'
-                ]">
-
-                    {{ step.label }}
-
-                    <span v-if="isCompleted(step.id)" class="sr-only">(completed)</span>
-
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                    isCompleted(step.id)
+                        ? 'bg-brand text-white'
+                        : isCurrent(step.id)
+                            ? 'bg-brand-soft text-brand ring-1 ring-brand'
+                            : 'bg-slate-100 text-slate-500'
+                ]" aria-hidden="true">
+                    <CheckIcon v-if="isCompleted(step.id)" class="h-3.5 w-3.5" />
+                    <template v-else>{{ index + 1 }}</template>
                 </span>
 
-            </div>
+                <span :class="[
+                    'font-medium',
+                    isCurrent(step.id) ? 'text-slate-900' : isCompleted(step.id) ? 'text-brand' : 'text-slate-500'
+                ]">
+                    {{ step.label }}
+                    <span v-if="isCompleted(step.id)" class="sr-only">(completed)</span>
+                </span>
+
+            </li>
 
             <!-- Connector -->
 
-            <div v-if="index < steps.length - 1" aria-hidden="true" class="relative mx-2 h-1 min-w-4 flex-1 rounded-full bg-gray-200 sm:mx-5 sm:w-28 sm:flex-none">
-
-                <div v-if="index < currentIndex"
-                    class="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-600 to-violet-500">
-                </div>
-
-            </div>
+            <li v-if="index < steps.length - 1" aria-hidden="true" class="h-px w-5 shrink-0 sm:w-8"
+                :class="index < currentIndex ? 'bg-brand' : 'bg-slate-300'" />
 
         </template>
 
-    </div>
+    </ol>
 </template>
 
 <script setup>
 import { computed } from "vue";
 
-import {
-    ShoppingCartIcon,
-    CreditCardIcon,
-    CheckBadgeIcon,
-} from "@heroicons/vue/24/solid";
+import { CheckIcon } from "@heroicons/vue/20/solid";
 
 const props = defineProps({
 
@@ -82,19 +58,16 @@ const steps = [
     {
         id: "cart",
         label: "Cart",
-        icon: ShoppingCartIcon,
     },
 
     {
         id: "checkout",
         label: "Checkout",
-        icon: CreditCardIcon,
     },
 
     {
         id: "confirmation",
         label: "Confirmation",
-        icon: CheckBadgeIcon,
     },
 
 ];

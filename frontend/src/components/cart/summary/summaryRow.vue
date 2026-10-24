@@ -1,7 +1,6 @@
 <template>
-    <div class="flex items-center justify-between py-4" :class="{
-        'border-b border-gray-100': divider,
-        'pt-6': isTotal
+    <div class="flex items-center justify-between gap-4 py-3" :class="{
+        'border-b border-slate-100': divider,
     }">
 
         <!-- Left -->
@@ -9,8 +8,8 @@
 
             <span :class="[
                 isTotal
-                    ? 'text-lg font-semibold text-slate-900'
-                    : 'text-[15px] text-slate-600'
+                    ? 'text-base font-semibold text-slate-900'
+                    : 'text-sm text-slate-600'
             ]">
 
                 {{ label }}
@@ -18,14 +17,14 @@
             </span>
 
             <!-- Optional Info Icon -->
-            <InformationCircleIcon v-if="showInfo" class="h-4 w-4 text-gray-400" />
+            <InformationCircleIcon v-if="showInfo" class="h-4 w-4 text-slate-400" aria-hidden="true" />
 
         </div>
 
         <!-- Right -->
         <div :class="[
             isTotal
-                ? 'text-2xl font-bold text-slate-900'
+                ? 'text-xl font-semibold tracking-tight text-slate-900'
                 : valueClass
         ]">
 
@@ -68,7 +67,7 @@ defineProps({
 
     valueClass: {
         type: String,
-        default: "font-semibold text-slate-900",
+        default: "text-sm font-semibold text-slate-900",
     },
 
 });

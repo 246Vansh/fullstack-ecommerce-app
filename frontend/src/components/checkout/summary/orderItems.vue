@@ -1,95 +1,78 @@
 <template>
 
-    <section class="border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
+    <section class="border-t border-slate-100 px-5 py-4 sm:px-6" aria-labelledby="checkout-items-heading">
 
         <!-- Header -->
 
-        <div class="mb-6 flex items-center justify-between">
+        <div class="mb-4 flex items-center justify-between">
 
-            <h3 class="text-lg font-bold text-slate-900">
-                Order Items
+            <h3 id="checkout-items-heading" class="text-sm font-semibold text-slate-900">
+                Items
             </h3>
 
-            <span class="rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-600">
-
-                {{ products.length }} {{ products.length === 1 ? "Item" : "Items" }}
-
+            <span class="text-sm text-slate-600">
+                {{ products.length }} {{ products.length === 1 ? "product" : "products" }}
             </span>
 
         </div>
 
-        <!-- Scroll Container -->
+        <!-- Flows with the summary: no hidden inner scroll area. -->
 
-        <div class="pr-2" :class="{
-            'max-h-[460px] overflow-y-auto hide-scrollbar': products.length > 4
-        }">
+        <ul class="space-y-4">
 
-            <div class="space-y-5">
+            <li v-for="product in products" :key="product.id" class="flex items-center gap-3"
+                :class="{ 'rounded-control bg-red-50 p-2 ring-1 ring-red-200': product.issue }">
 
-                <article v-for="product in products" :key="product.id" class="flex items-center gap-4"
-                    :class="{ 'rounded-2xl bg-red-50 p-2': product.issue }">
+                <!-- Image (decorative: the name follows) -->
 
-                    <!-- Image -->
-
-                    <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-slate-50">
-
-                        <!-- 64px thumbnail; 200px covers 3x screens. -->
-                        <img :src="sizedImage(product.image, 200)" :alt="product.name" class="h-16 w-16 object-contain">
-
+                <div class="relative w-14 shrink-0">
+                    <div class="overflow-hidden rounded-control bg-slate-100 ring-1 ring-slate-900/5 ring-inset">
+                        <!-- 4:5 frame 56px wide; 200px covers 3x screens. -->
+                        <img v-if="product.image" :src="sizedImage(product.image, 200)" alt="" class="aspect-4/5 w-full object-cover">
+                        <span v-else class="block aspect-4/5 w-full" />
                     </div>
+                    <span class="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900 px-1 text-xs font-semibold text-white"
+                        aria-hidden="true">
+                        {{ product.quantity }}
+                    </span>
+                </div>
 
-                    <!-- Details -->
+                <!-- Details -->
 
-                    <div class="min-w-0 flex-1">
+                <div class="min-w-0 flex-1">
 
-                        <h4 class="truncate font-semibold text-slate-900">
+                    <p class="truncate text-sm font-medium text-slate-900">
+                        {{ product.name }}
+                    </p>
 
-                            {{ product.name }}
+                    <p class="mt-0.5 text-xs text-slate-600">
+                        Qty {{ product.quantity }}<template v-for="option in [product.color, product.size].filter(Boolean)" :key="option"> · {{ option }}</template>
+                    </p>
 
-                        </h4>
+                    <!-- Why this item blocks checkout (from the server) -->
+                    <p v-if="product.issue" class="mt-1 text-xs font-medium text-red-700">
+                        {{ product.issue.message }}
+                    </p>
 
-                        <p class="mt-1 text-sm text-slate-500">
+                </div>
 
-                            Qty {{ product.quantity }}
+                <!-- Price -->
 
-                            <template v-for="option in [product.color, product.size].filter(Boolean)" :key="option">
-                                • {{ option }}
-                            </template>
+                <div class="text-right">
 
-                        </p>
+                    <p class="text-sm font-semibold text-slate-900">
+                        {{ formatPrice(product.subtotal, product.currency) }}
+                    </p>
 
-                        <!-- Why this item blocks checkout (from the server) -->
-                        <p v-if="product.issue" class="mt-1 text-sm font-medium text-red-600">
+                    <p v-if="product.quantity > 1" class="text-xs text-slate-500">
+                        {{ formatPrice(product.price, product.currency) }} each
+                    </p>
 
-                            {{ product.issue.message }}
+                </div>
 
-                        </p>
+            </li>
 
-                    </div>
-
-                    <!-- Price -->
-
-                    <div class="text-right">
-
-                        <p class="font-bold text-slate-900">
-
-                            {{ formatPrice(product.subtotal, product.currency) }}
-
-                        </p>
-
-                        <p v-if="product.quantity > 1" class="text-xs text-slate-500">
-
-                            {{ formatPrice(product.price, product.currency) }} each
-
-                        </p>
-
-                    </div>
-
-                </article>
-
-            </div>
-
-        </div>
+        </ul>
 
     </section>
 
@@ -111,14 +94,3 @@ defineProps({
 });
 
 </script>
-
-<style scoped>
-.hide-scrollbar {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-</style>

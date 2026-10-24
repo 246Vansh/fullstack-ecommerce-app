@@ -1,35 +1,15 @@
 <template>
 
-    <section class="mt-8 rounded-[28px] border border-green-200 bg-green-50 px-5 py-6 sm:px-8">
+    <p class="flex items-start gap-3 rounded-card bg-white px-5 py-4 text-sm text-slate-600 ring-1 ring-slate-200">
 
-        <div class="flex items-center gap-4">
+        <EnvelopeIcon class="mt-0.5 h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
 
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-600">
+        <span>
+            The contact email on this order is
+            <strong class="font-semibold break-all text-slate-900">{{ email }}</strong>.
+        </span>
 
-                <EnvelopeIcon class="h-6 w-6 text-white" />
-
-            </div>
-
-            <div class="min-w-0">
-
-                <h3 class="text-lg font-semibold text-slate-900">
-
-                    Contact Email
-
-                </h3>
-
-                <p class="mt-1 text-slate-600">
-
-                    The contact email on this order is
-                    <strong class="break-all">{{ email }}</strong>.
-
-                </p>
-
-            </div>
-
-        </div>
-
-    </section>
+    </p>
 
 </template>
 

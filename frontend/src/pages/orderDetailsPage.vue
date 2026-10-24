@@ -147,7 +147,7 @@
 
                 <!-- Items + address -->
                 <section class="mt-5 grid gap-5 lg:grid-cols-[2fr_1fr]">
-                    <purchasedProducts :products="order.items" />
+                    <purchasedProducts :products="order.items" :currency="order.currency" />
                     <shippingCard :address="order.shippingAddress" class="self-start" />
                 </section>
 

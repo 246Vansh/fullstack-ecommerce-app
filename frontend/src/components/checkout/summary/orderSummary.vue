@@ -1,36 +1,14 @@
 <template>
 
-    <aside class="sticky top-8 overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm">
+    <section class="overflow-hidden rounded-panel border border-slate-200 bg-white" aria-labelledby="checkout-summary-heading">
 
         <!-- Header -->
 
-        <div class="border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
+        <div class="px-5 pt-5 sm:px-6">
 
-            <div class="flex items-center gap-4">
-
-                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-100">
-
-                    <ClipboardDocumentListIcon class="h-7 w-7 text-indigo-600" />
-
-                </div>
-
-                <div>
-
-                    <h2 class="text-2xl font-bold">
-
-                        Order Summary
-
-                    </h2>
-
-                    <p class="text-slate-500">
-
-                        Review your purchase.
-
-                    </p>
-
-                </div>
-
-            </div>
+            <h2 id="checkout-summary-heading" class="text-lg font-semibold text-slate-900">
+                Order summary
+            </h2>
 
         </div>
 
@@ -41,15 +19,14 @@
         <orderTotals :subtotal="subtotal" :discount="discount" :shipping="shipping" :tax="tax" :total="total"
             :currency="currency" />
 
-        <checkoutButton :disabled="!canProceed" :loading="placing" @place="$emit('place-order')" />
+        <checkoutButton :disabled="!canProceed" :loading="placing" :payment-method="paymentMethod"
+            :reason="blockedReason" :error="placeError" @place="$emit('place-order')" />
 
-    </aside>
+    </section>
 
 </template>
 
 <script setup>
-import { ClipboardDocumentListIcon } from "@heroicons/vue/24/outline";
-
 import orderInformation from "./orderInformation.vue";
 import orderItems from "./orderItems.vue";
 import orderTotals from "./orderTotals.vue";
@@ -80,6 +57,24 @@ defineProps({
 
     // An order request is in flight.
     placing: Boolean,
+
+    // The selected payment method (wording only).
+    paymentMethod: {
+        type: String,
+        default: "COD",
+    },
+
+    // Why Place Order is disabled ("" when it is not).
+    blockedReason: {
+        type: String,
+        default: "",
+    },
+
+    // The last Place Order failure.
+    placeError: {
+        type: String,
+        default: "",
+    },
 
 });
 

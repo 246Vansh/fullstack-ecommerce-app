@@ -2,87 +2,62 @@
 
     <Header />
 
-    <main id="main-content" tabindex="-1" class="bg-slate-50">
+    <main id="main-content" tabindex="-1" class="bg-surface">
 
-        <div class="mx-auto max-w-[1700px] px-4 py-4 sm:px-6">
+        <div class="mx-auto max-w-7xl px-4 pt-6 pb-16 sm:px-6 sm:pt-8 lg:px-8">
 
             <!-- Loading -->
             <section v-if="loading && !order"
-                class="flex min-h-100 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white">
-                <LoadingSpinner class="text-gray-400" label="Loading your order" />
+                class="flex min-h-96 items-center justify-center rounded-panel bg-white">
+                <LoadingSpinner class="text-brand" label="Loading your order" />
             </section>
 
             <!-- Error: never fall back to placeholder order data -->
             <section v-else-if="!order"
-                class="flex min-h-100 flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-center">
-                <h1 class="text-2xl font-bold text-gray-900">Order unavailable</h1>
-                <p class="mt-2 text-gray-500">{{ error }}</p>
-                <div class="mt-6 flex gap-4">
-                    <button type="button"
-                        class="rounded-xl border border-gray-200 px-6 py-3 font-semibold text-slate-700 hover:bg-gray-50 cursor-pointer"
-                        @click="load()">
+                class="flex min-h-96 flex-col items-center justify-center rounded-panel bg-white px-6 text-center">
+                <ExclamationTriangleIcon class="h-8 w-8 text-slate-400" aria-hidden="true" />
+                <h1 class="mt-4 text-2xl font-semibold tracking-tight text-slate-900">Order unavailable</h1>
+                <p class="mt-2 text-slate-600">{{ error }}</p>
+                <div class="mt-8 flex flex-wrap justify-center gap-3">
+                    <PrimaryButton tag="button" variant="outline" @click="load()">
                         Try again
-                    </button>
-                    <RouterLink to="/products"
-                        class="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white hover:bg-green-700">
+                    </PrimaryButton>
+                    <PrimaryButton to="/products">
                         Continue Shopping
-                    </RouterLink>
+                    </PrimaryButton>
                 </div>
             </section>
 
             <template v-else>
 
-                <!-- An online order that has not been paid yet: never shown as complete. -->
-                <section v-if="order.payable" role="alert"
-                    class="mb-5 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="font-medium text-amber-800">This order is waiting for its online payment.</p>
-                    <RouterLink :to="{ name: 'order-details', params: { id: order.id } }"
-                        class="rounded-xl bg-green-600 px-5 py-2.5 text-center text-sm font-semibold text-white hover:bg-green-700">
-                        Pay for this order
-                    </RouterLink>
-                </section>
+                <!-- Confirmation step only once the order is really confirmed (not cancelled or awaiting payment). -->
+                <checkoutProgress v-if="confirmed" class="mb-5" current-step="confirmation" />
 
-                <!-- Hero -->
+                <!-- Hero: state, order reference, statuses. An online order that has not
+                     been paid is never shown as complete: its heading (focused on load) says
+                     it is waiting for payment, and the first action becomes "Pay for this order". -->
                 <successHero :order="order" :product-count="productCount" :total-quantity="totalQuantity" />
 
-                <!-- Summary + Shipping -->
-                <section class="mt-5 grid gap-5 lg:grid-cols-2">
+                <!-- Next steps -->
+                <actionButtons class="mt-5" :order-id="order.id" :payable="order.payable" />
 
-                    <orderSummary :order="order" :product-count="productCount" :total-quantity="totalQuantity" />
+                <div class="mt-8 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
 
-                    <shippingCard :address="order.shippingAddress" />
-
-                </section>
-
-                <!-- Products -->
-                <section class="mt-5">
-
+                    <!-- Items -->
                     <purchasedProducts :products="order.items" :currency="order.currency" />
 
-                </section>
+                    <!-- Payment + Shipping -->
+                    <div class="space-y-5">
 
-                <!-- Payment + Statistics -->
-                <section class="mt-5 grid gap-5 lg:grid-cols-2">
+                        <paymentCard :order="order" />
 
-                    <paymentCard :order="order" />
+                        <shippingCard :address="order.shippingAddress" />
 
-                    <orderStatistics />
+                        <confirmationEmail :email="order.email" />
 
-                </section>
+                    </div>
 
-                <!-- Buttons -->
-                <section class="mt-7">
-
-                    <actionButtons :order-id="order.id" />
-
-                </section>
-
-                <!-- Email -->
-                <section class="mt-4">
-
-                    <confirmationEmail :email="order.email" />
-
-                </section>
+                </div>
 
             </template>
 
@@ -94,24 +69,25 @@
 </template>
 
 <script setup>
-import { watch } from "vue";
-import { RouterLink } from "vue-router";
+import { computed, watch } from "vue";
+import { ExclamationTriangleIcon } from "@heroicons/vue/24/outline";
 
 import Header from "@/components/layout/Header/Header.vue";
 import Footer from "@/components/layout/Footer/Footer.vue";
 
 import successHero from "@/components/orderSuccess/hero/successHero.vue";
 
-import orderSummary from "@/components/orderSuccess/details/orderSummary.vue";
 import shippingCard from "@/components/orderSuccess/details/shippingCard.vue";
 import purchasedProducts from "@/components/orderSuccess/details/purchasedProducts.vue";
 import paymentCard from "@/components/orderSuccess/details/paymentCard.vue";
-import orderStatistics from "@/components/orderSuccess/details/orderStatistics.vue";
 
 import actionButtons from "@/components/orderSuccess/actions/actionButtons.vue";
 import confirmationEmail from "@/components/orderSuccess/actions/confirmationEmail.vue";
 
+import checkoutProgress from "@/components/checkout/progress/checkoutProgress.vue";
+
 import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 
 import { useOrderSuccess } from "@/composables/useOrderSuccess";
 import { focusHeadingAfterLoad } from "@/router/pageFocus";
@@ -124,6 +100,11 @@ const {
     totalQuantity,
     load,
 } = useOrderSuccess();
+
+// Cash on delivery, or an online order the server has verified as paid.
+const confirmed = computed(() => Boolean(order.value)
+    && order.value.status !== "CANCELLED"
+    && (order.value.paymentMethod !== "RAZORPAY" || order.value.paymentStatus === "PAID"));
 
 // The success (or "Order unavailable") heading appears once loading ends.
 watch(loading, (isLoading) => { if (!isLoading) focusHeadingAfterLoad(); });

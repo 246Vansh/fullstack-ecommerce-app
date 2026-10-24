@@ -1,26 +1,22 @@
 <template>
 
-    <section class="space-y-5 border-b border-gray-100 px-5 py-6 sm:px-8 sm:py-7">
+    <section class="grid gap-4 px-5 py-4 text-sm sm:px-6">
 
         <!-- Customer -->
 
-        <div class="flex items-start justify-between">
+        <div class="min-w-0">
 
-            <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Customer
+            </p>
 
-                <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                    Customer
-                </p>
+            <p class="mt-1 font-medium text-slate-900">
+                {{ customerName }}
+            </p>
 
-                <h3 class="mt-1 font-semibold text-slate-900">
-                    {{ customerName }}
-                </h3>
-
-                <p class="break-all text-sm text-slate-500">
-                    {{ customer?.email }}
-                </p>
-
-            </div>
+            <p class="break-all text-slate-600">
+                {{ customer?.email }}
+            </p>
 
         </div>
 
@@ -28,17 +24,17 @@
 
         <div>
 
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                Shipping Address
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Ship to
             </p>
 
-            <p v-if="address" class="mt-2 text-sm leading-6 text-slate-600">
+            <p v-if="address" class="mt-1 leading-6 text-slate-600">
                 {{ address.firstName }} {{ address.lastName }},
                 {{ [address.address, address.apartment].filter(Boolean).join(", ") }},
                 {{ address.city }}, {{ address.state }} {{ address.zipCode }}
             </p>
 
-            <p v-else class="mt-2 text-sm font-medium text-amber-600">
+            <p v-else class="mt-1 font-medium text-amber-800">
                 No shipping address selected
             </p>
 

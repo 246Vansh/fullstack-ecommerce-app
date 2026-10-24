@@ -1,69 +1,32 @@
 <template>
-    <section class="overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm">
+    <section class="rounded-panel border border-slate-200 bg-white" :aria-labelledby="headingId">
 
-        <!-- Header -->
+        <!-- Header: the step number and title. -->
 
-        <div class="flex items-start justify-between gap-4 px-5 py-6 sm:px-8 sm:py-7">
+        <div class="flex items-start gap-3 px-5 pt-5 sm:px-6 sm:pt-6">
 
-            <div class="flex min-w-0 gap-3 sm:gap-5">
+            <span aria-hidden="true"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                {{ Number(number) }}
+            </span>
 
-                <!-- Number -->
+            <div class="min-w-0">
 
-                <div aria-hidden="true"
-                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-base sm:h-14 sm:w-14 sm:text-lg font-bold text-indigo-600">
+                <h2 :id="headingId" class="text-lg font-semibold text-slate-900">
+                    {{ title }}
+                </h2>
 
-                    {{ number }}
-
-                </div>
-
-                <!-- Icon -->
-
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 sm:h-14 sm:w-14">
-
-                    <component :is="icon" class="h-6 w-6 text-indigo-600 sm:h-7 sm:w-7" />
-
-                </div>
-
-                <!-- Title -->
-
-                <div class="min-w-0">
-
-                    <h2 class="text-xl font-bold sm:text-2xl text-slate-900">
-
-                        {{ title }}
-
-                    </h2>
-
-                    <p class="mt-1 text-slate-500">
-
-                        {{ subtitle }}
-
-                    </p>
-
-                </div>
+                <p v-if="subtitle" class="mt-0.5 text-sm text-slate-600">
+                    {{ subtitle }}
+                </p>
 
             </div>
 
-            <!-- Edit -->
-
-            <button v-if="editable" type="button"
-                class="flex shrink-0 items-center gap-2 font-medium text-indigo-600 transition hover:text-indigo-700 cursor-pointer">
-
-                <PencilSquareIcon class="h-5 w-5" />
-
-                Edit
-
-            </button>
-
         </div>
-
-        <!-- Divider -->
-
-        <div class="border-t border-gray-100" />
 
         <!-- Body -->
 
-        <div class="px-5 py-6 sm:px-8 sm:py-7">
+        <div class="px-5 pt-4 pb-5 sm:px-6 sm:pb-6">
 
             <slot />
 
@@ -73,7 +36,7 @@
 </template>
 
 <script setup>
-import { PencilSquareIcon } from "@heroicons/vue/24/outline";
+import { useId } from "vue";
 
 defineProps({
 
@@ -83,12 +46,17 @@ defineProps({
 
     subtitle: String,
 
+    // Kept so existing callers' props still bind; the header no longer shows an icon.
     icon: [Object, Function],
 
+    // There is no section-level edit action, so no Edit button is rendered
+    // (the address list has its own Edit buttons).
     editable: {
         type: Boolean,
-        default: true,
+        default: false,
     },
 
 });
+
+const headingId = useId();
 </script>

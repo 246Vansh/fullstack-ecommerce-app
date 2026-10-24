@@ -1,136 +1,70 @@
 <template>
 
-    <section
-        class="relative overflow-hidden rounded-xl bg-white shadow-[0_12px_40px_rgba(15,23,42,.05)]">
+    <section class="rounded-panel border border-slate-200 bg-white p-5 sm:p-8">
 
-        <!-- Background -->
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
 
-        <div
-            class="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(34,197,94,0.06),transparent_35%),radial-gradient(circle_at_82%_20%,rgba(59,130,246,0.05),transparent_40%),linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)]">
-        </div>
+            <!-- State icon -->
 
-        <div class="relative">
+            <span :class="['flex h-14 w-14 shrink-0 items-center justify-center rounded-full', view.iconClass]">
+                <component :is="view.icon" class="h-7 w-7" aria-hidden="true" />
+            </span>
 
-            <!-- Hero -->
+            <div class="min-w-0 flex-1">
 
-            <div class="grid items-center gap-8 px-5 pt-8 pb-6 sm:px-8 lg:gap-10 lg:px-14 lg:pt-10 lg:pb-8 lg:grid-cols-[minmax(0,1fr)_560px]">
+                <!-- Heading: only what the stored order says (never "paid" before the server verified it). -->
+                <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+                    {{ view.title }}
+                </h1>
 
-                <!-- LEFT -->
+                <p class="mt-2 max-w-2xl text-base text-slate-600">
+                    {{ view.message }}
+                </p>
 
-                <div class="flex flex-col items-center gap-8 text-center sm:flex-row sm:gap-12 sm:text-left lg:flex-col lg:text-center xl:flex-row xl:gap-20 xl:text-left">
+                <!-- Order reference -->
 
-                    <!-- Success Icon -->
+                <div class="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
 
-                    <div class="relative shrink-0 xl:-translate-y-16">
-
-                        <!-- Glow -->
-
-                        <div class="absolute inset-0 rounded-full bg-green-300/30 blur-3xl">
-                        </div>
-
-                        <!-- Circle -->
-
-                        <div
-                            class="relative flex h-28 w-28 items-center sm:h-44 sm:w-44 justify-center rounded-full bg-green-600 shadow-[0_20px_60px_rgba(34,197,94,.35)]">
-
-                            <CheckIcon class="h-16 w-16 stroke-[3] text-white sm:h-24 sm:w-24" />
-
-                        </div>
-
-                        <!-- Confetti -->
-
-                        <span class="absolute -left-6 top-8 h-3 w-3 rotate-45 bg-sky-500"></span>
-                        <span class="absolute -left-4 bottom-10 h-3 w-8 -rotate-45 rounded-full bg-blue-500"></span>
-                        <span class="absolute -right-5 top-3 h-3 w-6 rotate-45 bg-violet-500"></span>
-                        <span class="absolute right-2 -bottom-5 h-3 w-8 rotate-45 bg-green-500"></span>
-                        <span class="absolute -left-6 top-24 h-3 w-3 rounded-full bg-yellow-400"></span>
-                        <span class="absolute right-0 top-28 h-3 w-3 rotate-45 bg-orange-400"></span>
-                        <span class="absolute left-8 -top-5 h-2 w-2 rounded-full bg-blue-400"></span>
-                        <span class="absolute right-10 -top-4 h-2 w-6 rotate-45 bg-green-500"></span>
-
+                    <div class="inline-flex items-center gap-1 rounded-control border border-slate-200 bg-surface pl-3">
+                        <span class="text-slate-600">Order</span>
+                        <span class="font-semibold text-slate-900 wrap-anywhere">#{{ order.orderNumber }}</span>
+                        <button type="button" :title="copied ? 'Copied' : 'Copy order number'" aria-label="Copy order number"
+                            class="ml-1 flex h-10 w-10 items-center justify-center rounded-control text-slate-500 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer"
+                            @click="copyOrderNumber">
+                            <CheckIcon v-if="copied" class="h-5 w-5 text-brand" aria-hidden="true" />
+                            <DocumentDuplicateIcon v-else class="h-5 w-5" aria-hidden="true" />
+                        </button>
+                        <span role="status" class="sr-only">{{ copied ? "Order number copied" : "" }}</span>
                     </div>
 
-                    <!-- Content -->
-
-                    <div class="min-w-0">
-
-                        <h1 class="max-w-[640px] text-3xl font-extrabold sm:text-4xl leading-[1.12] tracking-tight text-slate-900">
-
-                            Your order has been
-
-                            <span class="block text-green-600">
-
-                                placed successfully!
-
-                            </span>
-
-                        </h1>
-
-                        <p class="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-
-                            Thank you for shopping with us.
-
-                            We've received your order. Its status is Pending and no
-                            payment has been taken yet.
-
-                        </p>
-
-                        <!-- Order Card -->
-
-                        <div
-                            class="mt-8 inline-flex max-w-full overflow-hidden lg:translate-x-4 rounded-2xl border border-gray-200 bg-white shadow-md">
-
-                            <div class="flex min-w-0 items-center px-5 py-4 sm:px-8">
-
-                                <span class="wrap-anywhere text-lg font-bold text-green-600 sm:text-xl">
-
-                                    Order #{{ order.orderNumber }}
-
-                                </span>
-
-                            </div>
-
-                            <button type="button" :title="copied ? 'Copied' : 'Copy order number'"
-                                aria-label="Copy order number"
-                                class="flex shrink-0 items-center justify-center border-l border-gray-200 px-5 transition sm:px-6 hover:bg-slate-50 cursor-pointer"
-                                @click="copyOrderNumber">
-
-                                <CheckIcon v-if="copied" class="h-6 w-6 text-green-600" />
-                                <DocumentDuplicateIcon v-else class="h-6 w-6 text-slate-500" />
-
-                            </button>
-
-                            <span role="status" class="sr-only">{{ copied ? "Order number copied" : "" }}</span>
-
-                        </div>
-
-                    </div>
+                    <p class="text-slate-600">
+                        Placed {{ formatDate(order.createdAt, true) }}
+                    </p>
 
                 </div>
 
-                <!-- RIGHT -->
+                <!-- Statuses, as stored on the order -->
 
-                <div class="relative flex justify-center lg:translate-x-6 lg:translate-y-3">
+                <dl class="mt-5 grid gap-3 text-sm sm:grid-cols-3">
 
-                    <!-- Glow -->
-
-                    <div class="absolute h-[280px] w-[280px] rounded-full sm:h-[420px] sm:w-[420px] bg-green-100/40 blur-[120px]">
+                    <div class="rounded-control bg-surface px-4 py-3">
+                        <dt class="text-slate-600">Order status</dt>
+                        <dd class="mt-0.5 font-semibold text-slate-900">{{ statusLabel(order.status) }}</dd>
                     </div>
 
-                    <!-- Illustration -->
+                    <div class="rounded-control bg-surface px-4 py-3">
+                        <dt class="text-slate-600">Payment</dt>
+                        <dd class="mt-0.5 font-semibold" :class="order.paymentStatus === 'PAID' ? 'text-brand' : 'text-slate-900'">
+                            {{ paymentStatusLabel(order.paymentStatus) }}
+                        </dd>
+                    </div>
 
-                    <img src="@/assets/images/orderSuccess/order-success.webp" alt=""
-                        class="relative z-10 w-[560px] max-w-full object-contain" />
+                    <div class="rounded-control bg-surface px-4 py-3">
+                        <dt class="text-slate-600">Total</dt>
+                        <dd class="mt-0.5 font-semibold text-slate-900">{{ formatPrice(order.total, order.currency) }}</dd>
+                    </div>
 
-                </div>
-
-            </div>
-
-            <!-- Overview Cards -->
-
-            <div class="px-5 pb-8 sm:px-8 lg:px-14 lg:pb-10">
-
-                <successOverviewCards :order="order" :product-count="productCount" :total-quantity="totalQuantity" />
+                </dl>
 
             </div>
 
@@ -141,13 +75,15 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import {
     CheckIcon,
+    ClockIcon,
     DocumentDuplicateIcon,
+    XMarkIcon,
 } from "@heroicons/vue/24/outline";
 
-import successOverviewCards from "../overview/successOverviewCards.vue";
+import { formatDate, formatPrice, paymentStatusLabel, statusLabel } from "@/composables/useOrderSuccess";
 
 const props = defineProps({
 
@@ -160,6 +96,50 @@ const props = defineProps({
 
     totalQuantity: Number,
 
+});
+
+// The heading and message for the order as the server stored it:
+// cancelled, an online order without a verified payment, a verified online
+// payment, or cash on delivery.
+const view = computed(() => {
+    const { order } = props;
+    const total = formatPrice(order.total, order.currency);
+
+    if (order.status === "CANCELLED") {
+        return {
+            icon: XMarkIcon,
+            iconClass: "bg-slate-100 text-slate-600",
+            title: "This order was cancelled",
+            message: "Nothing more is needed for this order.",
+        };
+    }
+
+    if (order.paymentMethod === "RAZORPAY" && order.paymentStatus !== "PAID") {
+        return {
+            icon: ClockIcon,
+            iconClass: "bg-amber-100 text-amber-700",
+            title: "Your order is waiting for payment",
+            message: order.payable
+                ? "We've saved your order, but no payment has been received yet. You can pay for it from the order page."
+                : "We couldn't confirm a payment for this order yet. Check the order page for its latest status.",
+        };
+    }
+
+    if (order.paymentMethod === "RAZORPAY") {
+        return {
+            icon: CheckIcon,
+            iconClass: "bg-brand text-white",
+            title: "Thank you! Your payment was received",
+            message: `We've verified your payment of ${total} and received your order.`,
+        };
+    }
+
+    return {
+        icon: CheckIcon,
+        iconClass: "bg-brand text-white",
+        title: "Thank you! Your order has been placed",
+        message: `You'll pay ${total} in cash when your order arrives. No payment has been taken yet.`,
+    };
 });
 
 const copied = ref(false);

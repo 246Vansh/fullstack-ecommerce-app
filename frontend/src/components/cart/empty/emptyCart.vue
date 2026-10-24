@@ -1,21 +1,20 @@
 <template>
-    <section
-        class="flex flex-col items-center justify-center rounded-4xl border border-dashed border-gray-300 bg-white px-8 py-20 text-center">
+    <section class="flex flex-col items-center justify-center rounded-panel bg-white px-6 py-16 text-center sm:py-20">
 
-        <ShoppingCartIcon class="h-20 w-20 text-gray-300" />
+        <span class="flex h-16 w-16 items-center justify-center rounded-full bg-brand-soft text-brand">
+            <ShoppingBagIcon class="h-8 w-8" aria-hidden="true" />
+        </span>
 
-        <h1 class="mt-8 text-3xl font-bold text-slate-900">
+        <h1 class="mt-6 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
             Your cart is empty
         </h1>
 
-        <p class="mt-3 max-w-md text-gray-500">
-
+        <p class="mt-3 max-w-md text-base text-slate-600">
             Looks like you haven't added anything to your cart yet.
             Explore our collection and find something you'll love.
-
         </p>
 
-        <PrimaryButton to="/products" size="lg" class="mt-10">
+        <PrimaryButton to="/products" size="lg" class="mt-8">
             Start Shopping
         </PrimaryButton>
 
@@ -23,7 +22,7 @@
 </template>
 
 <script setup>
-import { ShoppingCartIcon } from "@heroicons/vue/24/outline";
+import { ShoppingBagIcon } from "@heroicons/vue/24/outline";
 
 import PrimaryButton from "@/components/ui/primaryButton.vue";
 </script>

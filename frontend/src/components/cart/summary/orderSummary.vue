@@ -1,66 +1,41 @@
 <template>
-    <aside class="rounded-xl border border-gray-200 bg-white p-7 shadow-sm">
+    <section class="rounded-panel border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="cart-summary-heading">
 
-        <!-- Header -->
-        <div class="flex items-start gap-4">
+        <h2 id="cart-summary-heading" class="text-lg font-semibold text-slate-900">
+            Order summary
+        </h2>
 
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100">
-                <ClipboardDocumentListIcon class="h-6 w-6 text-indigo-600" />
-            </div>
-
-            <div>
-                <h2 class="text-2xl font-bold text-slate-900">
-                    Order Summary
-                </h2>
-
-                <p class="text-sm text-gray-500">
-                    Review your order before proceeding to checkout.
-                </p>
-            </div>
-
-        </div>
-
-        <!-- Divider -->
-        <div class="my-6 h-px bg-gray-100"></div>
-
-        <!-- Summary -->
         <!-- Amounts in different currencies are never added up into one subtotal. -->
-        <p v-if="mixedCurrency" role="alert"
-            class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-            Your cart has items priced in different currencies. Remove the items in one currency to check out.
-        </p>
+        <summaryRow v-if="!mixedCurrency" class="mt-2" label="Subtotal" :value="formatPrice(subtotal, currency)" :is-total="true" divider />
 
-        <summaryRow v-else label="Subtotal" :value="formatPrice(subtotal, currency)" :is-total="true" divider />
-
-        <summaryRow v-if="discount > 0" label="Discount" :value="`-${formatPrice(discount, currency)}`"
-            value-class="font-semibold text-emerald-600" divider />
+        <summaryRow v-if="!mixedCurrency && discount > 0" label="Discount" :value="`-${formatPrice(discount, currency)}`"
+            value-class="font-semibold text-brand" divider />
 
         <!-- The cart never states a final total; checkout prices the order on the server. -->
-        <p class="py-4 text-sm text-slate-500">
+        <p class="flex items-center gap-2 py-4 text-sm text-slate-600">
+            <TruckIcon class="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
             Shipping &amp; tax calculated at checkout
         </p>
 
-        <!-- Savings -->
-        <div v-if="discount > 0" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p class="text-center text-sm font-medium text-emerald-700">
-                🎉 You saved
-                <span class="font-bold">
-                    {{ formatPrice(discount, currency) }}
-                </span>
-                on this order.
-            </p>
-        </div>
+        <!-- Why checkout can't start yet (states the client knows as the server does). -->
+        <p v-if="blockedReason" id="cart-checkout-blocked" role="alert"
+            class="mb-4 rounded-control border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+            {{ blockedReason }}
+        </p>
 
-        <!-- Checkout Button -->
-        <div class="mt-4">
-            <checkoutButton />
-        </div>
+        <checkoutButton :disabled="Boolean(blockedReason)"
+            :aria-describedby="blockedReason ? 'cart-checkout-blocked' : undefined" />
 
-    </aside>
+        <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500">
+            <LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />
+            Secure checkout
+        </p>
+
+    </section>
 </template>
 
 <script setup>
-import { ClipboardDocumentListIcon } from "@heroicons/vue/24/outline";
+import { LockClosedIcon, TruckIcon } from "@heroicons/vue/24/outline";
 import checkoutButton from "./checkoutButton.vue";
 import summaryRow from "./summaryRow.vue";
 import { formatPrice } from "@/utils/money";
@@ -82,9 +57,16 @@ defineProps({
         default: false,
     },
 
+    // A server-provided order discount; the cart API has none today, so it is not shown.
     discount: {
         type: Number,
         default: 0,
+    },
+
+    // Why checkout cannot start from this cart ("" when it can).
+    blockedReason: {
+        type: String,
+        default: "",
     },
 });
 

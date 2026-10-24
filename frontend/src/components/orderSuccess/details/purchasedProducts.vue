@@ -1,145 +1,78 @@
 <template>
 
-    <section class="overflow-hidden rounded-xl bg-white shadow-sm">
+    <section class="rounded-panel border border-slate-200 bg-white" aria-labelledby="order-items-heading">
 
         <!-- Header -->
 
-        <div class="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-5 sm:px-8 sm:py-6">
+        <div class="flex items-center justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6">
 
-            <div class="flex min-w-0 items-center gap-4">
+            <h2 id="order-items-heading" class="text-lg font-semibold text-slate-900">
+                Items in this order
+            </h2>
 
-                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-100">
-
-                    <CubeIcon class="h-6 w-6 text-indigo-600" />
-
-                </div>
-
-                <div>
-
-                    <h2 class="text-xl font-bold text-slate-900 sm:text-2xl">
-                        Purchased Products
-                    </h2>
-
-                    <p class="text-sm text-slate-500">
-                        Items included in your order
-                    </p>
-
-                </div>
-
-            </div>
-
-            <span class="shrink-0 rounded-full bg-indigo-100 px-3 py-1.5 text-sm sm:px-4 sm:py-2 font-semibold text-indigo-600">
-
-                {{ products.length }} {{ products.length === 1 ? "Product" : "Products" }}
-
+            <span class="shrink-0 text-sm text-slate-600">
+                {{ products.length }} {{ products.length === 1 ? "product" : "products" }}
             </span>
 
         </div>
 
-        <!-- Products -->
+        <!-- Products (the whole list flows with the page; no hidden inner scroll) -->
 
-        <div class="hide-scrollbar lg:max-h-78 lg:overflow-y-auto lg:pr-2">
+        <ul class="mt-2 divide-y divide-slate-100 px-5 sm:px-6">
 
-            <article v-for="product in products" :key="product.id"
-                class="grid grid-cols-3 items-center gap-4 border-b border-gray-100 px-5 py-6 last:border-b-0 sm:px-8 lg:grid-cols-[110px_minmax(0,1fr)_120px_120px_120px] lg:gap-8 lg:py-7">
+            <li v-for="product in products" :key="product.id" class="flex gap-4 py-4">
 
-                <!-- Image -->
+                <!-- Image (decorative: the name follows) -->
 
-                <div class="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-50 sm:h-24 sm:w-24">
-
-                    <!-- 64/80px thumbnail; 240px covers 3x screens. -->
-                    <img v-if="product.image" :src="sizedImage(product.image, 240)" :alt="product.productName" class="h-16 w-16 object-contain sm:h-20 sm:w-20">
-
+                <div class="w-16 shrink-0 overflow-hidden rounded-control bg-slate-100 ring-1 ring-slate-900/5 ring-inset sm:w-20">
+                    <!-- 4:5 frame up to 80px wide; 240px covers 3x screens. -->
+                    <img v-if="product.image" :src="sizedImage(product.image, 240)" alt="" class="aspect-4/5 w-full object-cover">
+                    <span v-else class="block aspect-4/5 w-full" />
                 </div>
 
                 <!-- Product -->
 
-                <div class="col-span-2 min-w-0 lg:col-span-1">
+                <div class="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
 
-                    <h3 class="break-words text-base font-semibold text-slate-900 sm:text-lg">
+                    <div class="min-w-0">
 
-                        {{ product.productName }}
+                        <h3 class="text-sm font-semibold text-slate-900 sm:text-base">
+                            {{ product.productName }}
+                        </h3>
 
-                    </h3>
+                        <p class="mt-0.5 text-sm text-slate-600">
+                            {{ [product.color, product.size].filter(Boolean).concat(`Qty ${product.quantity}`).join(" · ") }}
+                        </p>
 
-                    <p class="mt-2 text-sm text-slate-500">
+                        <p v-if="product.sku" class="mt-0.5 text-xs text-slate-500">
+                            SKU {{ product.sku }}
+                        </p>
 
-                        SKU {{ product.sku }}
+                    </div>
 
-                    </p>
+                    <div class="shrink-0 sm:text-right">
 
-                    <div class="mt-4 flex flex-wrap gap-2">
+                        <p class="text-sm font-semibold text-slate-900 sm:text-base">
+                            {{ formatPrice(product.lineTotal, currency) }}
+                        </p>
 
-                        <span v-for="option in [product.color, product.size].filter(Boolean)" :key="option"
-                            class="rounded-lg bg-slate-100 px-3 py-1.5 text-sm">
-
-                            {{ option }}
-
-                        </span>
+                        <p v-if="product.quantity > 1" class="text-xs text-slate-500">
+                            {{ formatPrice(product.unitPrice, currency) }} each
+                        </p>
 
                     </div>
 
                 </div>
 
-                <!-- Price -->
+            </li>
 
-                <div class="text-center">
-
-                    <p class="text-sm text-slate-500 lg:text-xl lg:text-black">
-                        Price
-                    </p>
-
-                    <p class="mt-2 text-base font-bold sm:text-lg">
-
-                        {{ formatPrice(product.unitPrice, currency) }}
-
-                    </p>
-
-                </div>
-
-                <!-- Quantity -->
-
-                <div class="text-center">
-
-                    <p class="text-sm text-slate-500">
-                        Quantity
-                    </p>
-
-                    <span class="mt-2 inline-flex rounded-xl bg-indigo-100 px-4 py-2 font-semibold text-indigo-600">
-
-                        {{ product.quantity }}
-
-                    </span>
-
-                </div>
-
-                <!-- Total -->
-
-                <div class="text-right">
-
-                    <p class="text-sm text-slate-500 lg:text-xl lg:text-black">
-                        Total
-                    </p>
-
-                    <p class="mt-2 text-base font-semibold text-orange-600 sm:text-xl">
-
-                        {{ formatPrice(product.lineTotal, currency) }}
-
-                    </p>
-
-                </div>
-
-            </article>
-
-        </div>
+        </ul>
 
     </section>
 
 </template>
 
 <script setup>
-import { CubeIcon } from "@heroicons/vue/24/outline";
-
 import { formatPrice } from "@/composables/useOrderSuccess";
 import { sizedImage } from "@/utils/images";
 
@@ -158,17 +91,4 @@ defineProps({
     },
 
 });
-
-
 </script>
-
-<style scoped>
-.hide-scrollbar {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-</style>

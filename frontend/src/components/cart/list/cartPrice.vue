@@ -1,29 +1,23 @@
 <template>
-    <div class="flex flex-col items-end justify-around h-full">
+    <div class="shrink-0 sm:text-right">
 
-        <div class="text-right">
+        <!-- Line subtotal from the server (none for an item no longer in the catalog) -->
+        <p v-if="product.subtotal != null" class="text-base font-semibold text-slate-900">
+            {{ formatPrice(product.subtotal, product.currency) }}
+        </p>
 
-            <!-- Current Price (none for an item no longer in the catalog) -->
-            <p v-if="product.price != null" class="text-3xl font-bold text-slate-900">
-                {{ formatPrice(product.price, product.currency) }}
-            </p>
-
-            <!-- Original Price -->
-            <p v-if="hasDiscount" class="mt-1 text-lg text-gray-400 line-through">
+        <!-- Unit price, with the original price when the item is marked down -->
+        <p v-if="product.price != null && (product.quantity > 1 || percent > 0)" class="mt-0.5 text-sm text-slate-600">
+            <span v-if="percent > 0" class="mr-1 text-slate-400 line-through">
+                <span class="sr-only">Original price</span>
                 {{ formatPrice(product.originalPrice, product.currency) }}
-            </p>
+            </span>
+            {{ formatPrice(product.price, product.currency) }} each
+        </p>
 
-            <!-- Line Subtotal (from the server) -->
-            <p v-if="product.subtotal != null" class="mt-1 text-sm text-gray-500">
-                Subtotal: <span class="font-semibold text-slate-900">{{ formatPrice(product.subtotal, product.currency) }}</span>
-            </p>
-
-        </div>
-
-        <!-- Discount Badge -->
-        <span v-if="hasDiscount"
-            class="rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-700">
-            {{ discountPercentage }}% OFF
+        <span v-if="percent > 0"
+            class="mt-1.5 inline-flex rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
+            {{ percent }}% off
         </span>
 
     </div>
@@ -31,7 +25,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { formatPrice } from "@/utils/money";
+import { discountPercent, formatPrice } from "@/utils/money";
 
 const props = defineProps({
     product: {
@@ -40,23 +34,6 @@ const props = defineProps({
     },
 });
 
-const hasDiscount = computed(() => {
-    return (
-        props.product.originalPrice &&
-        props.product.originalPrice > props.product.price
-    );
-});
-
-const discountPercentage = computed(() => {
-
-    if (!hasDiscount.value) return 0;
-
-    return Math.round(
-        ((props.product.originalPrice - props.product.price) /
-            props.product.originalPrice) *
-        100
-    );
-
-});
-
+// Only a real markdown (server originalPrice above the unit price) shows.
+const percent = computed(() => (props.product.price == null ? 0 : discountPercent(props.product.price, props.product.originalPrice)));
 </script>

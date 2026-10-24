@@ -1,16 +1,22 @@
 <template>
-    <article class="grid items-start gap-6 rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition-all duration-300 hover:shadow-md
-           lg:grid-cols-[170px_minmax(0,1fr)_160px_130px]">
+    <!-- Photo on the left; name, options and price beside it; quantity and Remove underneath. -->
+    <article class="flex gap-4 rounded-card border border-slate-200 bg-white p-4 sm:gap-5 sm:p-5"
+        :class="product.isAvailable === false ? 'border-red-200' : ''">
+
         <cartImage :product="product" />
 
-        <cartInfo :product="product" />
+        <div class="flex min-w-0 flex-1 flex-col">
 
-        <div class="flex h-full flex-col items-center justify-center gap-4">
-            <cartActions :product="product" @update-quantity="updateQuantity" @remove-product="removeProduct" />
-        </div>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
 
-        <div class="flex h-full flex-col items-end justify-between">
-            <cartPrice :product="product" />
+                <cartInfo :product="product" />
+
+                <cartPrice :product="product" />
+
+            </div>
+
+            <cartActions class="mt-auto pt-4" :product="product" @update-quantity="updateQuantity" @remove-product="removeProduct" />
+
         </div>
     </article>
 </template>

@@ -1,30 +1,24 @@
 <template>
 
-    <checkoutSection number="01" title="Contact Information" subtitle="The account and email this order is placed under."
+    <checkoutSection number="01" title="Contact information" subtitle="The account this order is placed under."
         :icon="UserIcon" :editable="false">
 
         <!-- The signed-in account; nothing here is editable yet. -->
 
-        <div>
+        <div class="text-sm">
 
-            <h3 class="text-xl font-semibold text-slate-900">
-
+            <p class="font-semibold text-slate-900">
                 {{ customerName }}
+            </p>
 
-            </h3>
-
-            <div class="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
+            <div class="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-slate-600">
 
                 <span class="break-all">
-
                     {{ customer?.email }}
-
                 </span>
 
                 <span v-if="customer?.phone">
-
                     {{ customer.phone }}
-
                 </span>
 
             </div>

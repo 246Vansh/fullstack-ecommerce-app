@@ -1,103 +1,34 @@
 <template>
 
-    <section class="overflow-hidden rounded-xl bg-white shadow-sm">
+    <section class="rounded-panel border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="order-shipping-heading">
 
-        <!-- Header -->
+        <h2 id="order-shipping-heading" class="text-lg font-semibold text-slate-900">
+            Shipping address
+        </h2>
 
-        <div class="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
+        <!-- The address snapshot stored on the order. No delivery method: orders do not store one yet. -->
 
-            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+        <address class="mt-3 space-y-0.5 text-sm leading-6 text-slate-600 not-italic">
 
-                <MapPinIcon class="h-5 w-5 text-green-600" />
+            <p class="font-medium text-slate-900">
+                {{ address.firstName }} {{ address.lastName }}
+            </p>
 
-            </div>
+            <p>{{ [address.address, address.apartment].filter(Boolean).join(", ") }}</p>
 
-            <h2 class="text-xl font-bold text-slate-900">
+            <p>{{ address.city }}, {{ address.state }} {{ address.zipCode }}</p>
 
-                Shipping Address
+            <p>{{ address.country }}</p>
 
-            </h2>
+            <p v-if="address.phone" class="pt-1">{{ address.phone }}</p>
 
-        </div>
-
-        <!-- Content -->
-
-        <div class="space-y-4 px-6 py-5">
-
-            <!-- Name -->
-
-            <div class="flex items-start gap-3">
-
-                <UserIcon class="mt-0.5 h-5 w-5 shrink-0 text-slate-900" />
-
-                <p class="text-sm font-semibold text-slate-900">
-
-                    {{ address.firstName }} {{ address.lastName }}
-
-                </p>
-
-            </div>
-
-            <!-- Phone -->
-
-            <div class="flex items-start gap-3">
-
-                <PhoneIcon class="mt-0.5 h-5 w-5 shrink-0 text-slate-900" />
-
-                <p class="text-sm font-semibold text-slate-700">
-
-                    {{ address.phone }}
-
-                </p>
-
-            </div>
-
-            <!-- Address -->
-
-            <div class="flex items-start gap-3">
-
-                <HomeIcon class="mt-0.5 h-5 w-5 shrink-0 text-slate-900" />
-
-                <div class="space-y-0.5 text-sm font-semibold text-slate-700">
-
-                    <p>
-
-                        {{ [address.address, address.apartment].filter(Boolean).join(", ") }}
-
-                    </p>
-
-                    <p>
-
-                        {{ address.city }}, {{ address.state }} {{ address.zipCode }}
-
-                    </p>
-
-                    <p>
-
-                        {{ address.country }}
-
-                    </p>
-
-                </div>
-
-            </div>
-
-            <!-- No delivery method: orders do not store one yet. -->
-
-        </div>
+        </address>
 
     </section>
 
 </template>
 
 <script setup>
-import {
-    MapPinIcon,
-    UserIcon,
-    PhoneIcon,
-    HomeIcon,
-} from "@heroicons/vue/24/outline";
-
 // The shipping address snapshot stored on the order.
 defineProps({
     address: {

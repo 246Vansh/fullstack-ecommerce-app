@@ -1,65 +1,25 @@
 <template>
-    <section class="relative overflow-hidden border border-gray-200 bg-white">
+    <section class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
 
-        <!-- Soft Background Glow -->
-        <div
-            class="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgba(99,102,241,0.18),transparent_52%),radial-gradient(circle_at_10%_5%,rgba(59,130,246,0.08),transparent_40%),linear-gradient(135deg,#ffffff_0%,#fafbff_55%,#f4f7ff_100%)]">
+        <div>
+            <h1 class="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                Shopping cart
+            </h1>
+
+            <p class="mt-2 text-base text-slate-600">
+                Review your items before checking out.
+            </p>
         </div>
 
-        <div class="relative mx-auto flex min-h-70 max-w-360 items-center justify-between px-2 py-8 lg:px-10">
-
-            <!-- Left Content -->
-            <div class="z-10 max-w-190">
-
-                <h1 class="text-3xl font-extrabold leading-none tracking-tight text-slate-900">
-                    Shopping Cart
-                </h1>
-
-                <p class="mt-4 text-[22px] leading-7 text-slate-600">
-                    Review your selected items before proceeding to checkout.
-                </p>
-
-                <!-- Features -->
-                <div class="mt-4 flex flex-wrap gap-3">
-
-                    <!-- Item Count -->
-                    <div class="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-3">
-
-                        <ShoppingBagIcon class="h-5 w-5 text-violet-600" />
-
-                        <span class="text-[17px] font-semibold text-slate-800">
-                            {{ itemCount }} {{ itemCount === 1 ? "Item" : "Items" }}
-                        </span>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- Desktop Illustration -->
-            <div class="pointer-events-none absolute right-1 hidden lg:block">
-
-                <img src="@/assets/images/cart/cart-hero.webp" alt="" class="w-67 xl:w-140"
-                    draggable="false" />
-
-            </div>
-
-        </div>
-
-        <!-- Mobile -->
-        <div class="flex justify-center px-6 pb-6 lg:hidden">
-
-            <img src="@/assets/images/cart/cart-hero.webp" alt="" class="w-55" draggable="false" />
-
-        </div>
+        <p class="text-sm text-slate-600">
+            <span class="font-semibold text-slate-900">{{ itemCount }}</span>
+            {{ itemCount === 1 ? "item" : "items" }}
+        </p>
 
     </section>
 </template>
 
 <script setup>
-import { ShoppingBagIcon } from "@heroicons/vue/24/outline";
-
 defineProps({
     itemCount: {
         type: Number,
