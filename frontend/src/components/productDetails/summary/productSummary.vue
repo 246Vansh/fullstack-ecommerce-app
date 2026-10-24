@@ -1,5 +1,5 @@
 <template>
-    <div class="flex flex-col gap-6 lg:pl-6">
+    <div class="flex flex-col gap-8 lg:pt-2">
 
         <ProductHeader :product="product" :selected-variant="selectedVariant" />
 

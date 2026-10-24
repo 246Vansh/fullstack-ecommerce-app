@@ -1,7 +1,7 @@
 <template>
-    <section class="mt-10">
+    <section>
 
-        <div class="grid grid-cols-1 gap-10 lg:grid-cols-[12fr_13fr]">
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-[12fr_11fr] lg:gap-14">
 
             <ProductGallery :product="product" />
 

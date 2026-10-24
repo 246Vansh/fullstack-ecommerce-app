@@ -1,17 +1,18 @@
 <template>
 
-    <button type="button" :aria-pressed="isSelected" @click="$emit('select', size)"
-        class="group relative overflow-hidden rounded-xl transition-all duration-300 cursor-pointer" :class="[
-            isSelected
-                ? 'bg-gray-900 text-white shadow-lg'
-                : 'border border-gray-300 bg-white text-gray-900 hover:-translate-y-0.5 hover:border-gray-900 hover:shadow-md'
-        ]">
+    <button type="button" :aria-pressed="isSelected" @click="$emit('select', size)" :class="[
+        'flex h-11 min-w-14 cursor-pointer items-center justify-center rounded-control border px-4 text-sm font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        isSelected
+            ? 'border-brand bg-brand text-white'
+            : unavailable
+                ? 'border-dashed border-slate-300 bg-white text-slate-400 line-through hover:border-slate-400'
+                : 'border-slate-300 bg-white text-slate-900 hover:border-slate-900',
+        isSelected && unavailable ? 'line-through' : '',
+    ]">
 
-        <span class="flex h-12 min-w-[64px] items-center justify-center px-5 text-sm font-semibold tracking-wide">
-            {{ size.name }}
-        </span>
+        {{ size.name }}
 
-        <span v-if="isSelected" class="absolute right-2 top-2 h-2 w-2 rounded-full bg-green-400" aria-hidden="true" />
+        <span v-if="unavailable" class="sr-only">, out of stock</span>
 
     </button>
 
@@ -25,6 +26,11 @@ defineProps({
     },
 
     isSelected: {
+        type: Boolean,
+        default: false,
+    },
+
+    unavailable: {
         type: Boolean,
         default: false,
     },

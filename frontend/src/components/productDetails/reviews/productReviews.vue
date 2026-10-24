@@ -44,7 +44,7 @@
                     <div v-else-if="mode === 'error'" class="mt-4">
                         <p role="alert" class="text-sm text-red-600">{{ state.mineError }}</p>
 
-                        <button type="button" class="mt-2 cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                        <button type="button" class="mt-2 cursor-pointer text-sm font-medium text-brand hover:text-brand-hover"
                             @click="reviews.loadMine()">
                             Try again
                         </button>
@@ -116,7 +116,7 @@
                 <div v-else-if="state.listError" class="mt-6">
                     <p role="alert" class="text-sm text-red-600">{{ state.listError }}</p>
 
-                    <button type="button" class="mt-2 cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                    <button type="button" class="mt-2 cursor-pointer text-sm font-medium text-brand hover:text-brand-hover"
                         @click="reviews.loadPage(state.pagination?.page ?? 1)">
                         Try again
                     </button>

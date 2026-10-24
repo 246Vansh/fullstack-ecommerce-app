@@ -1,7 +1,7 @@
 <template>
     <!-- z-20: above the product cards (badges are z-10) so the sort menu overlays the
          grid, and below the sticky header (z-30). -->
-    <div class="relative z-20 hidden items-center justify-between overflow-visible pb-6 lg:flex">
+    <div class="relative z-20 hidden items-center justify-between overflow-visible py-5 lg:flex">
 
         <!-- Product Count -->
 

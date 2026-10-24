@@ -1,29 +1,17 @@
 <template>
-    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+    <div>
 
-        <div class="mb-5 flex items-center justify-between">
+        <h2 class="text-sm font-medium text-slate-600">
+            Color<template v-if="selectedColor">:
+                <span class="font-semibold text-slate-900">{{ selectedColor.name }}</span>
+            </template>
+        </h2>
 
-            <div>
-                <h2 class="text-base font-semibold text-gray-900">
-                    Color
-                </h2>
-
-                <p class="mt-1 text-sm text-gray-500">
-                    Choose your preferred color
-                </p>
-            </div>
-
-            <span v-if="selectedColor"
-                class="rounded-full bg-white px-3 py-1 text-sm font-medium text-gray-800 shadow-sm">
-                {{ selectedColor.name }}
-            </span>
-
-        </div>
-
-        <div class="flex flex-wrap gap-4" role="group" aria-label="Color">
+        <div class="mt-3 flex flex-wrap gap-3" role="group" aria-label="Color">
 
             <ProductColorOption v-for="color in colors" :key="color.id" :color="color"
-                :is-selected="selectedColor?.id === color.id" @select="$emit('select-color', $event)" />
+                :is-selected="selectedColor?.id === color.id" :unavailable="unavailableIds.includes(color.id)"
+                @select="$emit('select-color', $event)" />
 
         </div>
 
@@ -42,6 +30,12 @@ defineProps({
     selectedColor: {
         type: Object,
         default: null,
+    },
+
+    // Colors with no in-stock variant for the selected size.
+    unavailableIds: {
+        type: Array,
+        default: () => [],
     },
 });
 

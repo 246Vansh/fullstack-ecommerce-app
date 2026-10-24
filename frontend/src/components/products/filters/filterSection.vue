@@ -1,20 +1,20 @@
 <template>
-    <Disclosure as="div" :defaultOpen="filter.defaultOpen" class="border-b border-gray-200 py-6" v-slot="{ open }">
+    <Disclosure as="div" :defaultOpen="filter.defaultOpen" class="border-b border-slate-200 py-5" v-slot="{ open }">
         <!-- Section Header -->
 
         <h3 class="-my-3 flow-root">
 
             <DisclosureButton
-                class="flex w-full items-center justify-between py-3 text-sm text-gray-400 hover:text-gray-500">
-                <span class="font-medium text-gray-900">
+                class="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-sm py-3 text-sm text-slate-400 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                <span class="font-semibold text-slate-900">
                     {{ filter.title }}
                 </span>
 
                 <span class="ml-6 flex items-center">
 
-                    <PlusIcon v-if="!open" class="h-5 w-5 cursor-pointer" />
+                    <PlusIcon v-if="!open" class="h-5 w-5" aria-hidden="true" />
 
-                    <MinusIcon v-else class="h-5 w-5 cursor-pointer" />
+                    <MinusIcon v-else class="h-5 w-5" aria-hidden="true" />
 
                 </span>
 
@@ -24,7 +24,7 @@
 
         <!-- Section Content -->
 
-        <DisclosurePanel class="pt-6">
+        <DisclosurePanel class="pt-4">
 
             <component :is="currentFilterComponent" :options="options" v-model="model" />
 

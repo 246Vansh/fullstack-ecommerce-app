@@ -1,14 +1,22 @@
 <template>
-    <button type="button" :title="color.name" :aria-label="color.name" :aria-pressed="isSelected" class="group"
-        @click="$emit('select', color)">
-        <span class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-all duration-300"
-            :class="[
-                isSelected
-                    ? 'border-2 border-gray-900 bg-white shadow-lg ring-2 ring-gray-200'
-                    : 'border border-gray-300 bg-white hover:-translate-y-0.5 hover:border-gray-900 hover:shadow-md'
-            ]">
-            <span class="h-6 w-6 rounded-full border border-black/10" :style="{ backgroundColor: color.hex }" />
+    <button type="button" :title="unavailable ? `${color.name} (out of stock)` : color.name"
+        :aria-label="unavailable ? `${color.name}, out of stock` : color.name" :aria-pressed="isSelected"
+        :class="[
+            'relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-shadow duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand',
+            isSelected
+                ? 'ring-2 ring-brand ring-offset-2'
+                : 'ring-1 ring-slate-300 hover:ring-slate-500'
+        ]" @click="$emit('select', color)">
+
+        <span class="h-8 w-8 rounded-full border border-black/10" :class="unavailable ? 'opacity-40' : ''"
+            :style="{ backgroundColor: color.hex }" />
+
+        <!-- A diagonal line through an out-of-stock swatch. -->
+        <span v-if="unavailable" class="pointer-events-none absolute inset-0 flex items-center justify-center"
+            aria-hidden="true">
+            <span class="h-px w-9 -rotate-45 bg-slate-500" />
         </span>
+
     </button>
 </template>
 
@@ -20,6 +28,11 @@ defineProps({
     },
 
     isSelected: {
+        type: Boolean,
+        default: false,
+    },
+
+    unavailable: {
         type: Boolean,
         default: false,
     },

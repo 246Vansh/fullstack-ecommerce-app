@@ -1,41 +1,20 @@
 <template>
-    <section class="border-b border-gray-200 pb-6" aria-labelledby="products-heading">
-        <!-- Breadcrumb -->
+    <section class="pt-5 sm:pt-6" aria-labelledby="products-heading">
 
-        <!--<slot name="breadcrumb" />-->
+        <h1 id="products-heading" class="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            {{ title }}
+        </h1>
 
-        <!-- Header -->
+        <p v-if="description" class="mt-3 max-w-2xl text-base text-slate-600">
+            {{ description }}
+        </p>
 
-        <div class="mt-2 flex items-end justify-between gap-6">
-
-            <div>
-
-                <h1 id="products-heading" class="text-4xl font-bold tracking-tight text-gray-900">
-                    {{ title }}
-                </h1>
-
-                <p v-if="description" class="mt-3 max-w-2xl text-sm text-gray-500">
-                    {{ description }}
-                </p>
-
-            </div>
-
-            <!-- No count while it is unknown (first load, or the request failed). -->
-            <div v-if="totalProducts !== null" class="shrink-0">
-
-                <p class="text-sm text-gray-500">
-
-                    <span class="font-semibold text-gray-900">
-                        {{ totalProducts }}
-                    </span>
-
-                    Products
-
-                </p>
-
-            </div>
-
-        </div>
+        <!-- Below lg only: the desktop toolbar shows "Showing 1–12 of N" instead.
+             No count while it is unknown (first load, or the request failed). -->
+        <p v-if="totalProducts !== null" class="mt-4 text-sm text-slate-500 lg:hidden">
+            <span class="font-semibold text-slate-900">{{ totalProducts }}</span>
+            {{ totalProducts === 1 ? "product" : "products" }}
+        </p>
 
     </section>
 </template>

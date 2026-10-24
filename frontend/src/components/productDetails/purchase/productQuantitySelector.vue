@@ -1,55 +1,44 @@
 <template>
-    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+    <div class="inline-flex shrink-0 items-center rounded-control border border-slate-300 bg-white" role="group"
+        aria-label="Quantity">
 
-        <div class="mb-5 flex items-center justify-between">
+        <!-- aria-disabled rather than disabled, so focus stays on the button at a limit. -->
+        <button type="button" aria-label="Decrease quantity" :aria-disabled="atMin || undefined" :class="STEP_CLASSES"
+            @click="!atMin && $emit('decrease')">
+            <MinusIcon class="h-4 w-4" aria-hidden="true" />
+        </button>
 
-            <div>
-                <h2 class="text-base font-semibold text-gray-900">
-                    Quantity
-                </h2>
+        <!-- Announces the new value after a +/- press. -->
+        <span aria-live="polite" aria-atomic="true"
+            class="flex min-w-10 items-center justify-center text-base font-semibold text-slate-900 tabular-nums">
+            <span class="sr-only">Quantity </span>{{ quantity }}
+        </span>
 
-                <p class="mt-1 text-sm text-gray-500">
-                    Select the quantity
-                </p>
-            </div>
-
-            <span class="rounded-full bg-white px-3 py-1 text-sm font-medium text-gray-800 shadow-sm">
-                {{ quantity }} Item{{ quantity > 1 ? "s" : "" }}
-            </span>
-
-        </div>
-
-        <div class="inline-flex overflow-hidden rounded-xl border border-gray-300 bg-white shadow-sm" role="group"
-            aria-label="Quantity">
-
-            <button type="button" aria-label="Decrease quantity"
-                class="flex h-12 w-12 items-center justify-center text-xl font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 hover:text-black active:scale-95 cursor-pointer"
-                @click="$emit('decrease')">
-                −
-            </button>
-
-            <!-- Announces the new value after a +/- press. -->
-            <span aria-live="polite" aria-atomic="true"
-                class="flex h-12 min-w-[72px] items-center justify-center border-x border-gray-200 text-base font-semibold text-gray-900">
-                <span class="sr-only">Quantity </span>{{ quantity }}
-            </span>
-
-            <button type="button" aria-label="Increase quantity"
-                class="flex h-12 w-12 items-center justify-center text-xl font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 hover:text-black active:scale-95 cursor-pointer"
-                @click="$emit('increase')">
-                +
-            </button>
-
-        </div>
+        <!-- Stops at the selected option's stock; with no option (max null) it is not capped. -->
+        <button type="button" aria-label="Increase quantity" :aria-disabled="atMax || undefined"
+            :class="STEP_CLASSES" @click="!atMax && $emit('increase')">
+            <PlusIcon class="h-4 w-4" aria-hidden="true" />
+        </button>
 
     </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+import { MinusIcon, PlusIcon } from "@heroicons/vue/20/solid";
+
+const STEP_CLASSES = "flex h-full min-h-12 w-11 items-center justify-center rounded-control text-slate-700 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer aria-disabled:cursor-not-allowed aria-disabled:text-slate-300 aria-disabled:hover:bg-transparent";
+
+const props = defineProps({
     quantity: {
         type: Number,
         required: true,
+    },
+
+    // The selected option's stock, or null when no option is selected.
+    max: {
+        type: Number,
+        default: null,
     },
 });
 
@@ -57,4 +46,8 @@ defineEmits([
     "increase",
     "decrease",
 ]);
+
+const atMin = computed(() => props.quantity <= 1);
+
+const atMax = computed(() => props.max !== null && props.max > 0 && props.quantity >= props.max);
 </script>

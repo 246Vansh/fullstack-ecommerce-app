@@ -1,9 +1,9 @@
 <template>
 
-    <div class="space-y-5">
+    <div>
 
         <!-- Stock is shown per selected variant in the purchase section. -->
-        <ProductPrice :price="price" :original-price="originalPrice" :currency="product.currency" />
+        <ProductPrice size="lg" :price="price" :original-price="originalPrice" :currency="product.currency" />
 
     </div>
 

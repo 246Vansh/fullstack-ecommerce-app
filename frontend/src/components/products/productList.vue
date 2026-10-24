@@ -1,19 +1,34 @@
 <template>
 
-    <!-- Empty State -->
+    <!-- First load: card-shaped placeholders, so the page does not jump when results arrive.
+         The status line in productsSection announces the outcome. -->
 
-    <div v-if="!hasProducts"
-        class="flex min-h-100 items-center justify-center rounded-xl border border-dashed border-gray-300">
+    <div v-if="!hasProducts && loading">
+        <span class="sr-only">Loading products...</span>
+        <ProductGrid>
+            <ProductCardSkeleton v-for="n in 6" :key="n" />
+        </ProductGrid>
+    </div>
 
-        <div class="text-center">
+    <!-- Empty / Error State -->
 
-            <h3 class="text-lg font-semibold text-gray-900">
+    <div v-else-if="!hasProducts"
+        class="flex min-h-96 items-center justify-center rounded-panel bg-surface px-6 py-16">
 
-                {{ loading ? "Loading products..." : error ? "Could not load products" : invalidFilter ? "Filter not found" : "No products found" }}
+        <div class="flex max-w-sm flex-col items-center text-center">
+
+            <span class="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500 shadow-card">
+                <ExclamationTriangleIcon v-if="error" class="h-6 w-6" aria-hidden="true" />
+                <MagnifyingGlassIcon v-else class="h-6 w-6" aria-hidden="true" />
+            </span>
+
+            <h3 class="mt-5 text-lg font-semibold text-slate-900">
+
+                {{ error ? "Could not load products" : invalidFilter ? "Filter not found" : "No products found" }}
 
             </h3>
 
-            <p v-if="!loading" class="mt-2 text-sm text-gray-500">
+            <p class="mt-2 text-sm text-slate-600">
 
                 {{ error || (invalidFilter
                     ? "This link points to a category, brand, color or size we don't carry."
@@ -23,31 +38,29 @@
 
             </p>
 
-            <button v-if="error && !loading" type="button" @click="$emit('retry')"
-                class="mt-4 inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <PrimaryButton v-if="error" tag="button" class="mt-6" @click="$emit('retry')">
                 Retry
-            </button>
+            </PrimaryButton>
 
-            <RouterLink v-else-if="clearFiltersTo && !invalidFilter && !loading && !error" :to="clearFiltersTo"
-                class="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+            <PrimaryButton v-else-if="clearFiltersTo && !invalidFilter" :to="clearFiltersTo" class="mt-6">
                 Clear filters
-            </RouterLink>
+            </PrimaryButton>
 
-            <RouterLink v-else-if="(invalidFilter || search) && !loading && !error" :to="{ name: 'products' }"
-                class="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+            <PrimaryButton v-else-if="invalidFilter || search" :to="{ name: 'products' }" class="mt-6">
                 Browse all products
-            </RouterLink>
+            </PrimaryButton>
 
         </div>
 
     </div>
 
 
-    <!-- Products -->
+    <!-- Products (dimmed while the next page, sort or filter loads) -->
 
-    <ProductGrid v-else>
+    <ProductGrid v-else :aria-busy="loading || undefined"
+        :class="['transition-opacity duration-200', loading ? 'pointer-events-none opacity-50' : '']">
 
-        <ProductCard v-for="product in props.products" :key="product.id" :product="product" />
+        <ProductCard v-for="product in props.products" :key="product.id" :product="product" :image-sizes="IMAGE_SIZES" />
 
     </ProductGrid>
 
@@ -57,9 +70,17 @@
 <script setup>
 
 import { computed } from "vue";
-import { RouterLink } from "vue-router";
+import { ExclamationTriangleIcon, MagnifyingGlassIcon } from "@heroicons/vue/24/outline";
+
 import ProductGrid from "./productGrid.vue";
 import ProductCard from "./product/productCard.vue";
+import ProductCardSkeleton from "./product/productCardSkeleton.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
+
+// Grid slots: two columns below sm, three from sm (beside the sidebar from lg,
+// ~285px once max-w-7xl caps the page), times the 1.875 a 3:2 photo paints at
+// under object-cover in the 4:5 card.
+const IMAGE_SIZES = "(min-width: 1280px) 534px, (min-width: 1024px) 41vw, (min-width: 640px) calc(62vw - 60px), calc(94vw - 45px)";
 
 
 const props = defineProps({

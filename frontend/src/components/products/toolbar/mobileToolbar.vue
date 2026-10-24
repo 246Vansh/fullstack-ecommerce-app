@@ -1,5 +1,5 @@
 <template>
-    <div class="flex items-center justify-between border-b border-gray-200 pb-6 lg:hidden">
+    <div class="flex items-center justify-between gap-3 py-3 lg:hidden">
         <!-- Filter Button -->
         <MobileFilterButton :active-count="activeFilterCount" @open-filters="$emit('open-filters')" />
 
@@ -12,13 +12,16 @@
 import MobileFilterButton from "./mobileFilterButton.vue";
 import SortDropdown from "./sortDropdown.vue";
 
-import { sortOptions } from "@/constants/catalog/sortOptions";
-
 defineProps({
 
     activeFilterCount: {
         type: Number,
         default: 0,
+    },
+
+    sortOptions: {
+        type: Array,
+        default: () => [],
     },
 
 });

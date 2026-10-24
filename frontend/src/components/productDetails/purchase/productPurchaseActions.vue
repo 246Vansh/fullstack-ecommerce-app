@@ -2,7 +2,7 @@
     <!-- Buy Now and wishlist are not implemented yet, so only Add to Cart is offered. -->
     <div class="flex gap-3">
 
-        <AddToCartButton :disabled="disabled" @click="$emit('add-to-cart')" />
+        <AddToCartButton :disabled="disabled" :loading="loading" @click="$emit('add-to-cart')" />
 
     </div>
 </template>
@@ -12,6 +12,11 @@ import AddToCartButton from "./addToCartButton.vue";
 
 defineProps({
     disabled: {
+        type: Boolean,
+        default: false,
+    },
+
+    loading: {
         type: Boolean,
         default: false,
     },

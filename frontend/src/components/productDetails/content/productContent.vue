@@ -1,12 +1,12 @@
 <template>
-    <section class="mt-20">
+    <section>
 
         <!-- Tab Navigation -->
         <TabNavigation :tabs="tabs" :active-tab="activeTab" @change-tab="changeTab" />
 
         <!-- Tab Content -->
         <div :id="`product-panel-${activeTab}`" role="tabpanel" tabindex="0" :aria-labelledby="`product-tab-${activeTab}`"
-            class="mt-10">
+            class="mt-8 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">
 
             <ProductDescription v-if="activeTab === 'description'" :product="product" />
 

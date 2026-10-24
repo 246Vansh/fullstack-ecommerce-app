@@ -12,11 +12,18 @@
             <div class="relative">
 
                 <!-- The link already reads the product name, so the image is not announced again. -->
-                <ProductImage :src="product.image" alt="" :sizes="imageSizes" />
+                <ProductImage :src="product.image" alt="" :sizes="imageSizes"
+                    :class="soldOut ? 'opacity-70 grayscale-[30%]' : ''" />
 
-                <!-- Product Badge -->
+                <!-- Product Badge (a catalog badge first, otherwise the markdown) -->
 
                 <ProductBadge :badge="badge" />
+
+                <!-- Sold out: list items carry inStock (any variant with stock). -->
+                <span v-if="soldOut"
+                    class="pointer-events-none absolute bottom-3 left-3 z-10 inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-xs font-semibold leading-none text-slate-900 shadow-sm">
+                    Sold out
+                </span>
 
             </div>
 
@@ -54,6 +61,8 @@ import ProductInfo from "./productInfo.vue";
 
 import { badges } from "@/constants/catalog/badges";
 
+import { discountPercent } from "@/utils/money";
+
 
 // --------------------------------------------------
 // Props
@@ -89,12 +98,23 @@ const props = defineProps({
 
 const badge = computed(() => {
 
-    return badges.find(
+    const catalogBadge = badges.find(
 
         item => item.id === props.product.badgeId
 
     );
 
+    if (catalogBadge) return catalogBadge;
+
+    const percent = discountPercent(props.product.price, props.product.originalPrice);
+
+    return percent > 0
+        ? { id: "discount", name: `${percent}% off`, background: "bg-brand", text: "text-white" }
+        : null;
+
 });
+
+// Only an explicit false: products without the field are not marked.
+const soldOut = computed(() => props.product.inStock === false);
 
 </script>

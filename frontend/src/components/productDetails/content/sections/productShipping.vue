@@ -1,75 +1,44 @@
 <template>
-    <section class="space-y-12">
+    <section class="max-w-3xl">
 
-        <!-- Hero -->
+        <h2 class="text-xl font-semibold tracking-tight text-slate-900">
+            Shipping information
+        </h2>
 
-        <section class="overflow-hidden rounded-2xl bg-gradient-to-r from-sky-50 via-blue-50 to-blue-50">
+        <p class="mt-4 text-base leading-7 text-slate-600">
+            Any shipping charge for your order is calculated at checkout
+            and shown in the order summary before you place your order.
+        </p>
 
-            <div class="p-6 lg:p-8">
+        <div class="mt-8 rounded-panel bg-surface p-6">
 
-                <span class="inline-flex rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
+            <h3 class="flex items-center gap-2 text-base font-semibold text-slate-900">
+                <InformationCircleIcon class="h-5 w-5 text-brand" aria-hidden="true" />
+                Good to know
+            </h3>
 
-                    Shipping & Delivery
+            <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-600">
 
-                </span>
+                <li class="flex gap-3">
+                    <CheckIcon class="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
+                    Shipping is calculated for the delivery address you
+                    choose at checkout.
+                </li>
 
-                <h2 class="mt-3 text-2xl font-bold text-gray-900">
+                <li class="flex gap-3">
+                    <CheckIcon class="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
+                    After you place an order, its confirmation page shows
+                    the items, shipping address and totals.
+                </li>
 
-                    Shipping Information
+            </ul>
 
-                </h2>
-
-                <p class="mt-4 max-w-3xl leading-8 text-gray-600">
-
-                    Any shipping charge for your order is calculated at checkout
-                    and shown in the order summary before you place your order.
-
-                </p>
-
-            </div>
-
-        </section>
-
-        <!-- Notes -->
-
-        <section class="rounded-3xl border border-amber-200 bg-amber-50 p-8">
-
-            <div class="flex items-start gap-5">
-
-                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-2xl">
-
-                    ℹ️
-
-                </div>
-
-                <div>
-
-                    <h3 class="text-2xl font-bold text-gray-900">
-                        Good to Know
-                    </h3>
-
-                    <ul class="mt-5 space-y-4 text-gray-700">
-
-                        <li class="flex gap-3">
-                            <span>•</span>
-                            Shipping is calculated for the delivery address you
-                            choose at checkout.
-                        </li>
-
-                        <li class="flex gap-3">
-                            <span>•</span>
-                            After you place an order, its confirmation page shows
-                            the items, shipping address and totals.
-                        </li>
-
-                    </ul>
-
-                </div>
-
-            </div>
-
-        </section>
+        </div>
 
     </section>
-
 </template>
+
+<script setup>
+import { InformationCircleIcon } from "@heroicons/vue/24/outline";
+import { CheckIcon } from "@heroicons/vue/20/solid";
+</script>

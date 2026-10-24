@@ -1,270 +1,34 @@
 <template>
-    <section class="space-y-8">
+    <section class="max-w-3xl">
 
-        <!-- Hero -->
+        <h2 class="text-xl font-semibold tracking-tight text-slate-900">
+            Specifications
+        </h2>
 
-        <section class="overflow-hidden rounded-2xl bg-gradient-to-r from-sky-50 via-blue-50 to-blue-50">
+        <!-- Only fields the API returns: brand, category, stock and pricing. -->
+        <dl class="mt-6 divide-y divide-slate-200 border-y border-slate-200">
 
-            <div class="p-6 lg:p-8">
+            <div v-for="item in details" :key="item.label" class="grid grid-cols-[minmax(0,10rem)_1fr] gap-4 py-4 text-sm">
 
-                <span class="inline-flex rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
-                    Product Specifications
-                </span>
+                <dt class="font-medium text-slate-500">
+                    {{ item.label }}
+                </dt>
 
-                <h2 class="mt-3 text-2xl font-bold text-gray-900">
-                    Everything you need to know
-                </h2>
-
-                <p class="mt-4 max-w-3xl leading-8 text-gray-600">
-                    Explore detailed product information including brand,
-                    availability, pricing, colors, sizes and additional
-                    purchasing benefits.
-                </p>
+                <dd class="font-medium" :class="item.class ?? 'text-slate-900'">
+                    {{ item.value }}
+                </dd>
 
             </div>
 
-        </section>
-
-        <!-- Information Cards -->
-
-        <section>
-
-            <div class="mb-8">
-
-                <h3 class="text-2xl font-bold text-gray-900">
-                    Product Information
-                </h3>
-
-                <p class="mt-2 text-gray-500">
-                    Quick overview of the most important details.
-                </p>
-
-            </div>
-
-            <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 cursor-pointer">
-
-                <div v-for="item in basicInformation" :key="item.label"
-                    class="group rounded-2xl border border-gray-200 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
-
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl" :class="item.bg">
-
-                        {{ item.icon }}
-
-                    </div>
-
-                    <p class="mt-6 text-xs font-semibold uppercase tracking-widest text-gray-400">
-
-                        {{ item.label }}
-
-                    </p>
-
-                    <p class="mt-2 text-xl font-bold" :class="item.class">
-
-                        {{ item.value }}
-
-                    </p>
-
-                </div>
-
-            </div>
-
-        </section>
-
-        <!-- Pricing -->
-
-        <section
-            class="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:shadow-xl">
-
-            <!-- Header -->
-
-            <div
-                class="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 px-8 py-6">
-
-                <div>
-
-                    <h3 class="text-2xl font-bold text-gray-900">
-                        Pricing Overview
-                    </h3>
-
-                    <p class="mt-1 text-gray-500">
-                        Transparent pricing.
-                    </p>
-
-                </div>
-
-                <div v-if="hasDiscount" class="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-
-                    Save {{ discountPercentage }}%
-
-                </div>
-
-            </div>
-
-            <!-- Content -->
-
-            <!-- Original price and savings only exist for products that are actually marked down. -->
-            <div class="grid gap-6 p-6" :class="{ 'md:grid-cols-3': hasDiscount }">
-
-                <!-- Current Price -->
-
-                <div class="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
-
-                    <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">
-
-                        Current Price
-
-                    </p>
-
-                    <p class="mt-3 text-2xl font-bold text-blue-600">
-
-                        {{ formattedPrice }}
-
-                    </p>
-
-                    <p class="mt-2 text-sm text-gray-500">
-
-                        Today's selling price
-
-                    </p>
-
-                </div>
-
-                <!-- Original Price -->
-
-                <div v-if="hasDiscount" class="rounded-2xl border border-gray-200 bg-gray-50 p-6">
-
-                    <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">
-
-                        Original Price
-
-                    </p>
-
-                    <p class="mt-3 text-2xl font-bold text-gray-400 line-through">
-
-                        {{ formattedOriginalPrice }}
-
-                    </p>
-
-                    <p class="mt-2 text-sm text-gray-500">
-
-                        Manufacturer's price
-
-                    </p>
-
-                </div>
-
-                <!-- Savings -->
-
-                <div v-if="hasDiscount" class="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-6">
-
-                    <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">
-
-                        Total Savings
-
-                    </p>
-
-                    <p class="mt-3 text-2xl font-bold text-green-600">
-
-                        {{ savedAmount }}
-
-                    </p>
-
-                    <p class="mt-2 text-sm font-medium text-green-700">
-
-                        You save {{ discountPercentage }}%
-
-                    </p>
-
-                </div>
-
-            </div>
-
-        </section>
-
-        <!-- Available Colors -->
-
-        <!-- <section>
-
-            <div class="mb-8">
-
-                <h3 class="text-2xl font-bold text-gray-900">
-                    Available Colors
-                </h3>
-
-                <p class="mt-2 text-gray-500">
-                    Choose a color that matches your personality.
-                </p>
-
-            </div>
-
-            <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 cursor-pointer">
-
-                <div v-for="color in product.colors" :key="color.id"
-                    class="group flex items-center gap-5 rounded-2xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
-
-                    <span class="h-10 w-10 rounded-full border-2 border-gray-300 shadow-sm" :style="{
-                        backgroundColor: color.hex || '#d1d5db'
-                    }" />
-
-                    <div class="flex-1">
-
-                        <h4 class="font-semibold text-gray-900">
-
-                            {{ color.name }}
-
-                        </h4>
-
-                        <p class="mt-1 text-sm text-gray-500">
-
-                            Premium Finish
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>-->
-
-        <!-- Sizes -->
-
-        <!--<section>
-
-            <div class="mb-8">
-
-                <h3 class="text-2xl font-bold text-gray-900">
-                    Available Sizes
-                </h3>
-
-                <p class="mt-2 text-gray-500">
-                    Pick the perfect size for maximum comfort.
-                </p>
-
-            </div>
-
-            <div class="flex flex-wrap gap-4">
-
-                <button v-for="size in product.sizes" :key="size.id" type="button"
-                    class="rounded-2xl border-2 border-gray-200 bg-white px-8 py-4 text-lg font-semibold transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">
-
-                    {{ size.name }}
-
-                </button>
-
-            </div>
-
-        </section>-->
+        </dl>
 
     </section>
-
 </template>
 
 <script setup>
 import { computed } from "vue";
 
-import { formatPrice } from "@/utils/money";
+import { discountPercent, formatPrice } from "@/utils/money";
 
 const props = defineProps({
     product: {
@@ -277,32 +41,13 @@ const props = defineProps({
    Price Helpers
 ---------------------------------- */
 
-const formattedPrice = computed(() =>
-    formatPrice(props.product.price, props.product.currency)
-);
-
-const formattedOriginalPrice = computed(() =>
-    formatPrice(props.product.originalPrice, props.product.currency)
-);
+const percent = computed(() => discountPercent(props.product.price, props.product.originalPrice));
 
 const savedAmount = computed(() => {
     const original = Number(props.product.originalPrice || 0);
     const current = Number(props.product.price || 0);
 
     return formatPrice(Math.max(original - current, 0), props.product.currency);
-});
-
-const hasDiscount = computed(() =>
-    Number(props.product.originalPrice || 0) > Number(props.product.price || 0)
-);
-
-const discountPercentage = computed(() => {
-    const original = Number(props.product.originalPrice || 0);
-    const current = Number(props.product.price || 0);
-
-    if (!original) return 0;
-
-    return Math.round(((original - current) / original) * 100);
 });
 
 /* ---------------------------------
@@ -325,65 +70,42 @@ const inStock = computed(() => {
    Product Information
 ---------------------------------- */
 
-const basicInformation = computed(() => [
+// Original price and savings only exist for products that are actually marked down.
+const details = computed(() => [
     {
         label: "Brand",
         value: props.product.brand?.name || props.product.brand || "Unknown Brand",
-        icon: "🏷️",
-        bg: "bg-blue-100",
-        class: "text-gray-900",
     },
 
     {
         label: "Category",
         value: props.product.category?.name || "General",
-        icon: "👕",
-        bg: "bg-purple-100",
-        class: "text-gray-900",
     },
 
     {
         label: "Availability",
         value: inStock.value ? "In Stock" : "Out of Stock",
-        icon: "📦",
-        bg: inStock.value
-            ? "bg-green-100"
-            : "bg-red-100",
-        class: inStock.value
-            ? "text-green-600"
-            : "text-red-600",
+        class: inStock.value ? "text-brand" : "text-red-700",
     },
 
+    {
+        label: "Price",
+        value: formatPrice(props.product.price, props.product.currency),
+    },
+
+    ...(percent.value > 0
+        ? [
+            {
+                label: "Original price",
+                value: formatPrice(props.product.originalPrice, props.product.currency),
+                class: "text-slate-500 line-through",
+            },
+            {
+                label: "You save",
+                value: `${savedAmount.value} (${percent.value}%)`,
+                class: "text-brand",
+            },
+        ]
+        : []),
 ]);
-
-/* ---------------------------------
-   Fallback Colors
----------------------------------- */
-
-const colorMap = {
-    Black: "#000000",
-    White: "#ffffff",
-    Gray: "#6b7280",
-    Grey: "#6b7280",
-    Blue: "#2563eb",
-    Navy: "#1e3a8a",
-    Red: "#dc2626",
-    Green: "#16a34a",
-    Yellow: "#facc15",
-    Orange: "#f97316",
-    Purple: "#9333ea",
-    Pink: "#ec4899",
-    Brown: "#8b5e3c",
-    Beige: "#d6c6a8",
-};
-
-const colors = computed(() => {
-    return (props.product.colors || []).map((color) => ({
-        ...color,
-        hex:
-            color.hex ||
-            colorMap[color.name] ||
-            "#d1d5db",
-    }));
-});
 </script>

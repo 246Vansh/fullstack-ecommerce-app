@@ -1,24 +1,18 @@
 <template>
-    <p class="text-sm text-gray-700">
+    <p class="text-sm text-slate-600">
         Showing
 
-        <span class="font-semibold text-gray-900">
-            {{ start }}
-        </span>
-
-        -
-
-        <span class="font-semibold text-gray-900">
-            {{ end }}
+        <span class="font-semibold text-slate-900">
+            {{ start }}–{{ end }}
         </span>
 
         of
 
-        <span class="font-semibold text-gray-900">
+        <span class="font-semibold text-slate-900">
             {{ total }}
         </span>
 
-        products
+        {{ total === 1 ? "product" : "products" }}
 
     </p>
 </template>

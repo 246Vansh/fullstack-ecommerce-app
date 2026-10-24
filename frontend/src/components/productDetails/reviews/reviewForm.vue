@@ -13,7 +13,7 @@
                 class="mt-2 block w-full rounded-md border px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 disabled:bg-gray-50"
                 :class="errors.body
                     ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'" />
+                    : 'border-gray-300 focus:border-brand focus:ring-brand'" />
 
             <div class="mt-2 flex items-start justify-between gap-4 text-sm">
                 <p v-if="errors.body" id="review-body-error" class="text-red-600">{{ errors.body }}</p>

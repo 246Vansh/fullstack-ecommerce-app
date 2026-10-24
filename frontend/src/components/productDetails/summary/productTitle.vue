@@ -2,11 +2,11 @@
 
     <div>
 
-        <p v-if="brand" class="text-sm font-semibold uppercase tracking-[0.2em] text-gray-500">
+        <p v-if="brand" class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             {{ brand }}
         </p>
 
-        <h1 class="text-2xl font-bold leading-tight tracking-tight text-gray-900">
+        <h1 class="mt-2 text-2xl leading-tight font-semibold tracking-tight text-balance text-slate-900 sm:text-3xl">
             {{ title }}
         </h1>
 

@@ -3,7 +3,7 @@
 
         <h2 v-if="heading" id="filters-heading" class="sr-only">Filters</h2>
 
-        <form class="divide-y divide-gray-200">
+        <form class="-mt-3">
 
             <FilterSection v-for="filter in sortedFilters" :key="filter.id" :filter="filter"
                 :options="filterData[filter.source]" v-model="model[filter.key]" />

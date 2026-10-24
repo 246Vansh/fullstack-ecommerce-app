@@ -1,6 +1,6 @@
 <template>
 
-    <div class="flex flex-col gap-2">
+    <div class="flex flex-col gap-3">
 
         <ProductBadge :badge="product.badge" />
 
@@ -8,7 +8,7 @@
 
         <ReviewSummary jump-to-reviews />
 
-        <ProductMeta :product="product" :selected-variant="selectedVariant" />
+        <ProductMeta class="mt-2" :product="product" :selected-variant="selectedVariant" />
 
     </div>
 

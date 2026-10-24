@@ -1,17 +1,18 @@
 <template>
-    <nav aria-label="Breadcrumb" class="mb-8">
-        <ol role="list" class="flex items-center space-x-2">
-            <li v-for="(item, index) in items" :key="item.name" class="flex items-center">
+    <!-- Items are { name, href } links, with the last one { name, current: true }. -->
+    <nav v-if="items.length" aria-label="Breadcrumb">
+        <ol role="list" class="flex min-w-0 flex-wrap items-center gap-y-1 text-sm">
+            <li v-for="(item, index) in items" :key="index" class="flex min-w-0 items-center">
                 <RouterLink v-if="!item.current" :to="item.href"
-                    class="text-sm font-medium text-gray-500 transition-colors duration-200 hover:text-gray-700">
+                    class="rounded-sm font-medium text-slate-500 transition-colors duration-200 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                     {{ item.name }}
                 </RouterLink>
 
-                <span v-else class="text-sm font-medium text-gray-900" aria-current="page">
+                <span v-else class="max-w-[16rem] truncate font-medium text-slate-900 sm:max-w-md" aria-current="page">
                     {{ item.name }}
                 </span>
 
-                <ChevronRightIcon v-if="index < items.length - 1" class="mx-2 h-4 w-4 text-gray-400"
+                <ChevronRightIcon v-if="index < items.length - 1" class="mx-1.5 h-4 w-4 shrink-0 text-slate-400"
                     aria-hidden="true" />
 
             </li>

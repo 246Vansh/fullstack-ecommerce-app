@@ -1,23 +1,21 @@
 <template>
     <section class="bg-white">
 
-        <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 pt-5 pb-16 sm:px-6 sm:pt-8 lg:px-8 lg:pb-24">
 
-            <ProductDetailsSection :product="product" />
+            <Breadcrumb :items="breadcrumbItems" />
 
-            <div class="mt-20">
+            <ProductDetailsSection class="mt-5 sm:mt-8" :product="product" />
 
-                <ProductContent :product="product" />
+            <ProductContent class="mt-16 lg:mt-24" :product="product" />
 
-            </div>
-
-            <div class="mt-20">
+            <div class="mt-16 lg:mt-24">
 
                 <ProductReviews />
 
             </div>
 
-            <div class="mt-20">
+            <div class="mt-16 lg:mt-24">
 
                 <RelatedSection :products="relatedProducts" />
 
@@ -33,6 +31,7 @@ import ProductDetailsSection from "./layout/productDetailsSection.vue";
 import ProductContent from "./content/productContent.vue";
 import RelatedSection from "./related/relatedSection.vue";
 import ProductReviews from "./reviews/productReviews.vue";
+import Breadcrumb from "@/components/products/breadcrumb.vue";
 
 import { computed, onBeforeUnmount, provide, watch } from "vue";
 

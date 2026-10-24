@@ -7,7 +7,7 @@
         <div class="mt-2 flex items-center gap-1" @mouseleave="hovered = 0">
 
             <label v-for="value in 5" :key="value"
-                class="cursor-pointer rounded-sm p-0.5 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2"
+                class="cursor-pointer rounded-sm p-0.5 focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2"
                 @mouseenter="hovered = value">
 
                 <input type="radio" class="sr-only" :name="name" :value="value" :checked="modelValue === value"

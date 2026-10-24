@@ -10,14 +10,14 @@
             <button v-for="color in options" :key="color.id" type="button" :aria-label="color.name" :title="color.name"
                 :aria-pressed="modelValue.includes(color.id)"
                 @click="selectColor(color.id)" :class="[
-                    'relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 cursor-pointer',
+                    'relative flex h-10 w-10 items-center justify-center rounded-full transition-shadow duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
 
                     modelValue.includes(color.id)
-                        ? 'ring-2 ring-indigo-600 ring-offset-2'
-                        : 'ring-1 ring-gray-300 hover:ring-gray-400'
+                        ? 'ring-2 ring-brand ring-offset-2'
+                        : 'ring-1 ring-slate-300 hover:ring-slate-400'
                 ]">
 
-                <span class="h-6 w-6 rounded-full border border-gray-200" :style="{ backgroundColor: color.hex }" />
+                <span class="h-7 w-7 rounded-full border border-black/10" :style="{ backgroundColor: color.hex }" />
 
             </button>
 
