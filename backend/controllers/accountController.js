@@ -22,7 +22,7 @@ export async function changeMyPassword(req, res) {
 export async function resendMyVerification(req, res) {
     await resendVerification(req.user.id);
 
-    res.json({ success: true, message: "If your email isn't verified yet, a new verification link is on its way." });
+    res.json({ success: true, message: "A new verification link is on its way. Check your inbox." });
 }
 
 export async function listMySessions(req, res) {

@@ -227,7 +227,9 @@ export function useAuth() {
             signUp.password = "";
             signUp.confirmPassword = "";
 
-            await router.push(safeRedirect(route.query.redirect));
+            // The new account is signed in; its verification link was just
+            // emailed, so show the "check your inbox" page first.
+            await router.push({ name: "verify-email" });
 
         } catch (error) {
 

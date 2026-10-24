@@ -102,7 +102,7 @@ before(async () => {
 
     await assertOnTestDatabase(prisma);
 
-    for (const key of ["reset", "expired", "race", "sessions", "other", "logoutall", "delete"]) await createUser(key);
+    for (const key of ["reset", "expired", "race", "sessions", "other", "logoutall", "delete", "resend"]) await createUser(key);
     await createUser("verified", { verified: true });
     await createUser("admin", { role: "ADMIN" });
 
@@ -241,6 +241,38 @@ dbTest("email verification: a verified user cannot resend; guests get 401", asyn
     const { accessToken } = await signIn(emailFor("verified"));
     assert.equal((await send("POST", "/account/verification-email", { token: accessToken })).status, 409);
     assert.equal((await send("POST", "/account/verification-email")).status, 401);
+});
+
+dbTest("email verification: resend emails a new link, then reports the cooldown and the rate limit", async () => {
+    const email = emailFor("resend");
+    const { accessToken } = await signIn(email);
+    const before = mailCount(email);
+
+    const sent = await send("POST", "/account/verification-email", { token: accessToken });
+    assert.equal(sent.status, 200);
+    assert.equal(sent.body.success, true);
+    assert.ok(!JSON.stringify(sent.body).includes("token="), "no link in the response");
+
+    const token = await mailedToken(email, "/verify-email", { after: before });
+    assert.ok(token, "verification link emailed");
+
+    // Within a minute: no new token or email, and the user is told why.
+    const cooldown = await send("POST", "/account/verification-email", { token: accessToken });
+    assert.equal(cooldown.status, 429);
+    assert.match(cooldown.body.message, /less than a minute ago/);
+
+    // 3 requests per 15 minutes per user (verificationResendLimiter).
+    assert.equal((await send("POST", "/account/verification-email", { token: accessToken })).status, 429);
+    const limited = await send("POST", "/account/verification-email", { token: accessToken });
+    assert.equal(limited.status, 429);
+    assert.match(limited.body.message, /Too many verification emails/);
+
+    await new Promise((ok) => setTimeout(ok, 200));
+    assert.equal(mailCount(email), before + 1, "only the first request sent an email");
+    assert.equal(await prisma.userToken.count({ where: { userId: users.resend.id, purpose: "EMAIL_VERIFICATION", usedAt: null } }), 1);
+
+    // The emailed link still verifies.
+    assert.equal((await send("POST", "/auth/verify-email", { body: { token } })).status, 200);
 });
 
 // ---------- Sessions ----------

@@ -26,13 +26,19 @@ export function useAccountSecurity() {
 
         error: "",
 
+        // 429: a link was sent under a minute ago, or 3 per 15 minutes were used.
+        rateLimited: false,
+
     });
 
     async function handleResendVerification() {
 
+        if (verification.loading) return;
+
         verification.loading = true;
         verification.message = "";
         verification.error = "";
+        verification.rateLimited = false;
 
         try {
 
@@ -40,7 +46,18 @@ export function useAccountSecurity() {
 
         } catch (error) {
 
-            verification.error = parseApiError(error).message;
+            const { status, message } = parseApiError(error);
+
+            if (status === 429) {
+                verification.rateLimited = true;
+                verification.message = message;
+            } else if (status === 409) {
+                // Verified meanwhile (e.g. in another tab): drop the banner.
+                verification.message = message;
+                authStore.updateUser({ ...authStore.user, emailVerifiedAt: new Date().toISOString() });
+            } else {
+                verification.error = message;
+            }
 
         } finally {
 

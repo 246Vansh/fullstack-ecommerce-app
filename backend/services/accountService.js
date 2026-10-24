@@ -77,9 +77,12 @@ export async function resendVerification(userId) {
         throw new ApiError(409, "Your email address is already verified");
     }
 
-    // false = a link was sent less than a minute ago; the user is told the
-    // same thing either way, the earlier link still works.
-    await sendVerificationEmail(user);
+    // false = a link was sent less than a minute ago (e.g. at sign-up) and no
+    // new one was issued. Saying so reveals nothing: this is the signed-in
+    // user's own address, and the earlier link still works.
+    if (!(await sendVerificationEmail(user))) {
+        throw new ApiError(429, "A verification link was sent less than a minute ago. Check your inbox and spam folder, or try again in a minute.");
+    }
 }
 
 // Deletes the account by removing its personal data, not the users row:

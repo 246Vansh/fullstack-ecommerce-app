@@ -79,7 +79,7 @@ import { useAuthStore } from "@/stores/authStore";
 const STATE_TEXT = {
     pending: {
         title: "Check your inbox",
-        body: "We sent a verification link to your email address. Open it to confirm your address.",
+        body: "We sent a verification link to your email address. Open it to confirm your address. Didn't get it? Check your spam folder.",
     },
     verifying: {
         title: "Verifying your email…",
@@ -132,6 +132,8 @@ onMounted(async () => {
 });
 
 async function resend() {
+    if (resending.value) return;
+
     resending.value = true;
     resendMessage.value = "";
 
