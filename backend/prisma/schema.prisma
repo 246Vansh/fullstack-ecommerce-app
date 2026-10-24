@@ -27,6 +27,11 @@ enum RefreshTokenRevokeReason {
   REUSE
 }
 
+enum UserTokenPurpose {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
 // Payment is tracked separately from fulfilment (OrderStatus). Every order is
 // created UNPAID; only server-side Razorpay verification marks one PAID.
 enum PaymentStatus {
@@ -73,24 +78,47 @@ model User {
   cart          Cart?
   orders        Order[]
   refreshTokens RefreshToken[]
+  userTokens    UserToken[]
   reviews       Review[]
 
   @@map("users")
+}
+
+// Single-use links sent by email (password reset, email verification). Only a
+// SHA-256 hash of the token is stored; usedAt is set when it is consumed, and
+// issuing a new token for a purpose marks the user's older ones used.
+model UserToken {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  purpose   UserTokenPurpose
+  tokenHash String           @unique @db.Char(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("user_tokens")
 }
 
 // One row per issued refresh token. Only a SHA-256 hash is stored. Tokens
 // from one login share a familyId; rotation revokes the old row (ROTATED),
 // and presenting a revoked token revokes the whole family (REUSE).
 model RefreshToken {
-  id            Int                       @id @default(autoincrement())
-  userId        Int
-  familyId      String                    @db.Char(36)
-  tokenHash     String                    @unique @db.Char(64)
-  persistent    Boolean                   @default(false)
-  expiresAt     DateTime
-  revokedAt     DateTime?
-  revokedReason RefreshTokenRevokeReason?
-  createdAt     DateTime                  @default(now())
+  id               Int                       @id @default(autoincrement())
+  userId           Int
+  familyId         String                    @db.Char(36)
+  tokenHash        String                    @unique @db.Char(64)
+  persistent       Boolean                   @default(false)
+  // When this token stops working: the earlier of its own inactivity limit
+  // and sessionExpiresAt, the session's absolute expiry (set at login and
+  // copied unchanged to every token of the session).
+  expiresAt        DateTime
+  sessionExpiresAt DateTime
+  revokedAt        DateTime?
+  revokedReason    RefreshTokenRevokeReason?
+  createdAt        DateTime                  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

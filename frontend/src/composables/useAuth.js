@@ -2,9 +2,14 @@ import { reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { useAuthStore } from "@/stores/authStore";
+import { authService } from "@/services/authService";
 import { parseApiError } from "@/services/apiClient";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// bcrypt uses at most 72 bytes; the server enforces the same rule.
+const MAX_PASSWORD_BYTES = 72;
+
+const byteLength = (value) => new TextEncoder().encode(value).length;
 
 export function clearErrors(errors) {
     for (const key of Object.keys(errors)) {
@@ -108,6 +113,8 @@ export function useAuth() {
 
         email: "",
 
+        success: "",
+
         errors: {
 
             email: "",
@@ -120,17 +127,25 @@ export function useAuth() {
     // Reset Password
     // ==================================================
 
+    // token comes from the emailed link (?token=...); the page removes it
+    // from the address bar and keeps it here only.
     const resetPassword = reactive({
+
+        token: typeof route.query.token === "string" ? route.query.token : "",
 
         password: "",
 
         confirmPassword: "",
+
+        success: "",
 
         errors: {
 
             password: "",
 
             confirmPassword: "",
+
+            form: "",
 
         },
 
@@ -234,19 +249,89 @@ export function useAuth() {
 
     }
 
-    // Password reset is not implemented on the server yet; say so instead of
-    // pretending a reset email was sent.
-    const RESET_UNAVAILABLE = "Password reset isn't available yet.";
-
     async function handleForgotPassword() {
 
-        forgotPassword.errors.email = RESET_UNAVAILABLE;
+        clearErrors(forgotPassword.errors);
+        forgotPassword.success = "";
+
+        const email = forgotPassword.email.trim();
+
+        if (!EMAIL_PATTERN.test(email)) {
+            forgotPassword.errors.email = "Enter a valid email address";
+            return;
+        }
+
+        loading.value = true;
+
+        try {
+
+            // The same answer whether or not the email has an account.
+            const { message } = await authService.forgotPassword({ email });
+
+            forgotPassword.success = message;
+
+        } catch (error) {
+
+            applyApiError(forgotPassword.errors, error, "email");
+
+        } finally {
+
+            loading.value = false;
+
+        }
 
     }
 
+    const INVALID_LINK = "This reset link is invalid or has expired. Please request a new one.";
+
     async function handleResetPassword() {
 
-        resetPassword.errors.password = RESET_UNAVAILABLE;
+        clearErrors(resetPassword.errors);
+        resetPassword.success = "";
+
+        const errors = resetPassword.errors;
+
+        if (!resetPassword.token) {
+            errors.form = INVALID_LINK;
+            return;
+        }
+
+        if (resetPassword.password.length < 8) errors.password = "Use at least 8 characters";
+        else if (byteLength(resetPassword.password) > MAX_PASSWORD_BYTES) errors.password = "Password is too long (accented letters and emoji count as more than one character)";
+        if (resetPassword.password !== resetPassword.confirmPassword) errors.confirmPassword = "Passwords do not match";
+
+        if (Object.values(errors).some(Boolean)) {
+            return;
+        }
+
+        loading.value = true;
+
+        try {
+
+            const { message } = await authService.resetPassword({
+                token: resetPassword.token,
+                password: resetPassword.password,
+            });
+
+            // The server signed out every session, this tab's included.
+            await authStore.logout().catch(() => {});
+
+            resetPassword.token = "";
+            resetPassword.password = "";
+            resetPassword.confirmPassword = "";
+            resetPassword.success = message;
+
+        } catch (error) {
+
+            applyApiError(errors, error, "form");
+
+            if (error.response?.status === 400) errors.form = INVALID_LINK;
+
+        } finally {
+
+            loading.value = false;
+
+        }
 
     }
 

@@ -3,6 +3,7 @@
     <authLayout :banner="authBanners.forgotPassword">
 
         <forgotPasswordForm v-model:email="forgotPassword.email" :errors="forgotPassword.errors" :loading="loading"
+            :success="forgotPassword.success"
             @submit="handleForgotPassword" />
 
     </authLayout>

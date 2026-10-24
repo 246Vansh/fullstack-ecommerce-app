@@ -12,6 +12,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 import { startServer, login, post, refreshCookie, setCookieHeader } from "./helpers.js";
+import { tokenLifetimeSeconds } from "../utils/jwt.js";
 import {
     openTestDatabase, testDatabaseGuardTest, testServerEnv, assertOnTestDatabase, deleteInTestDatabase, expectDeleted,
 } from "./testDatabase.js";
@@ -19,7 +20,7 @@ import {
 // Database modules load only after the switch to the test database.
 const { guard, skip, prisma } = await openTestDatabase();
 const { loginUser } = guard.ok ? await import("../services/authService.js") : {};
-const { revokeAllUserSessions } = guard.ok ? await import("../services/refreshTokenService.js") : {};
+const { revokeAllUserSessions, createSession } = guard.ok ? await import("../services/refreshTokenService.js") : {};
 
 const dbTest = (name, fn) => test(name, { skip }, fn);
 testDatabaseGuardTest(test, guard);
@@ -35,6 +36,15 @@ const INVALID_LOGIN = { success: false, message: "Invalid email or password" };
 
 const sha256 = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const row = (token) => prisma.refreshToken.findUnique({ where: { tokenHash: sha256(token) } });
+
+// The lifetimes the server under test uses (same environment, same defaults as utils/jwt.js).
+const REFRESH_LIFETIME_MS = tokenLifetimeSeconds(process.env.JWT_REFRESH_EXPIRES_IN || "7d") * 1000;
+const SESSION_LIFETIME_MS = tokenLifetimeSeconds(process.env.SESSION_ABSOLUTE_EXPIRES_IN || "30d") * 1000;
+const jwtExpMs = (token) => jwt.decode(token).exp * 1000;
+const refresh = async (token) => track(await post(`${server.url}/auth/refresh`, undefined, { cookie: token }));
+// Moves a session's absolute expiry (every token of the family), to test the
+// end of a session without waiting for it. The tokens' JWTs stay valid.
+const setSessionExpiry = (familyId, sessionExpiresAt) => prisma.refreshToken.updateMany({ where: { familyId }, data: { sessionExpiresAt } });
 
 // Resolves once another connection to the test database has spent at least a
 // second on one statement: the request under test is waiting for a lock held
@@ -392,6 +402,108 @@ dbTest("8b. an oversized login password is rejected by validation, before bcrypt
     assert.equal(body.details[0].field, "password");
     assert.match(body.details[0].message, /too long/i);
     assert.equal(refreshCookie(res), null);
+});
+
+// Sessions below start with createSession() rather than /auth/login: the
+// login rate limit (20 per window) is nearly used up by the tests above.
+
+dbTest("9. login sets the inactivity and the absolute expiry", async () => {
+    const before = Date.now();
+    const { token } = await login(server.url, USER, { remember: true });
+    issuedTokens.push(token);
+    const after = Date.now();
+    const { expiresAt, sessionExpiresAt } = await row(token);
+
+    assert.ok(sessionExpiresAt >= before + SESSION_LIFETIME_MS && sessionExpiresAt <= after + SESSION_LIFETIME_MS, "absolute expiry = login + session lifetime");
+    assert.ok(expiresAt >= before + REFRESH_LIFETIME_MS - 1000 && expiresAt <= after + REFRESH_LIFETIME_MS, "token expiry = login + refresh lifetime");
+    assert.ok(expiresAt < sessionExpiresAt, "a new session is limited by inactivity first");
+    assert.ok(Math.abs(jwtExpMs(token) - expiresAt) < 1000, "JWT exp matches the stored expiry");
+});
+
+dbTest("9b. repeated refreshes keep the original absolute expiry", async () => {
+    let { token, familyId } = await createSession(user.id, true);
+    issuedTokens.push(token);
+    const { sessionExpiresAt } = await row(token);
+
+    for (let i = 0; i < 3; i++) {
+        const res = await refresh(token);
+        assert.equal(res.status, 200);
+        token = refreshCookie(res);
+
+        const rotated = await row(token);
+        assert.equal(rotated.familyId, familyId);
+        assert.equal(rotated.sessionExpiresAt.getTime(), sessionExpiresAt.getTime(), `refresh ${i + 1} kept the absolute expiry`);
+        assert.ok(rotated.expiresAt <= sessionExpiresAt);
+    }
+
+    const all = await prisma.refreshToken.findMany({ where: { familyId } });
+    assert.equal(all.length, 4);
+    assert.ok(all.every((t) => t.sessionExpiresAt.getTime() === sessionExpiresAt.getTime()), "every token of the session has the same absolute expiry");
+});
+
+dbTest("9c. near the absolute expiry, the refresh token, its row and the persistent cookie are capped", async () => {
+    const { token, familyId } = await createSession(user.id, true);
+    issuedTokens.push(token);
+    const sessionExpiresAt = new Date(Date.now() + 60_000);
+    await setSessionExpiry(familyId, sessionExpiresAt);
+
+    const res = await refresh(token);
+    assert.equal(res.status, 200);
+    const next = refreshCookie(res);
+    const rotated = await row(next);
+
+    assert.equal(rotated.sessionExpiresAt.getTime(), sessionExpiresAt.getTime());
+    assert.ok(jwtExpMs(next) <= sessionExpiresAt.getTime() && jwtExpMs(next) > sessionExpiresAt.getTime() - 1000, "JWT exp capped at the absolute expiry");
+    assert.ok(rotated.expiresAt <= sessionExpiresAt && rotated.expiresAt > sessionExpiresAt.getTime() - 2000, "stored expiry capped at the absolute expiry");
+
+    const maxAge = Number(/Max-Age=(\d+)/i.exec(setCookieHeader(res))?.[1]);
+    assert.ok(maxAge > 0 && maxAge <= 60, `persistent cookie Max-Age capped (${maxAge}s)`);
+});
+
+dbTest("9d. a refresh after, or within a second of, the absolute expiry issues no token", async () => {
+    for (const [name, offset] of [["expired", -1000], ["under a second left", 500]]) {
+        const { token, familyId } = await createSession(user.id, true);
+        issuedTokens.push(token);
+        await setSessionExpiry(familyId, new Date(Date.now() + offset));
+        assert.ok(jwtExpMs(token) > Date.now(), "the JWT itself is still valid");
+
+        const res = await refresh(token);
+
+        assert.equal(res.status, 401, name);
+        assert.match(setCookieHeader(res), /refreshToken=;/, `${name}: cookie cleared`);
+        assert.equal(await prisma.refreshToken.count({ where: { familyId } }), 1, `${name}: no token added to the session`);
+        assert.equal((await row(token)).revokedAt, null, `${name}: an expired session is not treated as token reuse`);
+    }
+});
+
+dbTest("9e. the concurrent-tab grace path keeps the absolute expiry, and issues nothing once it has passed", async () => {
+    // Within the session: the just-rotated token gets a new token with the same absolute expiry.
+    {
+        const { token: first, familyId } = await createSession(user.id, true);
+        issuedTokens.push(first);
+        const { sessionExpiresAt } = await row(first);
+        assert.equal((await refresh(first)).status, 200);
+
+        const again = await refresh(first);
+        assert.equal(again.status, 200, "grace path");
+        const graceRow = await row(refreshCookie(again));
+        assert.equal(graceRow.familyId, familyId);
+        assert.equal(graceRow.sessionExpiresAt.getTime(), sessionExpiresAt.getTime(), "grace token kept the absolute expiry");
+    }
+
+    // Past it: the same grace-window replay is refused and adds nothing.
+    {
+        const { token: first, familyId } = await createSession(user.id, true);
+        issuedTokens.push(first);
+        assert.equal((await refresh(first)).status, 200);
+        await setSessionExpiry(familyId, new Date(Date.now() - 1000));
+
+        const again = await refresh(first);
+        assert.equal(again.status, 401, "grace path after the absolute expiry");
+        assert.match(setCookieHeader(again), /refreshToken=;/);
+        assert.equal(await prisma.refreshToken.count({ where: { familyId } }), 2, "no token added to the session");
+        assert.equal(await prisma.refreshToken.count({ where: { familyId, revokedReason: "REUSE" } }), 0, "not treated as token reuse");
+    }
 });
 
 dbTest("15. no secrets in responses or server output", async () => {

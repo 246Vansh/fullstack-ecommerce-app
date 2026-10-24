@@ -12,6 +12,10 @@
         <authInput id="email" v-model="email" label="Email Address" type="email" placeholder="Enter your email"
             autocomplete="email" required :error="errors.email" />
 
+        <p role="status" :class="success ? 'rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800' : 'sr-only'">
+            {{ success }}
+        </p>
+
         <!-- Submit -->
 
         <authButton type="submit" :loading="loading">
@@ -47,6 +51,11 @@ const props = defineProps({
     loading: {
         type: Boolean,
         default: false,
+    },
+
+    success: {
+        type: String,
+        default: "",
     },
 
 });

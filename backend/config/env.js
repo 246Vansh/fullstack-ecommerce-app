@@ -6,7 +6,8 @@ import { X509Certificate } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
 
-import { tokenLifetimeSeconds } from "../utils/jwt.js";
+import { MAIL_PROVIDERS } from "../services/mailService.js";
+import { tokenLifetimeSeconds, DEFAULT_REFRESH_EXPIRES_IN, DEFAULT_SESSION_ABSOLUTE_EXPIRES_IN } from "../utils/jwt.js";
 
 const NODE_ENVS = ["development", "production", "test"];
 const SAME_SITE = ["lax", "strict", "none"];
@@ -110,11 +111,20 @@ export function validateEnv(env = process.env) {
         }
     }
 
-    for (const name of ["JWT_ACCESS_EXPIRES_IN", "JWT_REFRESH_EXPIRES_IN"]) {
+    for (const name of ["JWT_ACCESS_EXPIRES_IN", "JWT_REFRESH_EXPIRES_IN", "SESSION_ABSOLUTE_EXPIRES_IN"]) {
         // Blank means the default (utils/jwt.js).
         if (String(env[name] ?? "").trim() && !isTokenLifetime(env[name])) {
             errors.push(`${name} must be a duration with a unit, such as "15m", "12h" or "7d"`);
         }
+    }
+
+    // A session shorter than one refresh token would cut every token short;
+    // almost certainly a mistake. Checked only when both values are valid.
+    const refreshLifetime = env.JWT_REFRESH_EXPIRES_IN || DEFAULT_REFRESH_EXPIRES_IN;
+    const sessionLifetime = env.SESSION_ABSOLUTE_EXPIRES_IN || DEFAULT_SESSION_ABSOLUTE_EXPIRES_IN;
+    if (isTokenLifetime(refreshLifetime) && isTokenLifetime(sessionLifetime)
+        && tokenLifetimeSeconds(sessionLifetime) < tokenLifetimeSeconds(refreshLifetime)) {
+        errors.push("SESSION_ABSOLUTE_EXPIRES_IN must be at least JWT_REFRESH_EXPIRES_IN");
     }
 
     // Blank means the default port (server.js).
@@ -161,7 +171,16 @@ export function validateEnv(env = process.env) {
         errors.push('COOKIE_SECURE must be "true" or "false"');
     }
 
+    // Blank means the default (services/mailService.js).
+    if (String(env.MAIL_PROVIDER ?? "").trim() && !MAIL_PROVIDERS.includes(env.MAIL_PROVIDER)) {
+        errors.push(`MAIL_PROVIDER must be one of: ${MAIL_PROVIDERS.join(", ")}`);
+    }
+
     if (env.NODE_ENV === "production") {
+        // The console provider writes working reset links to the log.
+        if (env.MAIL_PROVIDER === "console") {
+            errors.push("MAIL_PROVIDER cannot be console in production");
+        }
         if (env.COOKIE_SECURE === "false") {
             errors.push("COOKIE_SECURE cannot be false in production");
         }

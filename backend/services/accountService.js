@@ -1,8 +1,9 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
-import { SALT_ROUNDS, safeUserSelect } from "./authService.js";
+import { SALT_ROUNDS, safeUserSelect, sendVerificationEmail } from "./authService.js";
 import { revokeAllUserSessions } from "./refreshTokenService.js";
 
 // The only User columns a profile update may write. role, email,
@@ -63,5 +64,71 @@ export async function changePassword(userId, { currentPassword, newPassword, ses
         }
 
         await revokeAllUserSessions(userId, { exceptFamilyId: sessionId, db: tx });
+    });
+}
+
+// Sends a new verification link to the signed-in user's email.
+export async function resendVerification(userId) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, firstName: true, emailVerifiedAt: true } });
+
+    if (!user) throw userGone();
+
+    if (user.emailVerifiedAt) {
+        throw new ApiError(409, "Your email address is already verified");
+    }
+
+    // false = a link was sent less than a minute ago; the user is told the
+    // same thing either way, the earlier link still works.
+    await sendVerificationEmail(user);
+}
+
+// Deletes the account by removing its personal data, not the users row:
+// orders must keep their user (onDelete: Restrict) and already carry their
+// own shipping snapshot. Name, email, phone and password are replaced, so the
+// row can never sign in again and the email can be registered anew; addresses,
+// cart, sessions and emailed tokens are deleted. Reviews stay, shown under the
+// replaced name. Requires the current password (reauthentication).
+export async function deleteAccount(userId, { password }) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true, role: true } });
+
+    if (!user) throw userGone();
+
+    // An admin removing their own account could leave the shop without one.
+    if (user.role === "ADMIN") {
+        throw new ApiError(403, "Admin accounts cannot be deleted from account settings");
+    }
+
+    // 422, not 401, for the same reason as changePassword.
+    if (!await bcrypt.compare(password, user.passwordHash)) {
+        throw new ApiError(422, "Password is incorrect", [
+            { field: "password", message: "Password is incorrect" },
+        ]);
+    }
+
+    // A hash of a random value nobody knows: no password matches it.
+    const unusableHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), SALT_ROUNDS);
+
+    await prisma.$transaction(async (tx) => {
+        // Only if the password checked above is still the current one.
+        const { count } = await tx.user.updateMany({
+            where: { id: userId, passwordHash: user.passwordHash },
+            data: {
+                email: `deleted-${userId}-${crypto.randomBytes(6).toString("hex")}@deleted.invalid`,
+                firstName: "Deleted",
+                lastName: "User",
+                phone: null,
+                passwordHash: unusableHash,
+                emailVerifiedAt: null,
+            },
+        });
+
+        if (count === 0) {
+            throw new ApiError(409, "Your password was just changed by another request. Please try again.");
+        }
+
+        await tx.address.deleteMany({ where: { userId } });
+        await tx.cart.deleteMany({ where: { userId } });
+        await tx.userToken.deleteMany({ where: { userId } });
+        await tx.refreshToken.deleteMany({ where: { userId } });
     });
 }

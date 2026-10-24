@@ -4,8 +4,14 @@ import {
     registerUser,
     loginUser,
     getUserById,
+    sendVerificationEmail,
+    requestPasswordReset,
+    resetPassword as resetPasswordWithToken,
+    verifyEmail as verifyEmailToken,
 } from "../services/authService.js";
-import { createSession, rotateSession, revokeSession } from "../services/refreshTokenService.js";
+import {
+    createSession, rotateSession, revokeSession, revokeAllSessionsForToken,
+} from "../services/refreshTokenService.js";
 
 const REFRESH_COOKIE = "refreshToken";
 
@@ -33,6 +39,9 @@ export async function register(req, res) {
     const { firstName, lastName, email, password } = req.body;
 
     const user = await registerUser({ firstName, lastName, email, password });
+
+    // Not awaited: registration does not wait for (or fail on) the email.
+    sendVerificationEmail(user).catch((error) => console.error("Could not send verification email:", error?.message));
 
     res.status(201).json({ success: true, user });
 }
@@ -91,6 +100,42 @@ export async function logout(req, res) {
     if (token) await revokeSession(token);
 
     res.json({ success: true });
+}
+
+// Signs out every device: all sessions of the refresh cookie's user.
+export async function logoutAll(req, res) {
+    const token = req.cookies?.[REFRESH_COOKIE];
+
+    res.clearCookie(REFRESH_COOKIE, cookieOptions());
+
+    if (token) await revokeAllSessionsForToken(token);
+
+    res.json({ success: true });
+}
+
+const RESET_REQUESTED = "If an account exists for that email, we've sent a link to reset its password.";
+
+export async function forgotPassword(req, res) {
+    await requestPasswordReset(req.body.email);
+
+    res.json({ success: true, message: RESET_REQUESTED });
+}
+
+export async function resetPassword(req, res) {
+    const { token, password } = req.body;
+
+    await resetPasswordWithToken({ token, password });
+
+    // The reset revoked every session, including any this browser had.
+    res.clearCookie(REFRESH_COOKIE, cookieOptions());
+
+    res.json({ success: true, message: "Your password has been reset. Please sign in with your new password." });
+}
+
+export async function verifyEmail(req, res) {
+    await verifyEmailToken(req.body.token);
+
+    res.json({ success: true, message: "Your email address has been verified." });
 }
 
 export async function me(req, res) {

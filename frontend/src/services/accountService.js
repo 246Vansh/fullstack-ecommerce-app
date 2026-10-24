@@ -22,4 +22,29 @@ export const accountService = {
         return data;
     },
 
+    async resendVerificationEmail() {
+        const { data } = await apiClient.post("/account/verification-email");
+
+        return data;
+    },
+
+    async listSessions() {
+        const { data } = await apiClient.get("/account/sessions");
+
+        return data.sessions;
+    },
+
+    async revokeSession(id) {
+        await apiClient.delete(`/account/sessions/${encodeURIComponent(id)}`);
+    },
+
+    // Every session except this one.
+    async revokeOtherSessions() {
+        await apiClient.delete("/account/sessions");
+    },
+
+    async deleteAccount({ password }) {
+        await apiClient.delete("/account", { data: { password } });
+    },
+
 };

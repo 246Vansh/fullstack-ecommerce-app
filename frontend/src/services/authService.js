@@ -33,6 +33,29 @@ export const authService = {
         await apiClient.post("/auth/logout");
     },
 
+    // Signs out every device of the current user (uses the refresh cookie).
+    async logoutAll() {
+        await apiClient.post("/auth/logout-all");
+    },
+
+    async forgotPassword({ email }) {
+        const { data } = await apiClient.post("/auth/forgot-password", { email });
+
+        return data;
+    },
+
+    async resetPassword({ token, password }) {
+        const { data } = await apiClient.post("/auth/reset-password", { token, password });
+
+        return data;
+    },
+
+    async verifyEmail({ token }) {
+        const { data } = await apiClient.post("/auth/verify-email", { token });
+
+        return data;
+    },
+
     async me() {
         const { data } = await apiClient.get("/auth/me");
 

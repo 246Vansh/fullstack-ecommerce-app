@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { allowedNodeEnvironmentFlags } from "node:process";
 
 if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is not set");
@@ -45,6 +46,7 @@ export function createConnectionErrorLogger(log = console.error, now = Date.now)
 // mysql://USER:PASSWORD@HOST:PORT/DATABASE
 const url = new URL(process.env.DATABASE_URL);
 const ssl = databaseSsl();
+const isTest = process.env.NODE_ENV === "test";
 
 const adapter = new PrismaMariaDb({
     host: url.hostname,
@@ -52,6 +54,7 @@ const adapter = new PrismaMariaDb({
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.slice(1),
+    ...(isTest && { allowPublicKeyRetrieval: true }),
     connectionLimit: 10,
     ...(ssl && { ssl }),
     logger: { error: createConnectionErrorLogger() },

@@ -2,25 +2,32 @@ import crypto from "node:crypto";
 
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
-import { signRefreshToken, verifyRefreshToken, getTokenMaxAge } from "../utils/jwt.js";
+import { signRefreshToken, verifyRefreshToken, getTokenMaxAge, sessionLifetimeMs } from "../utils/jwt.js";
 
 // A token rotated this recently may be presented again (two tabs refreshing
 // at once, or a refresh response lost before its cookie was stored); it gets
 // a new token in the same family instead of being treated as stolen.
 const REUSE_GRACE_MS = 10 * 1000;
 
+// A session this close to its absolute expiry is not refreshed: the new
+// token would expire (whole-second JWT exp) as soon as it was issued.
+const MIN_SESSION_REMAINING_MS = 1000;
+
 const sessionExpired = () => new ApiError(401, "Session expired");
 
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
-async function issue(db, { userId, familyId, persistent }) {
-    const token = signRefreshToken({ id: userId }, familyId);
+// sessionExpiresAt is set once, at login, and copied to every token of the
+// session; each token expires at the earlier of it and its own inactivity limit.
+async function issue(db, { userId, familyId, persistent, sessionExpiresAt }) {
+    const token = signRefreshToken({ id: userId }, familyId, sessionExpiresAt);
 
     await db.refreshToken.create({
         data: {
             userId,
             familyId,
             persistent,
+            sessionExpiresAt,
             tokenHash: hashToken(token),
             expiresAt: new Date(Date.now() + getTokenMaxAge(token)),
         },
@@ -65,7 +72,12 @@ export async function createSession(userId, persistent, { verifiedPasswordHash }
             }
         }
 
-        return issue(tx, { userId, familyId: crypto.randomUUID(), persistent });
+        return issue(tx, {
+            userId,
+            familyId: crypto.randomUUID(),
+            persistent,
+            sessionExpiresAt: new Date(Date.now() + sessionLifetimeMs()),
+        });
     });
 }
 
@@ -101,7 +113,10 @@ export async function rotateSession(token) {
 
         const row = await tx.refreshToken.findUnique({ where: { tokenHash } });
 
-        if (!row || row.userId !== userId || row.expiresAt <= new Date()) {
+        // Checked before the revoked/grace branches, so no path issues a token
+        // for a session past (or within a second of) its absolute expiry.
+        if (!row || row.userId !== userId || row.expiresAt <= new Date()
+            || row.sessionExpiresAt.getTime() - Date.now() < MIN_SESSION_REMAINING_MS) {
             return null;
         }
 
@@ -152,4 +167,61 @@ export async function revokeSession(token) {
     });
 
     if (row) await revokeFamily(row.familyId, "LOGOUT");
+}
+
+// Logout everywhere, from the refresh cookie: revokes every session of the
+// token's user. Only a token that could still refresh counts; an expired,
+// revoked or unknown one is ignored (a stale stolen token cannot sign the
+// owner out of everything), and the call still succeeds.
+export async function revokeAllSessionsForToken(token) {
+    const row = await prisma.refreshToken.findUnique({
+        where: { tokenHash: hashToken(token) },
+        select: { userId: true, revokedAt: true, expiresAt: true },
+    });
+
+    if (row && !row.revokedAt && row.expiresAt > new Date()) await revokeAllUserSessions(row.userId);
+}
+
+// The user's signed-in sessions (refresh-token families with a usable token),
+// newest activity first. id is the familyId (the access token's sid), so the
+// caller's own session is marked current. No device details are stored.
+export async function listUserSessions(userId, currentSessionId) {
+    const active = await prisma.refreshToken.findMany({
+        where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+        select: { familyId: true, persistent: true, createdAt: true, expiresAt: true, sessionExpiresAt: true },
+        orderBy: { createdAt: "desc" },
+    });
+
+    // Two tokens of one family can be active for a moment (reuse grace window).
+    const latest = new Map();
+    for (const row of active) if (!latest.has(row.familyId)) latest.set(row.familyId, row);
+
+    const started = await prisma.refreshToken.groupBy({
+        by: ["familyId"],
+        where: { userId, familyId: { in: [...latest.keys()] } },
+        _min: { createdAt: true },
+    });
+    const signedInAt = new Map(started.map((row) => [row.familyId, row._min.createdAt]));
+
+    return [...latest.values()].map((row) => ({
+        id: row.familyId,
+        current: row.familyId === currentSessionId,
+        persistent: row.persistent,
+        signedInAt: signedInAt.get(row.familyId),
+        lastActiveAt: row.createdAt,
+        expiresAt: row.expiresAt,
+        sessionExpiresAt: row.sessionExpiresAt,
+    }));
+}
+
+// Signs out one of the user's own sessions. A session of another user, or
+// one already ended, is "not found", so ids of other users' sessions are
+// indistinguishable from made-up ones.
+export async function revokeUserSession(userId, sessionId) {
+    const { count } = await prisma.refreshToken.updateMany({
+        where: { userId, familyId: sessionId, revokedAt: null },
+        data: { revokedAt: new Date(), revokedReason: "LOGOUT" },
+    });
+
+    if (count === 0) throw new ApiError(404, "Session not found");
 }

@@ -25,6 +25,11 @@ export function setSessionExpiredHandler(handler) {
     sessionExpiredHandler = handler;
 }
 
+// The session ended outside a request (e.g. signed out in another tab).
+export function notifySessionExpired() {
+    sessionExpiredHandler?.();
+}
+
 apiClient.interceptors.request.use((config) => {
     if (accessToken) {
         config.headers.Authorization = `Bearer ${accessToken}`;

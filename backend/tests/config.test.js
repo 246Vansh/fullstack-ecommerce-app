@@ -39,6 +39,8 @@ const CASES = [
     ["CLIENT_URL with a trailing slash", { CLIENT_URL: "http://localhost:5173/" }, /CLIENT_URL must be the frontend origin only/],
     ["malformed JWT_ACCESS_EXPIRES_IN", { JWT_ACCESS_EXPIRES_IN: "15x" }, /JWT_ACCESS_EXPIRES_IN must be a duration/],
     ["unit-less JWT_REFRESH_EXPIRES_IN", { JWT_REFRESH_EXPIRES_IN: "900" }, /JWT_REFRESH_EXPIRES_IN must be a duration/],
+    ["malformed SESSION_ABSOLUTE_EXPIRES_IN", { SESSION_ABSOLUTE_EXPIRES_IN: "30x" }, /SESSION_ABSOLUTE_EXPIRES_IN must be a duration/],
+    ["SESSION_ABSOLUTE_EXPIRES_IN shorter than JWT_REFRESH_EXPIRES_IN", { JWT_REFRESH_EXPIRES_IN: "7d", SESSION_ABSOLUTE_EXPIRES_IN: "1d" }, /SESSION_ABSOLUTE_EXPIRES_IN must be at least JWT_REFRESH_EXPIRES_IN/],
     ["non-numeric PORT", { PORT: "abc" }, /PORT must be a whole number from 1 to 65535/],
 ];
 
@@ -127,15 +129,32 @@ test("CLIENT_URL: production requires https, including for localhost", () => {
 });
 
 test("JWT_*_EXPIRES_IN: durations jsonwebtoken accepts; malformed, unit-less and non-positive values rejected", () => {
-    for (const name of ["JWT_ACCESS_EXPIRES_IN", "JWT_REFRESH_EXPIRES_IN"]) {
+    for (const name of ["JWT_ACCESS_EXPIRES_IN", "JWT_REFRESH_EXPIRES_IN", "SESSION_ABSOLUTE_EXPIRES_IN"]) {
+        // The session lifetime must also cover the refresh lifetime, so it is
+        // checked here against a refresh lifetime shorter than every value.
+        const base = { ...PRODUCTION, TRUST_PROXY: "false", JWT_REFRESH_EXPIRES_IN: name === "SESSION_ABSOLUTE_EXPIRES_IN" ? "1s" : undefined };
         for (const value of [undefined, "", "15m", "7d", "12h", "1.5h", "2 days", "30s"]) {
-            assert.deepEqual(errorsFor({ ...PRODUCTION, TRUST_PROXY: "false", [name]: value }, name), [], `${name}=${value}`);
+            assert.deepEqual(errorsFor({ ...base, [name]: value }, name), [], `${name}=${value}`);
         }
         for (const value of ["15x", " 15m", "900", "90000", "-1d", "0s", "500ms", "abc"]) {
-            assert.deepEqual(errorsFor({ ...PRODUCTION, TRUST_PROXY: "false", [name]: value }, name),
+            assert.deepEqual(errorsFor({ ...base, [name]: value }, name),
                 [`${name} must be a duration with a unit, such as "15m", "12h" or "7d"`], `${name}=${value}`);
         }
     }
+});
+
+test("SESSION_ABSOLUTE_EXPIRES_IN: defaults to 30d and must be at least JWT_REFRESH_EXPIRES_IN (or its 7d default)", () => {
+    const base = { ...PRODUCTION, TRUST_PROXY: "false" };
+    const TOO_SHORT = ["SESSION_ABSOLUTE_EXPIRES_IN must be at least JWT_REFRESH_EXPIRES_IN"];
+
+    for (const [refresh, session] of [[undefined, undefined], ["7d", "30d"], ["7d", "7d"], ["30d", undefined], [undefined, "7d"], ["1h", "1d"], ["7d", "168h"]]) {
+        assert.deepEqual(errorsFor({ ...base, JWT_REFRESH_EXPIRES_IN: refresh, SESSION_ABSOLUTE_EXPIRES_IN: session }, "SESSION"), [], `refresh=${refresh} session=${session}`);
+    }
+    for (const [refresh, session] of [["7d", "1d"], [undefined, "6d"], ["31d", undefined], ["7d", "167h"]]) {
+        assert.deepEqual(errorsFor({ ...base, JWT_REFRESH_EXPIRES_IN: refresh, SESSION_ABSOLUTE_EXPIRES_IN: session }, "SESSION"), TOO_SHORT, `refresh=${refresh} session=${session}`);
+    }
+    // Not compared when either value is itself invalid (that error is reported instead).
+    assert.deepEqual(errorsFor({ ...base, JWT_REFRESH_EXPIRES_IN: "7x", SESSION_ABSOLUTE_EXPIRES_IN: "1d" }, "SESSION"), []);
 });
 
 test("PORT: unset or a whole number from 1 to 65535", () => {
@@ -211,6 +230,7 @@ async function queryOverTls(ssl) {
             connectionLimit: 1,
             acquireTimeout: 2000,
             ssl,
+            allowPublicKeyRetrieval: true,
         }),
     });
     try {

@@ -2,7 +2,14 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
 import { authService } from "@/services/authService";
-import { setAccessToken, setRefreshHandler } from "@/services/apiClient";
+import { setAccessToken, setRefreshHandler, notifySessionExpired } from "@/services/apiClient";
+
+// Tells this app's other tabs about sign-in and sign-out. Cookies are shared
+// between tabs but each tab's access token and user are its own memory.
+const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("auth");
+
+// Node only (unit tests): an open channel would keep the process alive.
+channel?.unref?.();
 
 // Session state is kept in memory. On page load, restoreSession() uses the
 // httpOnly refresh cookie to get a new access token, so nothing sensitive
@@ -48,6 +55,7 @@ export const useAuthStore = defineStore("auth", () => {
 
     async function login(credentials) {
         setSession(await authService.login(credentials));
+        channel?.postMessage("login");
     }
 
     async function register(details) {
@@ -65,8 +73,31 @@ export const useAuthStore = defineStore("auth", () => {
             await authService.logout();
         } finally {
             clearSession();
+            channel?.postMessage("logout");
         }
     }
+
+    // Signs out every device, this one included.
+    async function logoutAll() {
+        try {
+            await authService.logoutAll();
+        } finally {
+            clearSession();
+            channel?.postMessage("logout");
+        }
+    }
+
+    // Another tab signed in: this tab gets its own access token from the
+    // shared cookie. Another tab signed out: forget the session here too, and
+    // leave protected pages.
+    channel?.addEventListener("message", ({ data }) => {
+        if (data === "login") {
+            refreshSession();
+        } else if (data === "logout" && user.value) {
+            clearSession();
+            notifySessionExpired();
+        }
+    });
 
     setRefreshHandler(refreshSession);
 
@@ -80,6 +111,7 @@ export const useAuthStore = defineStore("auth", () => {
         register,
         updateUser,
         logout,
+        logoutAll,
     };
 
 });

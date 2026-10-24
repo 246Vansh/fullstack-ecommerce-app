@@ -71,3 +71,38 @@ export const reviewMutationLimiter = limiter({
     keyGenerator: (req) => `user:${req.user.id}`,
     message: { success: false, message: "Too many review changes, please try again later" },
 });
+
+// "Forgot password" requests, per IP. Each one may send an email; the
+// service also sends at most one link per account per minute.
+export const passwordResetRequestLimiter = limiter({
+    limit: 5,
+    message: { success: false, message: "Too many password reset requests, please try again later" },
+});
+
+// Submitting an emailed token (reset password, verify email), per IP, so
+// tokens cannot be guessed at speed (they are 256-bit random regardless).
+export const emailTokenLimiter = limiter({
+    limit: 20,
+    message: { success: false, message: "Too many attempts, please try again later" },
+});
+
+// Resending the verification email, keyed by user (use after authenticate).
+export const verificationResendLimiter = limiter({
+    limit: 3,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many verification emails requested, please try again later" },
+});
+
+// Listing and signing out sessions, keyed by user (use after authenticate).
+export const sessionManagementLimiter = limiter({
+    limit: 60,
+    keyGenerator: (req) => `user:${req.user.id}`,
+});
+
+// Account deletion, keyed by user (use after authenticate). Each attempt
+// checks the password, like passwordChangeLimiter.
+export const accountDeletionLimiter = limiter({
+    limit: 5,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many attempts, please try again later" },
+});

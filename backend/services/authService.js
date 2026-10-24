@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs";
 
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
+import { issueUserToken, consumeUserToken } from "./userTokenService.js";
+import { revokeAllUserSessions } from "./refreshTokenService.js";
+import { sendMail, appLink } from "./mailService.js";
 
 export const SALT_ROUNDS = 12;
 
@@ -79,4 +82,87 @@ export async function getUserById(id) {
     }
 
     return user;
+}
+
+// Emails a verification link unless the address is already verified (or a
+// link was sent in the last minute). Returns whether one was sent; callers
+// that do not need the answer do not await it.
+export async function sendVerificationEmail(user) {
+    if (user.emailVerifiedAt) return false;
+
+    const token = await issueUserToken(user.id, "EMAIL_VERIFICATION");
+    if (!token) return false;
+
+    sendMail({
+        to: user.email,
+        subject: "Verify your email address",
+        text: `Hi ${user.firstName},
+
+Confirm your email address by opening this link (valid for 24 hours):
+${appLink("/verify-email", token)}
+
+If you did not create an account, ignore this email.`,
+    }, "verification");
+
+    return true;
+}
+
+// Always resolves the same way whether or not the email belongs to an
+// account, so the response never reveals which emails are registered.
+export async function requestPasswordReset(email) {
+    const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, firstName: true } });
+    if (!user) return;
+
+    const token = await issueUserToken(user.id, "PASSWORD_RESET");
+    if (!token) return;
+
+    sendMail({
+        to: user.email,
+        subject: "Reset your password",
+        text: `Hi ${user.firstName},
+
+Reset your password by opening this link (valid for 30 minutes, single use):
+${appLink("/reset-password", token)}
+
+If you did not ask for this, ignore this email; your password is unchanged.`,
+    }, "password reset");
+}
+
+const invalidLink = (field = "token") => new ApiError(400, "This link is invalid or has expired. Please request a new one.", [
+    { field, message: "This link is invalid or has expired. Please request a new one." },
+]);
+
+// Sets a new password from an emailed token and signs out every session. The
+// link proves control of the mailbox, so the email also counts as verified.
+export async function resetPassword({ token, password }) {
+    // Hashed before the transaction, so no row lock is held during bcrypt.
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+    const reset = await prisma.$transaction(async (tx) => {
+        const userId = await consumeUserToken(tx, token, "PASSWORD_RESET");
+        if (!userId) return false;
+
+        const now = new Date();
+
+        await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+        await tx.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: now } });
+        await revokeAllUserSessions(userId, { db: tx });
+
+        return true;
+    });
+
+    if (!reset) throw invalidLink();
+}
+
+export async function verifyEmail(token) {
+    const verified = await prisma.$transaction(async (tx) => {
+        const userId = await consumeUserToken(tx, token, "EMAIL_VERIFICATION");
+        if (!userId) return false;
+
+        await tx.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
+
+        return true;
+    });
+
+    if (!verified) throw invalidLink();
 }

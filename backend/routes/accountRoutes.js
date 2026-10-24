@@ -1,10 +1,16 @@
 import { Router } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 
-import { updateMyProfile, changeMyPassword } from "../controllers/accountController.js";
+import {
+    updateMyProfile, changeMyPassword, resendMyVerification, listMySessions, revokeMySession,
+    revokeMyOtherSessions, deleteMyAccount,
+} from "../controllers/accountController.js";
 import { authenticate } from "../middleware/auth.js";
 import { validate, newPasswordRule, MAX_PASSWORD_INPUT_LENGTH } from "../middleware/validate.js";
-import { profileUpdateLimiter, passwordChangeLimiter } from "../middleware/rateLimits.js";
+import {
+    profileUpdateLimiter, passwordChangeLimiter, verificationResendLimiter, sessionManagementLimiter,
+    accountDeletionLimiter,
+} from "../middleware/rateLimits.js";
 import { ApiError } from "../utils/ApiError.js";
 
 const router = Router();
@@ -44,9 +50,23 @@ const passwordRules = [
     newPasswordRule("newPassword"),
 ];
 
+// Session ids are refresh-token family ids (UUIDs, the access token's sid).
+const sessionIdRule = param("sessionId").isUUID().withMessage("Session not found");
+
+const deleteAccountRules = [
+    body("password").isString().withMessage("Password is required")
+        .notEmpty().withMessage("Password is required")
+        .isLength({ max: MAX_PASSWORD_INPUT_LENGTH }).withMessage("Password is too long"),
+];
+
 router.use(authenticate);
 
 router.patch("/profile", profileUpdateLimiter, requireSomeField, profileRules, validate, updateMyProfile);
 router.post("/password", passwordChangeLimiter, passwordRules, validate, changeMyPassword);
+router.post("/verification-email", verificationResendLimiter, resendMyVerification);
+router.get("/sessions", sessionManagementLimiter, listMySessions);
+router.delete("/sessions", sessionManagementLimiter, revokeMyOtherSessions);
+router.delete("/sessions/:sessionId", sessionManagementLimiter, sessionIdRule, validate, revokeMySession);
+router.delete("/", accountDeletionLimiter, deleteAccountRules, validate, deleteMyAccount);
 
 export default router;
