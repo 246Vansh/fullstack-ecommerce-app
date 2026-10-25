@@ -5,7 +5,7 @@ import { apiClient } from "./apiClient";
 // names the next step.
 export const adminOrderService = {
 
-    // { page, limit, status? } -> { orders, pagination }, newest first.
+    // { page, limit, status?, refundDue? } -> { orders, pagination }, newest first.
     async listOrders(params) {
         const { data } = await apiClient.get("/admin/orders", { params });
 

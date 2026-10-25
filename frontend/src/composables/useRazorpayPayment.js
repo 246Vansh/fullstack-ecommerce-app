@@ -61,6 +61,8 @@ function openCheckout(session) {
             name: "E-Commerce",
             description: `Order #${session.orderNumber}`,
             prefill: session.prefill,
+            // Checkout closes when the order's stock reservation ends (seconds, from the server).
+            ...(session.secondsRemaining > 0 && { timeout: session.secondsRemaining }),
             handler: (response) => resolve({ kind: "success", response }),
             modal: { ondismiss: () => resolve({ kind: failed ? "failed" : "dismissed" }) },
         });

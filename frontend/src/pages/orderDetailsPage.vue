@@ -84,6 +84,18 @@
                         </div>
                     </dl>
 
+                    <!-- Reservation and refund notices, from the server's order state. -->
+                    <p v-if="order.payable && order.paymentDueBy" class="mt-5 text-sm text-slate-700">
+                        Pay by {{ formatDate(order.paymentDueBy, true) }} to keep these items reserved for you.
+                    </p>
+                    <p v-if="order.expired" class="mt-5 text-sm text-slate-700">
+                        This order was cancelled because its payment wasn't completed within 30 minutes, and its items were released.
+                    </p>
+                    <p v-if="order.refundDue" role="status" class="mt-3 text-sm font-medium text-amber-800">
+                        We received a payment for this order that we couldn't use, so it will be refunded to you.
+                        If you have questions, contact support with order #{{ order.orderNumber }}.
+                    </p>
+
                     <!-- Online payment: pay, or have the server re-check with Razorpay. -->
                     <div v-if="order.paymentMethod === 'RAZORPAY' && (order.payable || paymentMessage)"
                         class="mt-6 border-t border-gray-100 pt-5">
