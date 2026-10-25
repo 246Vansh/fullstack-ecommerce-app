@@ -35,10 +35,11 @@
                 </div>
             </div>
 
-            <!-- Photos: a row of three on small screens, one tall and two square beside it from lg. -->
+            <!-- Photos: a row of three on small screens, one tall and two square beside it from lg.
+                 The tiles stay in place; every minute their photos change to the next set. -->
             <div class="lg:col-span-7" aria-hidden="true">
                 <div class="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-2 lg:grid-rows-2">
-                    <HeroImage v-for="(image, index) in heroImages" :key="image.id" :src="image.src"
+                    <HeroImage v-for="(image, index) in currentSet" :key="index" :src="image.src"
                         :priority="index === 0" :sizes="index === 0 ? LARGE_SIZES : SMALL_SIZES"
                         :class="index === 0 ? 'aspect-3/4 lg:row-span-2 lg:aspect-auto' : 'aspect-3/4 lg:aspect-square'" />
                 </div>
@@ -49,11 +50,13 @@
 </template>
 
 <script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 
-import HeroImage from "./heroImage.vue";
+import HeroImage, { HERO_WIDTHS } from "./heroImage.vue";
 import PrimaryButton from "@/components/ui/primaryButton.vue";
-import { heroImages } from "@/constants/heroImages";
+import { HERO_ROTATE_MS, heroImageSets } from "@/constants/heroImages";
+import { sizedImage, sizedImageSrcset } from "@/utils/images";
 
 // Category slugs seeded in the database (see constants/navigation.js).
 const SHOP_LINKS = [
@@ -65,4 +68,67 @@ const SHOP_LINKS = [
 // squares ~330px. object-cover paints a 3:2 photo ~1.5x the tile height wide.
 const LARGE_SIZES = "(min-width: 1024px) 1020px, 60vw";
 const SMALL_SIZES = "(min-width: 1024px) 500px, 60vw";
+
+// ------------------------------------------------------------ rotation
+
+const setIndex = ref(0);
+const currentSet = computed(() => heroImageSets[setIndex.value]);
+
+// Resolves once every photo of the set has loaded at the width its tile will
+// request (same srcset and sizes as HeroImage), so the swap never shows an
+// empty tile. Rejects if one fails.
+function preloadSet(set) {
+    return Promise.all(set.map((image, index) => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = reject;
+        img.sizes = index === 0 ? LARGE_SIZES : SMALL_SIZES;
+        img.srcset = sizedImageSrcset(image.src, HERO_WIDTHS) ?? "";
+        img.src = sizedImage(image.src, 800);
+    })));
+}
+
+let timer = null;
+let unmounted = false;
+
+async function showNextSet() {
+    const next = (setIndex.value + 1) % heroImageSets.length;
+
+    try {
+        await preloadSet(heroImageSets[next]);
+    } catch {
+        return; // A photo did not load: keep the current set and try again next time.
+    }
+
+    if (!unmounted && !document.hidden) setIndex.value = next;
+}
+
+function start() {
+    if (timer === null) timer = setInterval(showNextSet, HERO_ROTATE_MS);
+}
+
+function stop() {
+    clearInterval(timer);
+    timer = null;
+}
+
+// Paused while the tab is hidden; resumes (a full minute later) when it is shown.
+function onVisibilityChange() {
+    if (document.hidden) stop();
+    else start();
+}
+
+onMounted(() => {
+    // Visitors who ask for reduced motion keep the first set.
+    if (heroImageSets.length < 2 || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    if (!document.hidden) start();
+});
+
+onBeforeUnmount(() => {
+    unmounted = true;
+    stop();
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+});
 </script>
