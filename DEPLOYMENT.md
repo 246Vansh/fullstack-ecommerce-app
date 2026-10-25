@@ -618,6 +618,19 @@ read-only database account, or `START TRANSACTION READ ONLY;` … `ROLLBACK;`).
 Steps marked **[approval]** change something and need explicit sign-off.
 Never print secret values while doing any of them.
 
+**Notes on the read-only SQL:**
+- **It opens a transaction.** `START TRANSACTION READ ONLY` changes your
+  session state. While it is open, it holds metadata locks on the tables it
+  has read, and a schema change (the migration's `ALTER TABLE`, `CREATE
+  INDEX`) waits for it. End it with `ROLLBACK;` as soon as you're done, and
+  never keep one open while a migration runs.
+- **Privileges:** the queries need `SELECT` on the app's tables, including
+  `_prisma_migrations`. `information_schema` shows only tables the account can
+  access, and `SHOW PROCESSLIST` lists other sessions only with the `PROCESS`
+  privilege.
+- **Confirm the target first:** run `SELECT @@hostname, DATABASE(),
+  CURRENT_USER();` and stop if it isn't the intended staging database.
+
 **Times in SQL are UTC.** The app's database adapter writes every `DATETIME`
 as UTC, so every query here compares with `UTC_TIMESTAMP(3)`. `NOW(3)`
 returns the session's time zone (often the server's local time), and would
@@ -638,11 +651,26 @@ shift results by the UTC offset; for example, 5½ hours on an IST server.
    session is not on UTC; that is harmless for the app, but it is why this
    runbook's queries use `UTC_TIMESTAMP(3)`.
 
-   **Not yet verified:** whether stored `createdAt` values are UTC. Compare
-   the newest order's `createdAt` with `UTC_TIMESTAMP(3)` just after placing a
-   test order. If they are not UTC, the migration's
-   `createdAt + 30 minutes` backfill and the step 4 counts are off by the
-   offset.
+   **Is `createdAt` stored as UTC? (diagnostic, no new order)** The step 4
+   counts and the migration's `createdAt + 30 minutes` backfill assume it is.
+   1. List the most recent existing orders:
+      ```sql
+      SELECT id, orderNumber, createdAt FROM orders ORDER BY id DESC LIMIT 5;
+      ```
+   2. Find the matching `POST /api/orders` requests with status `201` in the
+      API's access log. With `NODE_ENV=production`, the server logs each
+      request in the `combined` format, whose timestamp is UTC, e.g.
+      `[25/Oct/2026:09:12:34 +0000]`; the development format has no
+      timestamp. Match each order to its request by time order.
+   3. If each `createdAt` is within a few seconds of its request's
+      timestamp, it is stored in UTC. If they differ by a whole time-zone
+      offset (for example 5 h 30 min), the database's local time is being
+      stored instead, and the step 4 counts and the backfill are off by that
+      offset.
+
+   This is a diagnostic check of recent rows, not proof for every historical
+   record. Rows written by earlier code or by hand could differ. Do not place
+   a test order for this.
 2. **[read-only] Size of what the migration touches.**
    ```sql
    SELECT COUNT(*) FROM orders;
@@ -650,8 +678,36 @@ shift results by the UTC offset; for example, 5½ hours on an IST server.
    SELECT table_rows, data_length, index_length FROM information_schema.TABLES
    WHERE table_schema = DATABASE() AND table_name = 'orders';
    ```
-   Also check `pnpm exec prisma migrate status`, which only lists pending
-   migrations.
+   **Migration status** (read-only: `prisma migrate status` only reads the
+   `_prisma_migrations` table). Run it from `backend/` on a machine that can
+   reach the staging database:
+   ```sh
+   cd backend
+   read -rs STAGING_DATABASE_URL       # paste the staging URL; nothing is echoed or saved to history
+   DATABASE_URL="$STAGING_DATABASE_URL" DATABASE_SSL=true pnpm exec prisma migrate status
+   unset STAGING_DATABASE_URL
+   ```
+   - The URL is passed only to this one command. Its value is never printed:
+     Prisma prints the database name and host, not the password. Don't
+     `echo` it or run with `set -x`.
+   - Use `DATABASE_SSL=false` only if staging is reached over a trusted
+     private network (section 5).
+   - Expect `20261025000000_add_reservation_expiry_and_razorpay_webhooks`
+     listed as not yet applied.
+
+   On Windows PowerShell:
+   ```powershell
+   cd backend
+   $secure = Read-Host -AsSecureString "Staging DATABASE_URL"
+   $env:DATABASE_URL = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+   $env:DATABASE_SSL = "true"; pnpm exec prisma migrate status
+   Remove-Item Env:DATABASE_URL, Env:DATABASE_SSL; Remove-Variable secure
+   ```
+   The same information in SQL:
+   ```sql
+   SELECT migration_name, finished_at, rolled_back_at
+   FROM _prisma_migrations ORDER BY started_at DESC LIMIT 5;
+   ```
 3. **[read-only] Lock impact of
    `prisma/migrations/20261025000000_add_reservation_expiry_and_razorpay_webhooks/migration.sql`.**
    Review it against the sizes above:
@@ -659,10 +715,31 @@ shift results by the UTC offset; for example, 5½ hours on an IST server.
      normally a metadata-only (instant) change on MySQL 8. It still needs a
      brief metadata lock, so a long-running transaction on `orders` delays it
      (check `SHOW PROCESSLIST` first).
-   - **`UPDATE orders … WHERE paymentMethod = 'RAZORPAY'`:** one statement. It
-     scans `orders`, since there is no index on `paymentMethod`, and row-locks
-     every online order until it finishes. Payments or cancellations of those
-     orders wait during that time.
+   - **`UPDATE orders SET reservationExpiresAt = … WHERE paymentMethod = 'RAZORPAY'`**
+     (the backfill): a single statement, and the main locking risk.
+     - **It can scan the whole table.** No index supports
+       `paymentMethod`; the only `orders` indexes are on `status` and on
+       `(status, reservationExpiresAt)`. So MySQL can read every order, not
+       just online ones.
+     - **What it locks depends on the environment:** the MySQL version, the
+       actual execution plan, the isolation level, the table size and the
+       concurrent traffic. Under InnoDB's default `REPEATABLE READ`, an
+       `UPDATE` that scans without a supporting index can take extensive row
+       and gap (next-key) locks on the rows it scans, and keep them until the
+       statement commits. Don't assume the exact footprint (which rows or
+       gaps, or for how long) until staging has shown it.
+     - **While it runs, other work may wait:** customer payments and
+       cancellations, admin status changes, and new orders, not only changes
+       to online orders.
+     - **Check the access path** (read-only: `EXPLAIN` never runs or locks):
+       ```sql
+       EXPLAIN FORMAT=TREE SELECT id FROM orders WHERE paymentMethod = 'RAZORPAY';
+       ```
+       A table scan (`Table scan on orders`) confirms the full scan. Compare
+       the estimated rows with the counts in step 2.
+     - **Measure on staging:** time the real migration there (**[approval]**,
+       step 7) on a copy of production-sized data, and note anything waiting
+       during it, before planning production.
    - **`CREATE INDEX orders_status_reservationExpiresAt_idx`:** online
      (concurrent reads and writes allowed). Its time grows with the table.
    - **Two `CREATE TABLE`s and a foreign key on a new, empty table:** no impact
@@ -670,46 +747,128 @@ shift results by the UTC offset; for example, 5½ hours on an IST server.
    - **Failure handling:** MySQL schema changes are not transactional. If a
      statement fails part-way, Prisma marks the migration failed; fix the cause
      and use `prisma migrate resolve` **[approval]** before retrying.
-   - **Timing:** time it on staging first and pick a low-traffic window.
-4. **[read-only] Overdue online orders**, before the migration (the new columns
-   don't exist yet):
+   - **Timing:** until staging has shown the backfill's lock duration is
+     acceptable, run the migration in a maintenance window (step 7).
+4. **[read-only] Overdue online orders and the stock the first sweep could
+   return.**
+   - **What the worker selects:** online orders (`paymentMethod =
+     'RAZORPAY'`) that are `PENDING`, have `paymentStatus` `UNPAID` or
+     `FAILED`, and whose `reservationExpiresAt` has passed. Orders that are
+     pending and unpaid but have no deadline are not expired on the first
+     sweep; they get a deadline 30 minutes later.
+   - **Clocks:** these queries use the database's `UTC_TIMESTAMP(3)`, while
+     the worker uses its app server's clock. With NTP on both, they agree to
+     within seconds.
+
+   **Before the migration** (the new columns don't exist yet; the backfill
+   will set each deadline to `createdAt + 30 minutes`, so the same condition
+   is written on `createdAt`):
    ```sql
-   SELECT (razorpayOrderId IS NOT NULL) AS has_razorpay_order, COUNT(*) AS orders, MIN(createdAt) AS oldest
+   -- a. Counts by payment status and Razorpay order
+   SELECT paymentStatus, (razorpayOrderId IS NOT NULL) AS has_razorpay_order,
+          COUNT(*) AS orders, MIN(createdAt) AS oldest
    FROM orders
    WHERE paymentMethod = 'RAZORPAY' AND status = 'PENDING' AND paymentStatus IN ('UNPAID', 'FAILED')
      AND createdAt + INTERVAL 30 MINUTE <= UTC_TIMESTAMP(3)
-   GROUP BY has_razorpay_order;
+   GROUP BY paymentStatus, has_razorpay_order;
+
+   -- b. The list to review (Razorpay order ids are not secret; no customer details)
+   SELECT orderNumber, createdAt, paymentStatus, total, currency, razorpayOrderId
+   FROM orders
+   WHERE paymentMethod = 'RAZORPAY' AND status = 'PENDING' AND paymentStatus IN ('UNPAID', 'FAILED')
+     AND createdAt + INTERVAL 30 MINUTE <= UTC_TIMESTAMP(3)
+   ORDER BY createdAt;
+
+   -- c. Stock the first sweep could return, per variant
+   SELECT oi.variantId,
+          SUM(CASE WHEN o.razorpayOrderId IS NULL THEN oi.quantity ELSE 0 END) AS returned_without_razorpay_check,
+          SUM(oi.quantity) AS returned_at_most
+   FROM orders o JOIN order_items oi ON oi.orderId = o.id
+   WHERE o.paymentMethod = 'RAZORPAY' AND o.status = 'PENDING' AND o.paymentStatus IN ('UNPAID', 'FAILED')
+     AND o.createdAt + INTERVAL 30 MINUTE <= UTC_TIMESTAMP(3)
+     AND oi.variantId IS NOT NULL   -- items whose variant was deleted return nothing
+   GROUP BY oi.variantId
+   ORDER BY oi.variantId;
    ```
-   After the migration, with the worker still off:
+
+   **After the migration, with the worker still off** (uses the new
+   `reservationExpiresAt` column; `expiredAt` stays NULL until the worker
+   expires an order):
    ```sql
-   SELECT (razorpayOrderId IS NOT NULL) AS has_razorpay_order,
+   -- a. Counts, including orders still without a deadline (created by the old code in a deploy gap)
+   SELECT paymentStatus, (razorpayOrderId IS NOT NULL) AS has_razorpay_order,
           (reservationExpiresAt IS NULL) AS missing_deadline,
           COUNT(*) AS orders, MIN(createdAt) AS oldest
    FROM orders
    WHERE paymentMethod = 'RAZORPAY' AND status = 'PENDING' AND paymentStatus IN ('UNPAID', 'FAILED')
      AND (reservationExpiresAt IS NULL OR reservationExpiresAt <= UTC_TIMESTAMP(3))
-   GROUP BY has_razorpay_order, missing_deadline;
-   ```
-   What the first sweep will do with them:
-   - **no Razorpay order:** cancelled, stock returned;
-   - **with a Razorpay order:** checked with Razorpay first. Look each one up
-     in the Razorpay dashboard (viewing only) to see which will be paid, kept
-     or released;
-   - **missing deadline:** gets 30 minutes from when the worker first sees it.
+   GROUP BY paymentStatus, has_razorpay_order, missing_deadline;
 
-   These counts use the database server's clock (`UTC_TIMESTAMP(3)`); the
-   worker judges deadlines by each app server's clock, so with NTP on both,
-   they agree to within seconds.
-5. **[read-only] Configuration present**, without printing values (run in
-   each instance's environment):
-   ```sh
-   node -e 'for (const k of ["NODE_ENV","DATABASE_URL","DATABASE_SSL","JWT_ACCESS_SECRET","JWT_REFRESH_SECRET","CLIENT_URL","TRUST_PROXY","RAZORPAY_KEY_ID","RAZORPAY_KEY_SECRET","RAZORPAY_WEBHOOK_SECRET","RESERVATION_CREATED_CUTOFF","RESERVATION_EXPIRY_WORKER"]) console.log(k, process.env[k] ? "set" : "unset")'
+   -- b. The list to review
+   SELECT orderNumber, createdAt, reservationExpiresAt, paymentStatus, total, currency, razorpayOrderId
+   FROM orders
+   WHERE paymentMethod = 'RAZORPAY' AND status = 'PENDING' AND paymentStatus IN ('UNPAID', 'FAILED')
+     AND (reservationExpiresAt IS NULL OR reservationExpiresAt <= UTC_TIMESTAMP(3))
+   ORDER BY reservationExpiresAt IS NULL, reservationExpiresAt, createdAt;
+
+   -- c. Stock the first sweep could return (orders with a deadline only)
+   SELECT oi.variantId,
+          SUM(CASE WHEN o.razorpayOrderId IS NULL THEN oi.quantity ELSE 0 END) AS returned_without_razorpay_check,
+          SUM(oi.quantity) AS returned_at_most
+   FROM orders o JOIN order_items oi ON oi.orderId = o.id
+   WHERE o.paymentMethod = 'RAZORPAY' AND o.status = 'PENDING' AND o.paymentStatus IN ('UNPAID', 'FAILED')
+     AND o.reservationExpiresAt <= UTC_TIMESTAMP(3)
+     AND oi.variantId IS NOT NULL
+   GROUP BY oi.variantId
+   ORDER BY oi.variantId;
    ```
-   Startup refuses invalid values (section 2). Also check, in the deployment
-   configuration rather than in logs:
-   - `RESERVATION_EXPIRY_WORKER=false` everywhere;
-   - `RESERVATION_CREATED_CUTOFF` identical everywhere;
-   - NTP active on every instance.
+
+   **What the first sweep will do with them:**
+   - **no Razorpay order:** cancelled and its stock returned
+     (`returned_without_razorpay_check`);
+   - **with a Razorpay order:** Razorpay is asked first:
+     - a capture of the right amount pays the order instead;
+     - a payment that is authorized, `created` (until the
+       `RESERVATION_CREATED_CUTOFF`), in an unknown status, or an
+       unreachable or incomplete answer keeps it;
+     - otherwise it expires.
+
+     So `returned_at_most` is an upper bound. Look each one up in the
+     Razorpay dashboard (viewing only) to see which will be paid, kept or
+     released.
+   - **missing deadline:** not expired on the first sweep; it gets 30 minutes
+     from when the worker first sees it.
+
+   Approve this list, and the stock it may return, before step 9.
+5. **[read-only] Configuration on every instance.** Run these in each
+   instance's environment, from `backend/`. They load `backend/.env` if the
+   instance uses one (variables already set by the platform take precedence),
+   print no values, and connect to no database.
+   ```sh
+   # a. Required variables: prints only "set" or "unset"
+   node -e 'require("dotenv").config({ quiet: true }); for (const k of ["NODE_ENV","DATABASE_URL","DATABASE_SSL","JWT_ACCESS_SECRET","JWT_REFRESH_SECRET","CLIENT_URL","TRUST_PROXY","RAZORPAY_KEY_ID","RAZORPAY_KEY_SECRET","RAZORPAY_WEBHOOK_SECRET","RESERVATION_CREATED_CUTOFF","RESERVATION_EXPIRY_WORKER"]) console.log(k, process.env[k] ? "set" : "unset")'
+
+   # b. The same validation the server runs at startup (config/env.js): exits listing
+   #    only the names of invalid variables, or prints "configuration valid"
+   node -e 'require("dotenv").config({ quiet: true }); import("./config/env.js").then(() => console.log("configuration valid"))'
+
+   # c. The worker must be off until the migration and code are deployed and the
+   #    overdue orders (step 4) are approved
+   node -e 'require("dotenv").config({ quiet: true }); console.log("reservation worker:", process.env.RESERVATION_EXPIRY_WORKER === "false" ? "OFF" : "ON - must be OFF until step 9")'
+
+   # d. Fingerprint of the effective RESERVATION_CREATED_CUTOFF (unset and "2h" give the same one)
+   node -e 'require("dotenv").config({ quiet: true }); import("./config/reservations.js").then(({ createdCutoffMs }) => { const ms = createdCutoffMs(process.env.RESERVATION_CREATED_CUTOFF); console.log("cutoff fingerprint:", ms === null ? "INVALID" : require("crypto").createHash("sha256").update(String(ms)).digest("hex").slice(0, 12)); })'
+   ```
+   - Every instance must print the same cutoff fingerprint. A match confirms
+     the instances are consistent; it does not confirm the value is the one
+     you intended. Check that in the deployment configuration.
+   - **Clock synchronisation** on every instance (or its host; containers use
+     the host's clock):
+     - Linux: `timedatectl show -p NTPSynchronized --value` should print
+       `yes`, or `chronyc tracking` should show a small "System time" offset;
+     - Windows: `w32tm /query /status` should show a recent "Last Successful
+       Sync Time".
+
 6. **[approval] Backup and restore drill.**
    - Take a consistent backup: `mysqldump --single-transaction --routines
      --triggers <database>`, or a provider snapshot. It contains customer data,
@@ -722,7 +881,9 @@ shift results by the UTC offset; for example, 5½ hours on an IST server.
 **Deploying (staging first; repeat for production after it passes)**
 
 7. **[approval] Migration and code without a gap.**
-   - **Preferred: a short maintenance window.**
+   - **Preferred: a short maintenance window.** This is the safest option,
+     and the one to use until staging has measured the backfill's lock
+     duration (step 3). With no traffic, nothing waits behind its locks.
      1. Stop the old instances, or block checkout, so no orders are created.
      2. Run `pnpm run db:migrate` once, from one place.
      3. Start the new code with `RESERVATION_EXPIRY_WORKER=false` on every
