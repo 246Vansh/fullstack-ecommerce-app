@@ -310,6 +310,10 @@ Additional administrators can be added the same way.
       instance (step 9); enabling it earlier may expire legacy orders and
       return their stock.
 - [ ] Razorpay webhook configured and its test delivery answered 200 (section 11).
+- [ ] Refund-obligation policy approved: overdue threshold, refund target time,
+      accountable owner and deputy, escalation contact, and tracking location.
+      Alerts configured (section 11, "Refund obligations: review, ownership and
+      escalation").
 
 ## 11. Online payments: 30-minute reservations and the Razorpay webhook
 
@@ -610,6 +614,92 @@ Automated reconciliation only **decides and records**: it pays or reinstates an
 order, or records money that must go back. Every refund is issued by a person
 in the Razorpay dashboard, and is shown as done only after Razorpay's
 `refund.processed` confirms it.
+
+#### Refund obligations: review, ownership and escalation
+
+A refund obligation is a row in `unapplied_payments`: a captured payment the
+shop must give back. It is **unresolved** while `refundedAt IS NULL`. Only one
+thing sets `refundedAt` (and `razorpayRefundId`): Razorpay's
+`refund.processed` webhook for the **full** amount, with a valid signature
+(`backend/services/razorpayWebhookService.js`). A partial refund leaves the
+obligation open, and there is no admin action to close one.
+
+**Needs business approval before production, not defined here:**
+- an **age threshold** after which an open obligation counts as overdue;
+- a **target time** for issuing each refund;
+- the **accountable owner** (person or team), plus a deputy;
+- the **escalation contact** and the channel for overdue cases;
+- where obligations are **tracked**. The table has no owner, note or
+  next-action fields, so ownership and decisions live in a ticket or register
+  outside the app, keyed by the Razorpay payment id.
+
+Until these are approved, the procedure below cannot be run as policy, and
+production is not ready.
+
+**Review procedure** (read-only queries; run at least daily, and after any
+webhook or database outage):
+
+1. **Open obligations by age.** The buckets below are only a way to group the
+   results; they are not approved thresholds.
+   ```sql
+   SELECT CASE
+            WHEN createdAt >= UTC_TIMESTAMP(3) - INTERVAL 1 DAY THEN '1: under 1 day'
+            WHEN createdAt >= UTC_TIMESTAMP(3) - INTERVAL 3 DAY THEN '2: 1-3 days'
+            WHEN createdAt >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY THEN '3: 3-7 days'
+            ELSE '4: over 7 days'
+          END AS age_bucket,
+          reason, currency,
+          COUNT(*) AS obligations, SUM(amount) AS amount_minor_units, MIN(createdAt) AS oldest
+   FROM unapplied_payments
+   WHERE refundedAt IS NULL
+   GROUP BY age_bucket, reason, currency
+   ORDER BY age_bucket, reason, currency;
+   ```
+   `amount` is in minor units (cents, paise), so divide by 100 for USD or INR.
+   `createdAt` is assumed to be UTC; confirm this with checklist step 1.
+2. **The list to work through, oldest first:**
+   ```sql
+   SELECT up.id, o.orderNumber, up.razorpayPaymentId, up.razorpayOrderId,
+          up.amount, up.currency, up.reason, up.createdAt,
+          TIMESTAMPDIFF(HOUR, up.createdAt, UTC_TIMESTAMP(3)) AS hours_open
+   FROM unapplied_payments up
+   JOIN orders o ON o.id = up.orderId
+   WHERE up.refundedAt IS NULL
+   ORDER BY up.createdAt;
+   ```
+   The admin's **Refund due only** filter shows the same orders.
+3. **For each one, record in the tracking ticket or register:**
+   - the payment id and order number;
+   - the accountable owner;
+   - the next action, for example "refund issued in the dashboard, waiting
+     for `refund.processed`" or "partially refunded, remainder pending";
+   - the date of that action;
+   - the evidence seen, such as a refund id or a dashboard screenshot
+     reference. Never record card or bank details.
+4. **Escalate** any obligation older than the approved threshold, or with no
+   owner or next action, to the approved escalation contact. Repeat on each
+   review until it is resolved.
+
+**Resolving an obligation.** It is resolved only by verified evidence of the
+refund outcome. Normally that is Razorpay's `refund.processed` for the full
+amount, which sets `refundedAt` and `razorpayRefundId` by itself.
+- **The row stays open after a refund was issued.** Check in the Razorpay
+  dashboard (viewing only) that the refund is fully processed and for the full
+  amount. Then find out why it wasn't recorded:
+  - a partial refund (it stays open by design);
+  - `refund.processed` not subscribed;
+  - the webhook failing or disabled;
+  - the refund event arriving before the capture was recorded.
+- **Never change the row by hand to close it**, and never treat an unconfirmed
+  refund as done. A manual correction to `unapplied_payments` is a database
+  write. It needs explicit approval, the verified evidence attached to the
+  ticket, and a recorded decision.
+- **Never delete** these rows; see **Rollback** at the end of section 11's
+  "Staging and production checklist".
+
+**Production requirement:** before going live, configure alerts on the log
+lines in this section and in "Instances, clocks and configuration", and agree
+the escalation policy above.
 
 ### Staging and production checklist
 
