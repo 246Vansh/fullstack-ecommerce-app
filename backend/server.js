@@ -10,6 +10,7 @@ import prisma from "./config/db.js";
 import apiRouter from "./routes/index.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { generalLimiter } from "./middleware/rateLimits.js";
+import { startReservationExpiryWorker } from "./services/reservationService.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +25,9 @@ app.use(cors({
     credentials: true,
 }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+// Webhook signatures cover the exact request bytes, so these bodies stay raw
+// Buffers (express.json below then leaves them alone).
+app.use("/api/webhooks", express.raw({ type: () => true, limit: "1mb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -38,6 +42,11 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+// Cancels unpaid online orders whose 30-minute reservation has ended and
+// returns their stock (services/reservationService.js). On by default; safe
+// in several instances at once. RESERVATION_EXPIRY_WORKER=false turns it off here.
+const stopExpiryWorker = process.env.RESERVATION_EXPIRY_WORKER === "false" ? null : startReservationExpiryWorker();
 
 // SIGTERM (process managers, containers) and SIGINT (Ctrl+C): stop accepting
 // connections, let in-flight requests finish, then close the database pool.
@@ -57,7 +66,11 @@ function shutdown(signal) {
         process.exit(1);
     }, SHUTDOWN_TIMEOUT_MS).unref();
 
+    // A sweep in progress finishes its current transactions before the pool closes.
+    const workerStopped = stopExpiryWorker?.();
+
     server.close(async (err) => {
+        await workerStopped;
         await prisma.$disconnect().catch(() => {});
         process.exit(err ? 1 : 0);
     });

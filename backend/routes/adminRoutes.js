@@ -188,6 +188,9 @@ const updateVariantRules = [
 const orderListRules = [
     ...paginationRules(ADMIN_ORDER_PAGINATION),
     singleQuery("status").optional().isIn(ORDER_STATUSES).withMessage(`status must be one of: ${ORDER_STATUSES.join(", ")}`),
+    // true: only orders with a captured payment still waiting for a refund
+    // (unapplied_payments without refundedAt); false: only orders without one.
+    singleQuery("refundDue").optional().isIn(["true", "false"]).withMessage("refundDue must be true or false").toBoolean(true),
 ];
 
 // Only the step requested; the server derives which status it must follow.

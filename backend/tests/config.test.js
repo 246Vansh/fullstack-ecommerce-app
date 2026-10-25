@@ -11,7 +11,9 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import prisma, { databaseSsl, createConnectionErrorLogger } from "../config/db.js";
 import { migrationDatabaseUrl } from "../prisma.config.js";
 import { validateEnv, parseTrustProxy } from "../config/env.js";
+import { createdCutoffMs } from "../config/reservations.js";
 import { runNode, startServer } from "./helpers.js";
+import { testDatabaseGuard } from "./testDatabase.js";
 
 const SECRET_A = "short-SECRET-VALUE-A"; // 20 chars, under the 32 minimum
 const SECRET_B = "b".repeat(40) + "SECRET-VALUE-B";
@@ -46,7 +48,8 @@ const CASES = [
 
 for (const [name, env, expected] of CASES) {
     test(`14. startup fails: ${name}`, async () => {
-        const { code, output } = await runNode(["server.js"], { PORT: "5599", ...env });
+        // Startup is refused before anything runs; the expiry worker is off regardless.
+        const { code, output } = await runNode(["server.js"], { PORT: "5599", RESERVATION_EXPIRY_WORKER: "false", ...env });
 
         assert.equal(code, 1, output);
         assert.match(output, /Invalid configuration/);
@@ -59,7 +62,7 @@ for (const [name, env, expected] of CASES) {
 }
 
 test("14. several problems are reported together", async () => {
-    const { code, output } = await runNode(["server.js"], { PORT: "5599", CLIENT_URL: "", JWT_ACCESS_SECRET: "" });
+    const { code, output } = await runNode(["server.js"], { PORT: "5599", RESERVATION_EXPIRY_WORKER: "false", CLIENT_URL: "", JWT_ACCESS_SECRET: "" });
     assert.equal(code, 1);
     assert.match(output, /CLIENT_URL is required/);
     assert.match(output, /JWT_ACCESS_SECRET is required/);
@@ -166,6 +169,59 @@ test("PORT: unset or a whole number from 1 to 65535", () => {
     }
 });
 
+const RAZORPAY = { RAZORPAY_KEY_ID: "rzp_test_Config", RAZORPAY_KEY_SECRET: "key-secret-0123456789" };
+const WEBHOOK = { RAZORPAY_WEBHOOK_SECRET: "webhook-secret-0123456789" };
+
+test("RAZORPAY_WEBHOOK_SECRET: a separate secret of at least 16 characters, never the API key secret", () => {
+    const base = { ...PRODUCTION, TRUST_PROXY: "false", ...RAZORPAY };
+    assert.deepEqual(validateEnv({ ...base, ...WEBHOOK }), []);
+    assert.deepEqual(errorsFor({ ...base, RAZORPAY_WEBHOOK_SECRET: RAZORPAY.RAZORPAY_KEY_SECRET }, "RAZORPAY_WEBHOOK_SECRET"),
+        ["RAZORPAY_WEBHOOK_SECRET must be different from RAZORPAY_KEY_SECRET"]);
+    assert.deepEqual(errorsFor({ ...base, RAZORPAY_WEBHOOK_SECRET: "xq7Kz" }, "RAZORPAY_WEBHOOK_SECRET"),
+        ["RAZORPAY_WEBHOOK_SECRET must be at least 16 characters"]);
+    // The messages never contain the secrets themselves.
+    for (const secret of ["xq7Kz", RAZORPAY.RAZORPAY_KEY_SECRET]) {
+        for (const error of validateEnv({ ...base, RAZORPAY_WEBHOOK_SECRET: secret })) assert.ok(!error.includes(secret));
+    }
+});
+
+test("RAZORPAY_WEBHOOK_SECRET: required in production with online payment; optional elsewhere or without keys", () => {
+    const production = { ...PRODUCTION, TRUST_PROXY: "false" };
+    assert.deepEqual(errorsFor({ ...production, ...RAZORPAY }, "RAZORPAY_WEBHOOK_SECRET"),
+        ["RAZORPAY_WEBHOOK_SECRET is required in production when online payment is enabled"]);
+    assert.deepEqual(validateEnv(production), [], "no keys: cash on delivery only, no webhook needed");
+    assert.deepEqual(validateEnv({ ...production, NODE_ENV: "development", ...RAZORPAY }), []);
+});
+
+test("RESERVATION_CREATED_CUTOFF: a duration with a unit from 1m to 24h; unset means 2h", () => {
+    const base = { ...PRODUCTION, TRUST_PROXY: "false" };
+    for (const RESERVATION_CREATED_CUTOFF of [undefined, "", "  ", "1m", "90m", "2h", "2 hours", "24h", "1d"]) {
+        assert.deepEqual(validateEnv({ ...base, RESERVATION_CREATED_CUTOFF }), [], String(RESERVATION_CREATED_CUTOFF));
+    }
+    for (const RESERVATION_CREATED_CUTOFF of ["25h", "2d", "30s", "0h", "-1h", "120", "7200", "abc", "2x"]) {
+        assert.deepEqual(errorsFor({ ...base, RESERVATION_CREATED_CUTOFF }, "RESERVATION_CREATED_CUTOFF"),
+            ["RESERVATION_CREATED_CUTOFF must be a duration with a unit from 1m to 24h, e.g. 90m or 2h (unset = 2h)"], RESERVATION_CREATED_CUTOFF);
+    }
+
+    // The worker reads it with the same rule; unset or blank is the 2h default.
+    assert.equal(createdCutoffMs(undefined), 2 * 60 * 60 * 1000);
+    assert.equal(createdCutoffMs(""), 2 * 60 * 60 * 1000);
+    assert.equal(createdCutoffMs("90m"), 90 * 60 * 1000);
+    assert.equal(createdCutoffMs("24h"), 24 * 60 * 60 * 1000);
+    assert.equal(createdCutoffMs("25h"), null);
+});
+
+test("RESERVATION_EXPIRY_WORKER: true, false or unset", () => {
+    const base = { ...PRODUCTION, TRUST_PROXY: "false" };
+    for (const RESERVATION_EXPIRY_WORKER of [undefined, "", "true", "false"]) {
+        assert.deepEqual(validateEnv({ ...base, RESERVATION_EXPIRY_WORKER }), [], String(RESERVATION_EXPIRY_WORKER));
+    }
+    for (const RESERVATION_EXPIRY_WORKER of ["off", "0", "FALSE", "yes"]) {
+        assert.deepEqual(errorsFor({ ...base, RESERVATION_EXPIRY_WORKER }, "RESERVATION_EXPIRY_WORKER"),
+            ['RESERVATION_EXPIRY_WORKER must be "true" or "false" (unset = true)'], RESERVATION_EXPIRY_WORKER);
+    }
+});
+
 // Throwaway self-signed certificate; its private key was discarded.
 const TEST_CA = fileURLToPath(new URL("./fixtures/test-ca.pem", import.meta.url));
 const SECURE_PRODUCTION = { ...PRODUCTION, TRUST_PROXY: "false" };
@@ -257,7 +313,8 @@ test("DATABASE_SSL=true rejects a database certificate that is not trusted", asy
 
     // End to end: the app configured from the environment fails closed, and
     // logs why once (only the code), despite the pool's repeated retries.
-    const server = await startServer({ DATABASE_SSL: "true", DATABASE_SSL_CA: TEST_CA });
+    // The expiry worker stays off: this server uses the development database settings.
+    const server = await startServer({ DATABASE_SSL: "true", DATABASE_SSL_CA: TEST_CA, RESERVATION_EXPIRY_WORKER: "false" });
     try {
         assert.equal((await fetch(`${server.url}/health`)).status, 503, server.output());
         const output = server.output();
@@ -360,14 +417,25 @@ test("migrations: ssl* parameters on DATABASE_URL cannot override the DATABASE_S
 });
 
 test("migrations: prisma migrate status verifies the database certificate when DATABASE_SSL=true", async (t) => {
-    const migrateStatus = (env) => runNode(["node_modules/prisma/build/index.js", "migrate", "status"], env, 60000);
+    // Read-only (migrate status never applies anything). The "up to date" check
+    // runs against the dedicated test database, so it does not depend on whether
+    // the development database has every migration; without TEST_DATABASE_URL
+    // only that check is skipped. The TLS checks below never get past the handshake.
+    const guard = testDatabaseGuard();
+    const targetUrl = guard.ok ? guard.url : process.env.DATABASE_URL;
+    const migrateStatus = (env) => runNode(["node_modules/prisma/build/index.js", "migrate", "status"],
+        { DATABASE_URL: targetUrl, DOTENV_CONFIG_OVERRIDE: undefined, ...env }, 60000);
 
-    const plain = await migrateStatus({ DATABASE_SSL: "false" });
-    assert.equal(plain.code, 0, plain.output);
-    assert.match(plain.output, /Database schema is up to date/);
+    if (guard.ok) {
+        const plain = await migrateStatus({ DATABASE_SSL: "false" });
+        assert.equal(plain.code, 0, plain.output);
+        assert.match(plain.output, /Database schema is up to date/);
+    } else {
+        t.diagnostic(`migrate status check skipped: ${guard.reason}`);
+    }
 
     // With TLS off, a fail-open sslaccept on the URL stops the CLI before it connects.
-    const failOpen = new URL(process.env.DATABASE_URL);
+    const failOpen = new URL(targetUrl);
     failOpen.searchParams.set("sslaccept", "accept_invalid_certs");
     const blocked = await migrateStatus({ DATABASE_SSL: "false", DATABASE_URL: failOpen.toString() });
     assert.notEqual(blocked.code, 0, blocked.output);
@@ -381,7 +449,7 @@ test("migrations: prisma migrate status verifies the database certificate when D
 
     // The local self-signed certificate must be rejected, with or without the
     // unrelated CA, even when DATABASE_URL itself asks for accept_invalid_certs.
-    const url = new URL(process.env.DATABASE_URL);
+    const url = new URL(targetUrl);
     url.searchParams.set("sslaccept", "accept_invalid_certs");
 
     for (const env of [{ DATABASE_SSL: "true" }, { DATABASE_SSL: "true", DATABASE_SSL_CA: TEST_CA, DATABASE_URL: url.toString() }]) {
@@ -407,4 +475,16 @@ test("13. seed refuses to run outside development/test, before touching the data
     assert.deepEqual(await prisma.user.findUnique(watched), userBefore, "user password/updatedAt unchanged");
     assert.deepEqual(await prisma.productVariant.findMany({ select: { id: true, stock: true }, orderBy: { id: "asc" } }), stockBefore, "stock unchanged");
     await prisma.$disconnect();
+});
+
+test("test servers never run the reservation expiry worker against the configured database", () => {
+    // Every server this file starts (directly, or through runNode) sets the flag
+    // explicitly, and startServer() defaults it off for every other test file.
+    const source = readFileSync(fileURLToPath(import.meta.url), "utf8");
+    const starts = source.match(/(startServer\(\{[^}]*\}|runNode\(\["server\.js"\], \{[^}]*\})/g) ?? [];
+    assert.ok(starts.length >= 3, "found the server starts");
+    for (const call of starts) assert.match(call, /RESERVATION_EXPIRY_WORKER: "false"/, call);
+
+    const helpers = readFileSync(fileURLToPath(new URL("./helpers.js", import.meta.url)), "utf8");
+    assert.match(helpers, /env: \{ \.\.\.process\.env, RESERVATION_EXPIRY_WORKER: "false", \.\.\.env, PORT/);
 });

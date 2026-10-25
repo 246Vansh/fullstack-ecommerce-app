@@ -7,11 +7,15 @@ import { readFileSync } from "node:fs";
 import express from "express";
 
 import { MAIL_PROVIDERS } from "../services/mailService.js";
+import { createdCutoffMs, DEFAULT_CREATED_CUTOFF } from "./reservations.js";
 import { tokenLifetimeSeconds, DEFAULT_REFRESH_EXPIRES_IN, DEFAULT_SESSION_ABSOLUTE_EXPIRES_IN } from "../utils/jwt.js";
 
 const NODE_ENVS = ["development", "production", "test"];
 const SAME_SITE = ["lax", "strict", "none"];
 const MIN_SECRET_LENGTH = 32;
+
+// The Razorpay dashboard lets any string be the webhook secret; refuse short ones.
+const MIN_WEBHOOK_SECRET_LENGTH = 16;
 
 function isUrl(value, protocols) {
     try {
@@ -163,6 +167,24 @@ export function validateEnv(env = process.env) {
         errors.push("RAZORPAY_KEY_ID must be a Razorpay key id (rzp_test_... or rzp_live_...)");
     }
 
+    // The secret entered on the webhook in the Razorpay dashboard. It is a
+    // separate secret: the API key secret must never be reused for it.
+    const webhookSecret = String(env.RAZORPAY_WEBHOOK_SECRET ?? "").trim();
+
+    if (webhookSecret && webhookSecret === razorpaySecret) {
+        errors.push("RAZORPAY_WEBHOOK_SECRET must be different from RAZORPAY_KEY_SECRET");
+    } else if (webhookSecret && webhookSecret.length < MIN_WEBHOOK_SECRET_LENGTH) {
+        errors.push(`RAZORPAY_WEBHOOK_SECRET must be at least ${MIN_WEBHOOK_SECRET_LENGTH} characters`);
+    }
+
+    if (env.RESERVATION_EXPIRY_WORKER && !["true", "false"].includes(env.RESERVATION_EXPIRY_WORKER)) {
+        errors.push('RESERVATION_EXPIRY_WORKER must be "true" or "false" (unset = true)');
+    }
+
+    if (String(env.RESERVATION_CREATED_CUTOFF ?? "").trim() && createdCutoffMs(env.RESERVATION_CREATED_CUTOFF) === null) {
+        errors.push(`RESERVATION_CREATED_CUTOFF must be a duration with a unit from 1m to 24h, e.g. 90m or 2h (unset = ${DEFAULT_CREATED_CUTOFF})`);
+    }
+
     if (env.COOKIE_SAME_SITE && !SAME_SITE.includes(env.COOKIE_SAME_SITE)) {
         errors.push(`COOKIE_SAME_SITE must be one of: ${SAME_SITE.join(", ")}`);
     }
@@ -191,6 +213,11 @@ export function validateEnv(env = process.env) {
         // shares the proxy's IP and rate-limit budget. Make the choice explicit.
         if (!String(env.TRUST_PROXY ?? "").trim()) {
             errors.push('TRUST_PROXY is required in production: "false" when clients connect directly, otherwise the proxies in front of the app');
+        }
+        // Without the webhook, a payment whose browser tab was closed is only
+        // noticed when someone refreshes it (or the expiry worker asks).
+        if (razorpayKeyId && razorpaySecret && !webhookSecret) {
+            errors.push("RAZORPAY_WEBHOOK_SECRET is required in production when online payment is enabled");
         }
         // Plaintext to the database must be a deliberate choice, not a default.
         if (!env.DATABASE_SSL) {

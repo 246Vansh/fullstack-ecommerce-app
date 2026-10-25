@@ -11,6 +11,7 @@ import addressRoutes from "./addressRoutes.js";
 import checkoutRoutes from "./checkoutRoutes.js";
 import orderRoutes from "./orderRoutes.js";
 import adminRoutes from "./adminRoutes.js";
+import webhookRoutes from "./webhookRoutes.js";
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use("/addresses", addressRoutes);
 router.use("/checkout", checkoutRoutes);
 router.use("/orders", orderRoutes);
 router.use("/admin", adminRoutes);
+router.use("/webhooks", webhookRoutes);
 
 export default router;

@@ -32,11 +32,14 @@ export function runNode(args, env = {}, timeoutMs = 20000) {
     });
 }
 
+// The reservation expiry worker is off in every server a test starts (it
+// would cancel orders and call Razorpay in the background); a test that
+// needs it passes RESERVATION_EXPIRY_WORKER itself.
 export async function startServer(env = {}) {
     const port = await freePort();
     const child = spawn(process.execPath, ["server.js"], {
         cwd: BACKEND_DIR,
-        env: { ...process.env, ...env, PORT: String(port) },
+        env: { ...process.env, RESERVATION_EXPIRY_WORKER: "false", ...env, PORT: String(port) },
     });
 
     let output = "";

@@ -318,6 +318,13 @@ model Order {
   razorpayPaymentId String?   @unique @db.VarChar(64)
   paidAt            DateTime?
 
+  // Online orders only: the stock taken at checkout is held until this time
+  // (server clock, 30 minutes after the order was placed). An order still
+  // PENDING and unpaid at or after it is cancelled by the expiry worker,
+  // which sets expiredAt and gives the stock back (services/reservationService.js).
+  reservationExpiresAt DateTime?
+  expiredAt            DateTime?
+
   subtotal Decimal @db.Decimal(10, 2)
   discount Decimal @default(0) @db.Decimal(10, 2)
   shipping Decimal @default(0) @db.Decimal(10, 2)
@@ -344,12 +351,58 @@ model Order {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  user  User        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  items OrderItem[]
+  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items             OrderItem[]
+  unappliedPayments UnappliedPayment[]
 
   @@index([userId, createdAt])
   @@index([status])
+  @@index([status, reservationExpiresAt])
   @@map("orders")
+}
+
+// A captured Razorpay payment that could not be applied to its order (the
+// order was cancelled, already paid by another payment, expired with its
+// stock gone, or the amount did not match). The money is with the merchant
+// and must be refunded by hand in the Razorpay dashboard; refundedAt is set
+// only when Razorpay reports the refund as processed (refund.processed
+// webhook), never before. One row per payment, however often it is reported.
+model UnappliedPayment {
+  id                Int       @id @default(autoincrement())
+  orderId           Int
+  razorpayPaymentId String    @unique @db.VarChar(64)
+  razorpayOrderId   String    @db.VarChar(64)
+  // As Razorpay reported it: minor units (cents, paise) and currency.
+  amount            Int       @db.UnsignedInt
+  currency          String    @db.Char(3)
+  reason            String    @db.VarChar(40)
+  createdAt         DateTime  @default(now())
+  refundedAt        DateTime?
+  razorpayRefundId  String?   @unique @db.VarChar(64)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([refundedAt])
+  @@map("unapplied_payments")
+}
+
+// Razorpay webhook deliveries already handled, so a redelivery is answered
+// without being processed again. eventKey is Razorpay's X-Razorpay-Event-Id
+// (the same on every retry of one event), or "sha256:<hash of the body>"
+// when that header is missing. A row is written only after the event's
+// database changes have committed.
+model RazorpayWebhookEvent {
+  id                Int      @id @default(autoincrement())
+  eventKey          String   @unique @db.VarChar(80)
+  event             String   @db.VarChar(64)
+  razorpayOrderId   String?  @db.VarChar(64)
+  razorpayPaymentId String?  @db.VarChar(64)
+  outcome           String   @db.VarChar(40)
+  processedAt       DateTime @default(now())
+
+  @@index([razorpayOrderId])
+  @@map("razorpay_webhook_events")
 }
 
 // Snapshot of what was bought; product/variant links are kept

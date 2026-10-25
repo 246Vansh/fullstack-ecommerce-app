@@ -32,9 +32,25 @@ const CANCELLABLE_PAYMENT_STATUSES = ["UNPAID"];
 // RAZORPAY orders must be PAID (verified with Razorpay) before fulfilment.
 export const PAYMENT_METHODS = ["COD", "RAZORPAY"];
 
-// Online orders that can still be paid: not yet paid, not cancelled or moved on.
-export const isPayable = (order) => order.paymentMethod === "RAZORPAY"
-    && order.status === "PENDING" && ["UNPAID", "FAILED"].includes(order.paymentStatus);
+// How long an online order holds its stock while waiting for payment. The
+// deadline is stored on the order (reservationExpiresAt) from the server
+// clock; an order still PENDING and unpaid at or after it is due for expiry
+// (see services/reservationService.js). COD orders have no deadline.
+export const RESERVATION_MINUTES = 30;
+export const RESERVATION_MS = RESERVATION_MINUTES * 60 * 1000;
+
+export const UNPAID_PAYMENT_STATUSES = ["UNPAID", "FAILED"];
+
+// The reservation deadline has been reached (the boundary itself counts as expired).
+export const reservationEnded = (order, now = new Date()) => order.reservationExpiresAt != null
+    && order.reservationExpiresAt.getTime() <= now.getTime();
+
+// Online orders that can still be paid: not yet paid, not cancelled or moved
+// on, and still inside the reservation window. (A payment that is already in
+// flight when the window ends is still settled; see paymentService.)
+export const isPayable = (order, now = new Date()) => order.paymentMethod === "RAZORPAY"
+    && order.status === "PENDING" && UNPAID_PAYMENT_STATUSES.includes(order.paymentStatus)
+    && !reservationEnded(order, now);
 
 // An online order that has not been paid cannot enter fulfilment.
 const awaitsPayment = (order) => order.paymentMethod === "RAZORPAY" && order.paymentStatus !== "PAID";
@@ -67,6 +83,10 @@ const orderSelect = {
     shippingState: true,
     shippingZipCode: true,
     shippingCountry: true,
+    reservationExpiresAt: true,
+    expiredAt: true,
+    // Captured payments still waiting for a manual refund.
+    _count: { select: { unappliedPayments: { where: { refundedAt: null } } } },
     items: {
         select: {
             id: true,
@@ -97,8 +117,14 @@ function toOrderResponse(order) {
         paymentStatus: order.paymentStatus,
         paymentMethod: order.paymentMethod,
         paidAt: order.paidAt,
-        // An online order the customer can (still) pay for.
+        // An online order the customer can (still) pay for, and until when.
         payable: isPayable(order),
+        paymentDueBy: isPayable(order) ? order.reservationExpiresAt : null,
+        // Cancelled by the server because it was not paid in time.
+        expired: order.expiredAt != null,
+        // A payment was received that could not be applied (e.g. it arrived
+        // after the order expired and the stock was gone); it is to be refunded.
+        refundDue: (order._count?.unappliedPayments ?? 0) > 0,
         cancellable: CANCELLABLE_STATUSES.includes(order.status)
             && CANCELLABLE_PAYMENT_STATUSES.includes(order.paymentStatus),
         createdAt: order.createdAt,
@@ -234,11 +260,16 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurren
 
     const user = await tx.user.findUnique({ where: { id: userId }, select: { email: true } });
 
+    const placedAt = new Date();
+
     const order = await tx.order.create({
         data: {
             orderNumber: generateOrderNumber(),
             userId,
             paymentMethod,
+            placedAt,
+            // Online orders hold this stock only until the payment deadline.
+            reservationExpiresAt: paymentMethod === "RAZORPAY" ? new Date(placedAt.getTime() + RESERVATION_MS) : null,
             ...totals,
             currency,
             shippingFirstName: address.firstName,
@@ -343,17 +374,19 @@ export async function listOrders(userId, { page, limit }) {
                 total: true,
                 currency: true,
                 createdAt: true,
+                reservationExpiresAt: true,
                 items: { select: { quantity: true } },
             },
         }),
     ]);
 
     return {
-        data: orders.map(({ items, total: orderTotal, ...order }) => ({
+        // reservationExpiresAt is read only to decide `payable`; list rows keep their fields.
+        data: orders.map(({ items, total: orderTotal, reservationExpiresAt, ...order }) => ({
             ...order,
             total: toMoney(orderTotal),
             itemCount: items.reduce((count, item) => count + item.quantity, 0),
-            payable: isPayable(order),
+            payable: isPayable({ ...order, reservationExpiresAt }),
         })),
         pagination: {
             page,
@@ -396,9 +429,17 @@ const STEP_TIMESTAMPS = { SHIPPED: "shippedAt", DELIVERED: "deliveredAt" };
 
 export const ADMIN_ORDER_PAGINATION = { defaultLimit: 20, maxLimit: 100 };
 
-// One page of all customers' orders, newest first; optionally one status.
-export async function listAdminOrders({ page, limit, status }) {
-    const where = status ? { status } : {};
+// One page of all customers' orders, newest first; optionally one status,
+// and optionally only orders with (refundDue true) or without (false) a
+// captured payment still waiting for a refund.
+const OPEN_REFUND = { refundedAt: null };
+
+export async function listAdminOrders({ page, limit, status, refundDue }) {
+    const where = {
+        ...(status && { status }),
+        ...(refundDue === true && { unappliedPayments: { some: OPEN_REFUND } }),
+        ...(refundDue === false && { unappliedPayments: { none: OPEN_REFUND } }),
+    };
 
     const [total, orders] = await Promise.all([
         prisma.order.count({ where }),
@@ -420,13 +461,15 @@ export async function listAdminOrders({ page, limit, status }) {
                 shippingLastName: true,
                 shippingEmail: true,
                 items: { select: { quantity: true } },
+                _count: { select: { unappliedPayments: { where: { refundedAt: null } } } },
             },
         }),
     ]);
 
     return {
-        data: orders.map(({ items, total: orderTotal, shippingFirstName, shippingLastName, shippingEmail, ...order }) => ({
+        data: orders.map(({ items, total: orderTotal, shippingFirstName, shippingLastName, shippingEmail, _count, ...order }) => ({
             ...order,
+            refundDue: _count.unappliedPayments > 0,
             total: toMoney(orderTotal),
             itemCount: items.reduce((count, item) => count + item.quantity, 0),
             customer: { name: `${shippingFirstName} ${shippingLastName}`.trim(), email: shippingEmail },
@@ -442,21 +485,33 @@ export async function listAdminOrders({ page, limit, status }) {
 export async function getAdminOrder(id) {
     const order = await prisma.order.findUnique({
         where: { id },
-        select: { ...orderSelect, userId: true, shippedAt: true, deliveredAt: true, razorpayOrderId: true, razorpayPaymentId: true },
+        select: {
+            ...orderSelect, userId: true, shippedAt: true, deliveredAt: true, razorpayOrderId: true, razorpayPaymentId: true,
+            unappliedPayments: {
+                select: { razorpayPaymentId: true, amount: true, currency: true, reason: true, createdAt: true, refundedAt: true, razorpayRefundId: true },
+                orderBy: { id: "asc" },
+            },
+        },
     });
 
     if (!order) throw new ApiError(404, "Order not found");
 
-    const { cancellable, payable, ...response } = toOrderResponse(order);
+    const { cancellable, payable, paymentDueBy, ...response } = toOrderResponse(order);
 
     return {
         ...response,
         userId: order.userId,
         shippedAt: order.shippedAt,
         deliveredAt: order.deliveredAt,
+        reservationExpiresAt: order.reservationExpiresAt,
+        expiredAt: order.expiredAt,
         // Gateway references, for reconciliation in the Razorpay dashboard.
         razorpayOrderId: order.razorpayOrderId,
         razorpayPaymentId: order.razorpayPaymentId,
+        // Captured payments that could not be applied: refund them in the
+        // Razorpay dashboard; refundedAt is set once Razorpay confirms it.
+        // Amounts are in minor units (cents, paise), as Razorpay reports them.
+        unappliedPayments: order.unappliedPayments,
         awaitingPayment: awaitsPayment(order),
         nextStatus: adminNextStatus(order),
     };
@@ -493,6 +548,27 @@ export async function advanceOrderStatus(id, status) {
     }
 
     return getAdminOrder(id);
+}
+
+// Gives every item of the order its quantity back, in variant id order (the
+// order checkout locks them in). Called only inside the transaction whose
+// conditional UPDATE just moved the order to CANCELLED, so the stock of one
+// order is returned at most once.
+async function restoreStock(tx, orderId, step) {
+    const items = await tx.orderItem.findMany({
+        where: { orderId, variantId: { not: null } },
+        select: { variantId: true, quantity: true },
+        orderBy: { variantId: "asc" },
+    });
+
+    for (const { variantId, quantity } of items) {
+        await tx.productVariant.update({
+            where: { id: variantId },
+            data: { stock: { increment: quantity } },
+        });
+
+        await step("restore");
+    }
 }
 
 /*
@@ -536,20 +612,7 @@ export async function cancelOrder(userId, id, hooks) {
 
             await step("status");
 
-            const items = await tx.orderItem.findMany({
-                where: { orderId: id, variantId: { not: null } },
-                select: { variantId: true, quantity: true },
-                orderBy: { variantId: "asc" },
-            });
-
-            for (const { variantId, quantity } of items) {
-                await tx.productVariant.update({
-                    where: { id: variantId },
-                    data: { stock: { increment: quantity } },
-                });
-
-                await step("restore");
-            }
+            await restoreStock(tx, id, step);
 
             return tx.order.findUnique({ where: { id }, select: orderSelect });
         }, TRANSACTION_OPTIONS);
@@ -564,4 +627,172 @@ export async function cancelOrder(userId, id, hooks) {
 
         throw err;
     }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Reservation expiry and late payments (online orders)
+|--------------------------------------------------------------------------
+| expireOrder: one transaction. A conditional UPDATE moves the order to
+| CANCELLED (setting expiredAt) only while it is still an online order,
+| PENDING, unpaid and past its deadline; then its stock is given back. Paying
+| the order (paymentService) is the opposite conditional UPDATE on the same
+| row (PENDING + unpaid -> PAID). MySQL row-locks the order for whichever
+| runs first and re-checks the other's WHERE against the committed row, so
+| exactly one of them wins; the loser matches 0 rows and changes nothing.
+|
+| reinstateExpiredOrder: a captured payment for an order that has already
+| expired. One transaction, and one decision made under the order's row lock:
+| 1. Lock the order row (SELECT ... FOR UPDATE) and re-read it. Anything but
+|    an expired, unpaid order of this gateway order: "CHANGED".
+| 2. If this payment already has an unapplied_payments row (a refund is owed,
+|    or was made), it is never used to fulfil the order: "REFUND_DUE".
+| 3. Lock the items' variants (in id order, as checkout does) and check that
+|    every item is still active and in stock.
+| 4. Either take the stock and mark the order PENDING + PAID ("PAID"), or
+|    record the payment in unapplied_payments ("REFUND_DUE"). Both happen in
+|    this transaction, so a crash between deciding and recording cannot lose
+|    the refund obligation: a failure rolls everything back, and the payment
+|    is decided again by the next attempt (webhook retry, refresh, or the
+|    expiry worker's late-payment check).
+| Any later attempt with the same payment waits for the lock and then sees
+| the committed outcome, so one payment is never both refunded and fulfilled.
+*/
+
+// unapplied_payments.reason for a late payment whose order could not be reinstated.
+export const LATE_PAYMENT_STOCK_UNAVAILABLE = "expired_stock_unavailable";
+
+export async function expireOrder(id, now = new Date(), hooks) {
+    return prisma.$transaction(async (tx) => {
+        const step = async (name) => hooks?.afterStep?.(name, tx);
+
+        const { count } = await tx.order.updateMany({
+            where: {
+                id,
+                paymentMethod: "RAZORPAY",
+                status: "PENDING",
+                paymentStatus: { in: UNPAID_PAYMENT_STATUSES },
+                reservationExpiresAt: { lte: now },
+            },
+            data: { status: "CANCELLED", expiredAt: now },
+        });
+
+        if (count === 0) return false;
+
+        await step("status");
+
+        await restoreStock(tx, id, step);
+
+        return true;
+    }, TRANSACTION_OPTIONS);
+}
+
+// MySQL returns BOOLEAN columns from raw queries as 0/1.
+const flag = (value) => Boolean(Number(value));
+
+// Every item of the order can be sold again: its variant still exists and is
+// active, its product is active, and the stock covers the quantity. The
+// variant rows are locked (in id order) until the transaction ends.
+async function lockAndCheckStock(tx, orderId) {
+    const items = await tx.orderItem.findMany({
+        where: { orderId },
+        select: { variantId: true, quantity: true },
+        orderBy: { variantId: "asc" },
+    });
+
+    // A variant deleted since the order was placed cannot be sold again.
+    if (items.some((item) => item.variantId == null)) return { available: false, items };
+    if (items.length === 0) return { available: true, items };
+
+    const needed = new Map();
+    for (const { variantId, quantity } of items) needed.set(variantId, (needed.get(variantId) ?? 0) + quantity);
+    const ids = [...needed.keys()].sort((a, b) => a - b);
+
+    const variants = await tx.$queryRaw`
+        SELECT id, productId, stock, isActive FROM product_variants
+        WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`;
+    const products = await tx.product.findMany({
+        where: { id: { in: [...new Set(variants.map((v) => Number(v.productId)))] } },
+        select: { id: true, isActive: true },
+    });
+
+    const available = ids.every((id) => {
+        const variant = variants.find((v) => Number(v.id) === id);
+        const product = variant && products.find((p) => p.id === Number(variant.productId));
+        return variant && flag(variant.isActive) && product?.isActive && Number(variant.stock) >= needed.get(id);
+    });
+
+    return { available, items };
+}
+
+// "PAID" (reinstated and paid), "REFUND_DUE" (the payment is recorded in
+// unapplied_payments, now or earlier; the order stays cancelled) or "CHANGED"
+// (no longer an expired unpaid order of this gateway order; re-read it). A
+// unique-key error on orders.razorpayPaymentId (the payment already paid
+// another order) is left to the caller. `payment` is a captured payment of
+// exactly the order's amount and currency (checked by paymentService).
+export async function reinstateExpiredOrder(order, payment, hooks) {
+    return prisma.$transaction(async (tx) => {
+        const step = async (name) => hooks?.afterStep?.(name, tx);
+
+        const [current] = await tx.$queryRaw`
+            SELECT status, paymentStatus, paymentMethod, razorpayOrderId, expiredAt FROM orders
+            WHERE id = ${order.id} FOR UPDATE`;
+
+        if (!current || current.paymentMethod !== "RAZORPAY" || current.razorpayOrderId !== payment.order_id
+            || current.status !== "CANCELLED" || current.expiredAt == null
+            || !UNPAID_PAYMENT_STATUSES.includes(current.paymentStatus)) {
+            return "CHANGED";
+        }
+
+        // A locking read: the latest committed row, not this transaction's snapshot.
+        const [owed] = await tx.$queryRaw`
+            SELECT id FROM unapplied_payments WHERE razorpayPaymentId = ${payment.id} FOR SHARE`;
+
+        if (owed) return "REFUND_DUE";
+
+        const { available, items } = await lockAndCheckStock(tx, order.id);
+
+        await step("checked");
+
+        if (!available) {
+            await tx.unappliedPayment.create({
+                data: {
+                    orderId: order.id,
+                    razorpayPaymentId: payment.id,
+                    razorpayOrderId: payment.order_id,
+                    amount: payment.amount,
+                    currency: payment.currency,
+                    reason: LATE_PAYMENT_STOCK_UNAVAILABLE,
+                },
+            });
+
+            await step("refund_due");
+
+            return "REFUND_DUE";
+        }
+
+        const { count } = await tx.order.updateMany({
+            where: { id: order.id, status: "CANCELLED", paymentStatus: { in: UNPAID_PAYMENT_STATUSES } },
+            data: { status: "PENDING", paymentStatus: "PAID", razorpayPaymentId: payment.id, paidAt: new Date() },
+        });
+
+        if (count !== 1) throw new Error("Expired order changed while locked");
+
+        await step("status");
+
+        for (const { variantId, quantity } of items) {
+            // Checked above under the same lock; the condition is a second guard.
+            const { count: taken } = await tx.productVariant.updateMany({
+                where: { id: variantId, isActive: true, stock: { gte: quantity } },
+                data: { stock: { decrement: quantity } },
+            });
+
+            if (taken === 0) throw new Error("Stock changed while locked");
+
+            await step("stock");
+        }
+
+        return "PAID";
+    }, TRANSACTION_OPTIONS);
 }
