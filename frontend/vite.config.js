@@ -22,11 +22,21 @@ export default defineConfig(({ command, mode, isPreview }) => {
   return {
     plugins: [
       vue(),
-      tailwindcss() // <-- Ensure this is listed
+      tailwindcss()
     ],
+    server: {
+      host: '0.0.0.0',
+      allowedHosts: ['chafe-angelic-coastal.ngrok-free.dev'],
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:5000',
+          changeOrigin: true,
+        },
+      },
+    },
     resolve: {
       alias: {
-        "@": fileURLToPath(new URL('./src', import.meta.url)),
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       }
     }
   }
