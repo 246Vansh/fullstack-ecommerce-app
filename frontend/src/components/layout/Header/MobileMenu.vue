@@ -142,6 +142,21 @@
 
                                 <div class="flow-root">
 
+                                    <RouterLink :to="ROUTES.NOTIFICATIONS"
+                                        class="-m-2 flex items-center justify-between gap-3 rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
+                                        @click="closeMenu">
+                                        Notifications
+                                        <span v-if="notifications.unreadCount"
+                                            class="min-w-6 rounded-full bg-brand px-2 py-0.5 text-center text-xs font-semibold text-white tabular-nums">
+                                            {{ formatUnreadBadge(notifications.unreadCount) }}
+                                            <span class="sr-only">unread</span>
+                                        </span>
+                                    </RouterLink>
+
+                                </div>
+
+                                <div class="flow-root">
+
                                     <RouterLink :to="ROUTES.ORDERS"
                                         class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
                                         @click="closeMenu">
@@ -243,6 +258,8 @@ import { RouterLink, useRoute } from "vue-router";
 import { ROUTES } from "@/config";
 import { useAuth } from "@/composables/useAuth";
 import { useAuthStore } from "@/stores/authStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { formatUnreadBadge } from "@/utils/notifications";
 import { restoreFocusAfterDialog } from "@/router/pageFocus";
 
 const {
@@ -251,6 +268,7 @@ const {
 } = useMobileMenu();
 
 const auth = useAuthStore();
+const notifications = useNotificationStore();
 
 // A menu link navigates and closes the menu; focus then belongs to the new page.
 const route = useRoute();

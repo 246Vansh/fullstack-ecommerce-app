@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { cancelOrder, getOrder } from "./orderService.js";
+import { notifyOrderEvent } from "./notificationService.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -313,6 +314,10 @@ async function settle(userId, order, payment) {
             ? "This order has already been paid. Please contact support about the extra payment."
             : "This order can no longer be paid. Please contact support about a refund.");
     }
+
+    // Only the request whose UPDATE marked the order PAID notifies; repeated
+    // or concurrent verifications return above without one. Never throws.
+    await notifyOrderEvent(order, "PAYMENT_RECEIVED");
 
     return result("PAID", userId, order.id);
 }

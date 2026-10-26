@@ -14,6 +14,8 @@ export const ROUTES = {
 
     ACCOUNT: "/account",
 
+    NOTIFICATIONS: "/notifications",
+
     ADMIN: "/admin",
 
     LOGIN: "/login",

@@ -16,13 +16,19 @@
 
             <!-- Mobile Menu Button -->
             <button id="mobile-menu-button" type="button"
-              class="-ml-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand lg:hidden cursor-pointer"
+              class="relative -ml-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand lg:hidden cursor-pointer"
               aria-haspopup="dialog" :aria-expanded="open" @click="openMenu">
               <span class="sr-only">
                 Open menu
               </span>
 
               <Bars3Icon class="h-6 w-6" aria-hidden="true" />
+
+              <!-- Unread notifications, where the header bell is hidden (under 360px).
+                   The menu's Notifications link carries the count for screen readers. -->
+              <span v-if="notifications.unreadCount"
+                class="absolute top-2.5 right-2.5 size-2.5 rounded-full bg-brand ring-2 ring-white min-[360px]:hidden"
+                aria-hidden="true"></span>
             </button>
 
             <!-- Logo -->
@@ -53,10 +59,14 @@ import MobileMenu from "./MobileMenu.vue";
 import HeaderActions from "./HeaderActions.vue";
 import DesktopNavigation from "./DesktopNavigation.vue";
 import { useMobileMenu } from "@/composables/useMobileMenu";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 const {
   open,
   openMenu
 } = useMobileMenu();
+
+// Signed out, the count is always 0 (the store resets with the user).
+const notifications = useNotificationStore();
 
 </script>

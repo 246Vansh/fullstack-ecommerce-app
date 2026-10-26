@@ -74,6 +74,13 @@ export const routes = [
         meta: { title: "Account Settings", requiresAuth: true },
     },
 
+    {
+        path: "/notifications",
+        name: "notifications",
+        component: () => import("@/pages/notificationsPage.vue"),
+        meta: { title: "Notifications", requiresAuth: true },
+    },
+
     // /trackOrder is not registered until tracking exists; its page still
     // renders static placeholder data.
 

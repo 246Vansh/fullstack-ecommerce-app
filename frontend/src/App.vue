@@ -11,7 +11,20 @@
 </template>
 
 <script setup>
+import { onMounted, onUnmounted } from "vue";
 import { RouterView } from "vue-router";
 
 import { focusMainContent } from "@/router/pageFocus";
+import { useNotificationStore } from "@/stores/notificationStore";
+
+// One unread-count poll for the app's lifetime (not per page: each page
+// mounts its own header). It pauses while signed out or the tab is hidden.
+const notifications = useNotificationStore();
+let stopPolling = null;
+
+onMounted(() => {
+    stopPolling = notifications.startPolling();
+});
+
+onUnmounted(() => stopPolling?.());
 </script>

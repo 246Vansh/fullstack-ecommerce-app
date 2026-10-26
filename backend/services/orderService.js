@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { loadCartItems } from "./checkoutService.js";
+import { notifyOrderEvent } from "./notificationService.js";
 import { calculateTotals, lineTotalOf, roundMoney, toMoney } from "./pricingService.js";
 
 // Waiting for another checkout of the same variant or cart can take a moment
@@ -290,6 +291,9 @@ export async function createOrder(userId, { addressId, expectedTotal, expectedCu
         try {
             const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal, expectedCurrency, paymentMethod }, hooks), TRANSACTION_OPTIONS);
 
+            // Committed: the order and its items exist. Never throws.
+            await notifyOrderEvent({ ...order, userId }, "ORDER_PLACED");
+
             return toOrderResponse(order);
         } catch (err) {
             if (err instanceof ApiError) throw err;
@@ -492,7 +496,11 @@ export async function advanceOrderStatus(id, status) {
             : `This order is ${statusLabel(current.status)} and cannot be marked ${statusLabel(status)}`);
     }
 
-    return getAdminOrder(id);
+    // This request made the transition; the owner comes from the order row.
+    const order = await getAdminOrder(id);
+    await notifyOrderEvent(order, `ORDER_${status}`);
+
+    return order;
 }
 
 /*
@@ -553,6 +561,9 @@ export async function cancelOrder(userId, id, hooks) {
 
             return tx.order.findUnique({ where: { id }, select: orderSelect });
         }, TRANSACTION_OPTIONS);
+
+        // Committed: status and stock changed. Never throws.
+        await notifyOrderEvent({ ...order, userId }, "ORDER_CANCELLED");
 
         return toOrderResponse(order);
     } catch (err) {

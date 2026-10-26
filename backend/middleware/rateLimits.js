@@ -48,6 +48,13 @@ export const paymentLimiter = limiter({
     message: { success: false, message: "Too many payment attempts, please try again later" },
 });
 
+// Marking notifications read, keyed by user (use after authenticate). Each
+// click on a notification is one request; reads use generalLimiter.
+export const notificationMutationLimiter = limiter({
+    limit: 120,
+    keyGenerator: (req) => `user:${req.user.id}`,
+});
+
 // Profile edits, keyed by user (use after authenticate).
 export const profileUpdateLimiter = limiter({
     limit: 20,
