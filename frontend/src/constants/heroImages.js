@@ -5,7 +5,7 @@
 // portrait shot; the other two fill square tiles, so their subject is
 // centred. Chosen to show no third-party logos or labels. They are
 // decorative: the hero's text and links say what the store sells.
-export const HERO_ROTATE_MS = 60 * 1000;
+export const HERO_ROTATE_MS = 60 * 100;
 
 export const heroImageSets = [
     [
