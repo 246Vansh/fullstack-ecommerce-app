@@ -2,154 +2,166 @@
 
     <Header />
 
-    <main id="main-content" tabindex="-1" class="bg-slate-50">
+    <main id="main-content" tabindex="-1" class="bg-surface">
 
-        <div class="mx-auto max-w-[1700px] px-4 py-6 sm:px-6">
+        <div class="mx-auto max-w-7xl px-4 pt-6 pb-16 sm:px-6 sm:pt-8 lg:px-8">
 
-            <RouterLink :to="{ name: 'orders' }" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">
-                <span aria-hidden="true">←</span> My Orders
+            <RouterLink :to="{ name: 'orders' }"
+                class="-ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-control px-1 text-sm font-medium text-slate-600 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                <ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />
+                Back to My Orders
             </RouterLink>
 
             <!-- Loading -->
             <section v-if="loading && !order"
-                class="mt-4 flex min-h-100 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white">
-                <LoadingSpinner class="text-gray-400" label="Loading order" />
+                class="mt-4 flex min-h-96 items-center justify-center rounded-panel border border-slate-200 bg-white">
+                <LoadingSpinner class="text-brand" label="Loading order" />
             </section>
 
             <!-- Error / not found (another user's order looks the same) -->
             <section v-else-if="!order"
-                class="mt-4 flex min-h-100 flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center">
-                <h1 class="text-2xl font-bold text-gray-900">Order unavailable</h1>
-                <p class="mt-2 text-gray-500">{{ error }}</p>
-                <div class="mt-6 flex flex-wrap justify-center gap-3">
+                class="mt-4 flex min-h-96 flex-col items-center justify-center rounded-panel border border-slate-200 bg-white px-6 text-center">
+                <ExclamationTriangleIcon class="h-8 w-8 text-slate-400" aria-hidden="true" />
+                <h1 class="mt-4 text-2xl font-semibold tracking-tight text-slate-900">Order unavailable</h1>
+                <p class="mt-2 text-slate-600">{{ error }}</p>
+                <div class="mt-8 flex flex-wrap justify-center gap-3">
                     <!-- A missing order will not appear on retry; a failed request might. -->
-                    <button v-if="!notFound" type="button"
-                        class="rounded-xl border border-gray-200 px-6 py-3 font-semibold text-slate-700 hover:bg-gray-50 cursor-pointer"
-                        @click="load(route.params.id)">
+                    <PrimaryButton v-if="!notFound" tag="button" variant="outline" @click="load(route.params.id)">
                         Try again
-                    </button>
-                    <RouterLink :to="{ name: 'orders' }"
-                        class="rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-700">
+                    </PrimaryButton>
+                    <PrimaryButton :to="{ name: 'orders' }">
                         View My Orders
-                    </RouterLink>
+                    </PrimaryButton>
                 </div>
             </section>
 
             <template v-else>
 
-                <!-- Summary -->
-                <section class="mt-4 rounded-xl bg-white p-5 shadow-sm sm:p-6">
+                <!-- Order header -->
+                <header class="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-
-                        <div class="min-w-0">
-                            <h1 class="wrap-anywhere text-2xl font-extrabold text-slate-900">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <h1 class="wrap-anywhere text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
                                 Order #{{ order.orderNumber }}
                             </h1>
-                            <p class="mt-1 text-sm text-slate-500">
-                                Placed {{ formatDate(order.createdAt, true) }}
-                                <template v-if="order.status === 'CANCELLED'">
-                                    · Cancelled {{ formatDate(order.updatedAt, true) }}
-                                </template>
-                            </p>
-                        </div>
-
-                        <div class="flex items-center gap-3 self-start">
                             <OrderStatusBadge :status="order.status" />
-                            <RouterLink :to="{ name: 'order-receipt', params: { id: order.id } }"
-                                class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-gray-50">
-                                View receipt
-                            </RouterLink>
                         </div>
-
-                    </div>
-
-                    <!-- Totals: stored on the order when it was placed -->
-                    <dl class="mt-5 grid max-w-sm gap-2 text-sm">
-                        <div v-for="row in totals" :key="row.label" class="flex justify-between">
-                            <dt class="text-slate-600">{{ row.label }}</dt>
-                            <dd class="font-medium text-slate-900">{{ row.value }}</dd>
-                        </div>
-                        <div class="flex justify-between border-t border-gray-100 pt-2">
-                            <dt class="font-bold text-slate-900">Total</dt>
-                            <dd class="font-bold text-slate-900">{{ formatPrice(order.total, order.currency) }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-slate-600">Payment</dt>
-                            <dd class="font-medium text-slate-900">{{ paymentStatusLabel(order.paymentStatus) }}</dd>
-                        </div>
-                        <div v-if="order.paymentMethod" class="flex justify-between">
-                            <dt class="text-slate-600">Payment method</dt>
-                            <dd class="font-medium text-slate-900">{{ paymentMethodLabel(order.paymentMethod) }}</dd>
-                        </div>
-                    </dl>
-
-                    <!-- Online payment: pay, or have the server re-check with Razorpay. -->
-                    <div v-if="order.paymentMethod === 'RAZORPAY' && (order.payable || paymentMessage)"
-                        class="mt-6 border-t border-gray-100 pt-5">
-
-                        <p v-if="paymentMessage" :role="paymentState === 'PAID' ? 'status' : 'alert'"
-                            class="mb-4 text-sm font-medium"
-                            :class="paymentState === 'PAID' ? 'text-green-700' : paymentState === 'ERROR' ? 'text-red-600' : 'text-slate-700'">
-                            {{ paymentMessage }}
+                        <p class="mt-2 text-sm text-slate-600">
+                            Placed {{ formatDate(order.createdAt, true) }}
+                            <template v-if="order.status === 'CANCELLED'">
+                                · Cancelled {{ formatDate(order.updatedAt, true) }}
+                            </template>
+                            · {{ itemCount }} {{ itemCount === 1 ? "item" : "items" }}
                         </p>
-
-                        <div v-if="order.payable" class="flex flex-wrap gap-3">
-                            <button type="button" :disabled="paying"
-                                class="rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50 cursor-pointer"
-                                @click="payNow">
-                                {{ paying ? "Please wait…" : `Pay ${formatPrice(order.total, order.currency)}` }}
-                            </button>
-                            <button type="button" :disabled="paying"
-                                class="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
-                                @click="refreshStatus">
-                                Refresh payment status
-                            </button>
-                        </div>
                     </div>
 
-                    <!-- Cancellation -->
-                    <div v-if="order.cancellable" class="mt-6 border-t border-gray-100 pt-5">
+                    <PrimaryButton :to="{ name: 'order-receipt', params: { id: order.id } }" variant="outline" size="sm"
+                        class="self-start sm:self-auto">
+                        <DocumentTextIcon class="h-4 w-4" aria-hidden="true" />
+                        View receipt
+                    </PrimaryButton>
 
-                        <button v-if="!confirming" id="cancel-order" type="button"
-                            class="rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 cursor-pointer"
-                            @click="openConfirm">
-                            Cancel Order
-                        </button>
+                </header>
 
-                        <div v-else role="alertdialog" aria-labelledby="cancel-heading" aria-describedby="cancel-note"
-                            class="rounded-xl border border-red-200 bg-red-50 p-4">
-                            <p id="cancel-heading" class="font-semibold text-slate-900">Cancel this order?</p>
-                            <p id="cancel-note" class="mt-1 text-sm text-slate-600">
-                                The items will be released back to stock. This cannot be undone.
-                            </p>
-                            <div class="mt-4 flex flex-wrap gap-3">
-                                <button type="button" :disabled="cancelling"
-                                    class="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 cursor-pointer"
-                                    @click="cancel">
-                                    {{ cancelling ? "Cancelling..." : "Yes, cancel order" }}
-                                </button>
-                                <button id="keep-order" type="button" :disabled="cancelling"
-                                    class="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
-                                    @click="closeConfirm">
-                                    Keep order
-                                </button>
+                <!-- Online payment: pay, or have the server re-check with Razorpay. -->
+                <section v-if="order.paymentMethod === 'RAZORPAY' && (order.payable || paymentMessage)"
+                    class="mt-6 rounded-panel border p-5 sm:p-6"
+                    :class="paymentState === 'PAID' ? 'border-brand/20 bg-brand-soft' : 'border-slate-200 bg-white'"
+                    aria-labelledby="payment-heading">
+
+                    <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+                        <div class="flex min-w-0 gap-3">
+                            <CheckCircleIcon v-if="paymentState === 'PAID'" class="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+                            <CreditCardIcon v-else class="h-6 w-6 shrink-0 text-slate-500" aria-hidden="true" />
+                            <div class="min-w-0">
+                                <h2 id="payment-heading" class="text-base font-semibold text-slate-900">
+                                    {{ order.payable ? "Payment required" : "Payment" }}
+                                </h2>
+                                <p v-if="order.payable && !paymentMessage" class="mt-1 text-sm text-slate-600">
+                                    Complete payment to confirm this order.
+                                </p>
+                                <p v-if="paymentMessage" :role="paymentState === 'PAID' ? 'status' : 'alert'"
+                                    class="mt-1 text-sm font-medium"
+                                    :class="paymentState === 'PAID' ? 'text-brand' : paymentState === 'ERROR' ? 'text-red-700' : 'text-slate-700'">
+                                    {{ paymentMessage }}
+                                </p>
                             </div>
                         </div>
 
+                        <!-- One request at a time: both buttons are disabled while either runs. -->
+                        <div v-if="order.payable" class="flex flex-col gap-3 sm:flex-row lg:shrink-0">
+                            <PrimaryButton tag="button" :loading="paying && paymentAction === 'pay'" :disabled="paying"
+                                @click="payNow">
+                                {{ paying && paymentAction === "pay" ? "Please wait…" : `Pay ${formatPrice(order.total, order.currency)}` }}
+                            </PrimaryButton>
+                            <PrimaryButton tag="button" variant="outline" :loading="paying && paymentAction === 'refresh'"
+                                :disabled="paying" @click="refreshStatus">
+                                <ArrowPathIcon v-if="!(paying && paymentAction === 'refresh')" class="h-4 w-4" aria-hidden="true" />
+                                {{ paying && paymentAction === "refresh" ? "Checking…" : "Refresh payment status" }}
+                            </PrimaryButton>
+                        </div>
+
+                    </div>
+                </section>
+
+                <div class="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
+
+                    <!-- Progress + items -->
+                    <div class="min-w-0 space-y-5">
+                        <OrderProgress :order="order" />
+                        <OrderItemsCard :items="order.items" :currency="order.currency" />
                     </div>
 
-                    <p v-if="cancelError" role="alert" class="mt-4 text-sm font-medium text-red-600">
-                        {{ cancelError }}
-                    </p>
+                    <!-- Summary, address, cancellation -->
+                    <div class="min-w-0 space-y-5">
 
-                </section>
+                        <OrderSummaryCard :order="order" />
 
-                <!-- Items + address -->
-                <section class="mt-5 grid gap-5 lg:grid-cols-[2fr_1fr]">
-                    <purchasedProducts :products="order.items" :currency="order.currency" />
-                    <shippingCard :address="order.shippingAddress" class="self-start" />
-                </section>
+                        <OrderAddressCard :address="order.shippingAddress" :email="order.email ?? ''" />
+
+                        <!-- Cancellation: kept apart from payment as the one destructive action. -->
+                        <section v-if="order.cancellable || cancelError"
+                            class="rounded-panel border border-slate-200 bg-white p-5 sm:p-6" aria-label="Cancel order">
+
+                            <template v-if="order.cancellable">
+                                <div v-if="!confirming">
+                                    <p class="text-sm text-slate-600">This order can still be cancelled.</p>
+                                    <PrimaryButton id="cancel-order" tag="button" variant="danger-outline" class="mt-3"
+                                        full-width :disabled="paying" @click="openConfirm">
+                                        Cancel Order
+                                    </PrimaryButton>
+                                </div>
+
+                                <div v-else role="alertdialog" aria-labelledby="cancel-heading" aria-describedby="cancel-note"
+                                    class="rounded-card border border-red-200 bg-red-50 p-4">
+                                    <p id="cancel-heading" class="font-semibold text-slate-900">Cancel this order?</p>
+                                    <p id="cancel-note" class="mt-1 text-sm text-slate-600">
+                                        The items will be released back to stock. This cannot be undone.
+                                    </p>
+                                    <div class="mt-4 flex flex-col gap-3 sm:flex-row lg:flex-col">
+                                        <PrimaryButton tag="button" variant="danger" :loading="cancelling" @click="cancel">
+                                            {{ cancelling ? "Cancelling..." : "Yes, cancel order" }}
+                                        </PrimaryButton>
+                                        <PrimaryButton id="keep-order" tag="button" variant="outline" :disabled="cancelling"
+                                            @click="closeConfirm">
+                                            Keep order
+                                        </PrimaryButton>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <p v-if="cancelError" role="alert" class="text-sm font-medium text-red-700"
+                                :class="{ 'mt-4': order.cancellable }">
+                                {{ cancelError }}
+                            </p>
+
+                        </section>
+
+                    </div>
+
+                </div>
 
             </template>
 
@@ -164,17 +176,28 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
+import {
+    ArrowLeftIcon,
+    ArrowPathIcon,
+    CheckCircleIcon,
+    CreditCardIcon,
+    DocumentTextIcon,
+    ExclamationTriangleIcon,
+} from "@heroicons/vue/24/outline";
 
 import Header from "@/components/layout/Header/Header.vue";
 import Footer from "@/components/layout/Footer/Footer.vue";
 import LoadingSpinner from "@/components/auth/ui/loadingSpinner.vue";
+import PrimaryButton from "@/components/ui/primaryButton.vue";
 import OrderStatusBadge from "@/components/orders/orderStatusBadge.vue";
-import purchasedProducts from "@/components/orderSuccess/details/purchasedProducts.vue";
-import shippingCard from "@/components/orderSuccess/details/shippingCard.vue";
+import OrderProgress from "@/components/orders/orderProgress.vue";
+import OrderItemsCard from "@/components/orders/orderItemsCard.vue";
+import OrderSummaryCard from "@/components/orders/orderSummaryCard.vue";
+import OrderAddressCard from "@/components/orders/orderAddressCard.vue";
 
 import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
-import { formatDate, formatPrice, paymentMethodLabel, paymentStatusLabel } from "@/composables/useOrderSuccess";
+import { formatDate, formatPrice } from "@/composables/useOrderSuccess";
 import { PAYMENT_MESSAGES, useRazorpayPayment } from "@/composables/useRazorpayPayment";
 import { focusHeadingAfterLoad, focusMainContent, setPageTitle } from "@/router/pageFocus";
 
@@ -194,6 +217,8 @@ const cancelError = ref("");
 const { busy: paying, pay, refresh } = useRazorpayPayment();
 const paymentState = ref("");
 const paymentMessage = ref("");
+// Which button started the in-flight request, so only that one shows a spinner.
+const paymentAction = ref("");
 
 function applyPayment(id, result) {
     // Ignore a result for an order the page no longer shows.
@@ -204,21 +229,20 @@ function applyPayment(id, result) {
 }
 
 async function payNow() {
+    if (paying.value) return;
     const id = order.value.id;
+    paymentAction.value = "pay";
     applyPayment(id, await pay(id));
 }
 
 async function refreshStatus() {
+    if (paying.value) return;
     const id = order.value.id;
+    paymentAction.value = "refresh";
     applyPayment(id, await refresh(id));
 }
 
-const totals = computed(() => [
-    { label: "Subtotal", value: formatPrice(order.value.subtotal, order.value.currency) },
-    { label: "Shipping", value: formatPrice(order.value.shipping, order.value.currency) },
-    { label: "Tax", value: formatPrice(order.value.tax, order.value.currency) },
-    ...(Number(order.value.discount) > 0 ? [{ label: "Discount", value: `-${formatPrice(order.value.discount, order.value.currency)}` }] : []),
-]);
+const itemCount = computed(() => order.value?.items.reduce((total, item) => total + item.quantity, 0) ?? 0);
 
 // Latest navigation wins; a stale response never overwrites the current order.
 let requestId = 0;
