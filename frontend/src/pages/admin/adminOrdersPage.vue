@@ -3,8 +3,8 @@
 
         <AdminPageHeader title="Orders" description="Every customer order, newest first. Open one to move it forward." />
 
-        <!-- Toolbar: status filter + selected status. Stays usable on the 403 screen,
-             so a later successful load can clear it. -->
+        <!-- Toolbar: status filter, refund-due filter + selected status. Stays usable on
+             the 403 screen, so a later successful load can clear it. -->
         <div class="mt-6 flex flex-col gap-3 rounded-card border border-slate-200 bg-white p-4 shadow-card sm:flex-row sm:items-end sm:justify-between">
             <div class="sm:w-60">
                 <label for="order-status-filter" class="block text-sm font-medium text-slate-900">Status</label>
@@ -15,6 +15,13 @@
                     <option v-for="value in STATUSES" :key="value" :value="value">{{ statusLabel(value) }}</option>
                 </select>
             </div>
+            <!-- Orders with a captured payment still waiting for a refund (?refundDue=true). -->
+            <label for="order-refund-filter" class="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium text-slate-900 sm:pb-0.5">
+                <input id="order-refund-filter" type="checkbox" :checked="refundDue"
+                    class="h-4.5 w-4.5 accent-brand"
+                    @change="setRefundDue($event.target.checked)" />
+                Refund due only
+            </label>
             <div v-if="status" class="flex items-center gap-2 text-sm text-slate-600 sm:pb-2.5">
                 Showing <AdminOrderStatus :status="status" /> orders
                 <button type="button"
@@ -46,8 +53,8 @@
 
             <!-- Empty -->
             <AdminStatePanel v-else-if="!orders.length" kind="empty" class="mt-4" :icon="ClipboardDocumentListIcon" title="No orders"
-                :message="status ? `No orders are ${statusLabel(status).toLowerCase()}.` : 'Orders will appear here once customers place them.'">
-                <PrimaryButton v-if="status" tag="button" variant="outline" @click="setStatus('')">Show all orders</PrimaryButton>
+                :message="emptyMessage">
+                <PrimaryButton v-if="status || refundDue" tag="button" variant="outline" @click="clearFilters">Show all orders</PrimaryButton>
             </AdminStatePanel>
 
             <!-- List (kept on screen, dimmed, while the next page loads) -->
@@ -106,6 +113,10 @@
                                             <span class="lg:hidden"> · </span>{{ paymentMethodLabel(order.paymentMethod) }}
                                         </span>
                                     </template>
+                                    <!-- Captured money that could not be applied; see the order for details. -->
+                                    <span v-if="order.refundDue" class="block text-xs font-semibold text-red-700 max-lg:inline max-lg:text-sm">
+                                        <span class="lg:hidden"> · </span>Refund due
+                                    </span>
                                 </p>
 
                                 <!-- Desktop columns -->
@@ -159,6 +170,7 @@ const router = useRouter();
 // The URL is the source of truth (?status=SHIPPED&page=2), so reload and
 // back/forward work. Malformed values fall back instead of reaching the API.
 const status = computed(() => (STATUSES.includes(route.query.status) ? route.query.status : ""));
+const refundDue = computed(() => route.query.refundDue === "true");
 const page = computed(() => {
     const value = typeof route.query.page === "string" ? route.query.page : "";
     return /^[1-9]\d{0,4}$/.test(value) && Number(value) <= MAX_PAGE ? Number(value) : 1;
@@ -184,7 +196,9 @@ async function load() {
     forbidden.value = false;
 
     try {
-        const result = await adminOrderService.listOrders({ page: current, limit: PAGE_SIZE, status: status.value || undefined });
+        const result = await adminOrderService.listOrders({
+            page: current, limit: PAGE_SIZE, status: status.value || undefined, refundDue: refundDue.value ? "true" : undefined,
+        });
 
         if (request !== latestRequest) return;
 
@@ -234,6 +248,29 @@ function setStatus(value) {
 
     router.push({ query });
 }
+
+function setRefundDue(checked) {
+    const query = { ...route.query };
+    delete query.page;
+    if (checked) query.refundDue = "true";
+    else delete query.refundDue;
+
+    router.push({ query });
+}
+
+function clearFilters() {
+    const query = { ...route.query };
+    delete query.page;
+    delete query.status;
+    delete query.refundDue;
+
+    router.push({ query });
+}
+
+const emptyMessage = computed(() => {
+    if (refundDue.value) return status.value ? `No ${statusLabel(status.value).toLowerCase()} orders have a refund due.` : "No orders have a refund due.";
+    return status.value ? `No orders are ${statusLabel(status.value).toLowerCase()}.` : "Orders will appear here once customers place them.";
+});
 
 const rangeText = computed(() => {
     if (!pagination.value || !orders.value.length) return "";

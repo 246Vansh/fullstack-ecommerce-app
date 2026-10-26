@@ -89,7 +89,11 @@ export function testDatabaseGuardTest(test, guard) {
 // Environment for a spawned server or script. DOTENV_CONFIG_OVERRIDE (any
 // non-empty value, even "false") would make its dotenv replace DATABASE_URL
 // with the one in .env; spawn drops undefined keys, so the child never sees it.
-export const testServerEnv = (guard) => ({ DATABASE_URL: guard.url, DOTENV_CONFIG_OVERRIDE: undefined });
+// The reservation expiry worker is off in spawned servers, so it never changes
+// another test's orders in the background (reservations.test.js runs it directly).
+export const testServerEnv = (guard) => ({
+    DATABASE_URL: guard.url, DOTENV_CONFIG_OVERRIDE: undefined, RESERVATION_EXPIRY_WORKER: "false",
+});
 
 // Before any write: this connection really is on CLEANUP_DATABASE.
 export async function assertOnTestDatabase(prisma) {

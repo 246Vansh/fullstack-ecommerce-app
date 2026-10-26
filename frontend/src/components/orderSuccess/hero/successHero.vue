@@ -110,7 +110,14 @@ const view = computed(() => {
             icon: XMarkIcon,
             iconClass: "bg-slate-100 text-slate-600",
             title: "This order was cancelled",
-            message: "Nothing more is needed for this order.",
+            message: [
+                order.expired
+                    ? "Its payment wasn't completed within 30 minutes, so its items were released."
+                    : "",
+                order.refundDue
+                    ? "We received a payment we couldn't use for it, so it will be refunded to you."
+                    : "Nothing more is needed for this order.",
+            ].filter(Boolean).join(" "),
         };
     }
 

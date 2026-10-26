@@ -118,7 +118,12 @@ dbTest("2. with TRUST_PROXY=1 the client IP comes from X-Forwarded-For", async (
 });
 
 // Valid production settings for a server started over plain http in tests.
-const PRODUCTION = { NODE_ENV: "production", CLIENT_URL: "https://shop.example.com", COOKIE_SECURE: "true", DATABASE_SSL: "false" };
+// Online payment is off (no Razorpay keys), whatever the developer's .env has:
+// with keys, production would also require RAZORPAY_WEBHOOK_SECRET.
+const PRODUCTION = {
+    NODE_ENV: "production", CLIENT_URL: "https://shop.example.com", COOKIE_SECURE: "true", DATABASE_SSL: "false",
+    RAZORPAY_KEY_ID: "", RAZORPAY_KEY_SECRET: "",
+};
 
 dbTest("production with TRUST_PROXY=false (direct deployment) starts, and spoofed X-Forwarded-For is ignored", async () => {
     const server = await serve({ ...PRODUCTION, TRUST_PROXY: "false" });

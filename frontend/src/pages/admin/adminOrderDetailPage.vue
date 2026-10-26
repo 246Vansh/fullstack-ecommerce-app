@@ -194,7 +194,34 @@
                                 <dt class="text-slate-500">Razorpay payment</dt>
                                 <dd class="mt-0.5 wrap-anywhere font-mono text-xs text-slate-900">{{ order.razorpayPaymentId }}</dd>
                             </div>
+                            <div v-if="order.expiredAt">
+                                <dt class="text-slate-500">Reservation expired</dt>
+                                <dd class="mt-0.5 font-medium text-slate-900">{{ formatDate(order.expiredAt, true) }} (not paid within 30 minutes)</dd>
+                            </div>
                         </dl>
+
+                        <!-- Captured money the server could not apply to this order. Refund it in the
+                             Razorpay dashboard; it is marked refunded only when Razorpay confirms it. -->
+                        <div v-if="order.unappliedPayments?.length" class="mt-4 border-t border-slate-200 pt-4">
+                            <h3 class="flex items-center gap-1.5 text-sm font-semibold text-red-700">
+                                <ExclamationTriangleIcon class="h-4 w-4" aria-hidden="true" />
+                                Payments to refund
+                            </h3>
+                            <ul class="mt-2 space-y-3 text-sm">
+                                <li v-for="payment in order.unappliedPayments" :key="payment.razorpayPaymentId">
+                                    <p class="font-medium text-slate-900">
+                                        {{ formatPrice(payment.amount / 100, payment.currency) }}
+                                        · {{ UNAPPLIED_REASONS[payment.reason] ?? payment.reason }}
+                                    </p>
+                                    <p class="wrap-anywhere font-mono text-xs text-slate-600">{{ payment.razorpayPaymentId }}</p>
+                                    <p :class="payment.refundedAt ? 'text-slate-600' : 'font-semibold text-red-700'">
+                                        {{ payment.refundedAt
+                                            ? `Refunded ${formatDate(payment.refundedAt, true)} (confirmed by Razorpay)`
+                                            : "Refund not confirmed yet: refund it in the Razorpay dashboard" }}
+                                    </p>
+                                </li>
+                            </ul>
+                        </div>
                     </section>
                 </div>
 
@@ -224,6 +251,15 @@ import { focusHeadingAfterLoad, focusMainContent, setPageTitle } from "@/router/
 
 const BACK = { label: "All orders", to: { name: "admin-orders" } };
 const CARD = "rounded-card border border-slate-200 bg-white p-4 shadow-card sm:p-6";
+
+// Why a captured payment could not be applied (backend paymentService reasons).
+const UNAPPLIED_REASONS = {
+    expired_stock_unavailable: "arrived after the order expired; items no longer in stock",
+    order_not_payable: "arrived after the order was cancelled",
+    order_already_paid: "second payment for an order already paid",
+    duplicate_capture: "duplicate payment",
+    amount_or_currency_mismatch: "amount or currency did not match the order",
+};
 
 // The fulfilment path the server walks one step at a time (display only).
 const FLOW = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"];

@@ -64,7 +64,9 @@ const fakeGateway = {
     async fetchOrderPayments(orderId) {
         gateway.calls += 1;
         if (gateway.down) throw { statusCode: 503, error: { code: "SERVER_ERROR" } };
-        return { items: [...gatewayPayments.values()].filter((p) => p.order_id === orderId) };
+        // Razorpay's collection shape (the server checks count against items).
+        const items = [...gatewayPayments.values()].filter((p) => p.order_id === orderId);
+        return { entity: "collection", count: items.length, items };
     },
 };
 
@@ -177,6 +179,8 @@ after(async () => {
 
     try {
         await deleteInTestDatabase(prisma, async (tx) => {
+            // Refund records reported for this run's orders (they reference the orders).
+            await tx.unappliedPayment.deleteMany({ where: { orderId: { in: created.orders.map((o) => o.id) } } });
             expectDeleted("orders", await tx.order.deleteMany({
                 where: { id: { in: created.orders.map((o) => o.id) }, orderNumber: { in: created.orders.map((o) => o.orderNumber) } },
             }), created.orders.length);

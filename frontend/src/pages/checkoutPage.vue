@@ -70,7 +70,7 @@
                         <contactCard :customer="auth.user" />
 
                         <shippingCard :addresses="addresses" :selected-id="selectedAddressId" :save="saveAddress" :remove="deleteAddress"
-                            @select="selectAddress" />
+                            :disabled="placing" @select="selectAddress" />
 
                         <!-- Delivery methods, coupons and order notes are not implemented, so they are not shown. -->
                         <paymentCard v-model="paymentMethod" :methods="paymentMethods" :disabled="placing" />

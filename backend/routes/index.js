@@ -12,6 +12,7 @@ import checkoutRoutes from "./checkoutRoutes.js";
 import orderRoutes from "./orderRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
 import adminRoutes from "./adminRoutes.js";
+import webhookRoutes from "./webhookRoutes.js";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use("/checkout", checkoutRoutes);
 router.use("/orders", orderRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/admin", adminRoutes);
+router.use("/webhooks", webhookRoutes);
 
 export default router;

@@ -13,11 +13,17 @@ const limiter = (options) => rateLimit({
     ...options,
 });
 
-// Every /api request except /api/auth, which has its own budgets below.
-// Sized for normal browsing (catalog, search, filters, cart) by one visitor.
+// Every /api request except /api/auth and /api/webhooks, which have their own
+// budgets below. Sized for normal browsing (catalog, search, filters, cart) by one visitor.
 export const generalLimiter = limiter({
     limit: 1000,
-    skip: (req) => req.path.startsWith("/auth/"),
+    skip: (req) => req.path.startsWith("/auth/") || req.path.startsWith("/webhooks/"),
+});
+
+// Razorpay webhook deliveries, per IP (Razorpay sends from a few addresses).
+// Generous: a 429 only delays an event, which Razorpay retries.
+export const webhookLimiter = limiter({
+    limit: 3000,
 });
 
 // Login and register: slows credential stuffing and account spam.

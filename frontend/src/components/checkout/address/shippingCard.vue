@@ -17,7 +17,8 @@
             <!-- Saved addresses. Only the radio and its address text are the label;
                  Edit and Delete sit beside it so they are not part of the radio. -->
 
-            <fieldset v-if="addresses.length" class="space-y-3">
+            <!-- Locked while the order is being placed: it ships to the address already sent. -->
+            <fieldset v-if="addresses.length" class="space-y-3" :disabled="disabled">
 
                 <legend class="sr-only">Choose a shipping address</legend>
 
@@ -107,8 +108,8 @@
 
             </fieldset>
 
-            <button id="add-address" type="button"
-                class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-control border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-900 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer"
+            <button id="add-address" type="button" :disabled="disabled"
+                class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-control border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-900 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                 @click="openForm({}, 'add-address')">
                 <PlusIcon class="h-5 w-5 text-brand" aria-hidden="true" />
                 Add New Address
@@ -148,13 +149,19 @@ const props = defineProps({
         type: Function,
         required: true,
     },
+
+    // True while an order is being placed.
+    disabled: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 defineEmits(["select"]);
 
 const TYPE_LABELS = { HOME: "Home", WORK: "Work", OTHER: "Other" };
 
-const ROW_BUTTON = "inline-flex min-h-11 items-center gap-1 rounded-control px-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer";
+const ROW_BUTTON = "inline-flex min-h-11 items-center gap-1 rounded-control px-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer";
 
 // null = list view, {} = adding, an address = editing it.
 const editing = ref(null);
