@@ -353,6 +353,59 @@ export async function getOrder(userId, id) {
     return toOrderResponse(order);
 }
 
+// The fulfilment steps an order has passed through, oldest first. Each step
+// is "completed", "current" (the order's status now) or "upcoming", with a
+// date only where the order records one: placedAt, shippedAt, deliveredAt,
+// and expiredAt for a cancellation by the expiry worker. CONFIRMED,
+// PROCESSING and a customer cancellation have no stored date, so `at` is null.
+function trackingTimeline(order) {
+    const dates = { PENDING: order.placedAt, SHIPPED: order.shippedAt, DELIVERED: order.deliveredAt };
+    const reached = FULFILMENT_STEPS.indexOf(order.status);
+
+    if (reached >= 0) {
+        return FULFILMENT_STEPS.map((step, index) => ({
+            step,
+            state: index < reached ? "completed" : index === reached ? "current" : "upcoming",
+            at: index <= reached ? dates[step] ?? null : null,
+        }));
+    }
+
+    // Cancelled (only ever from PENDING) or refunded: off the fulfilment path.
+    // Show the steps the order is known to have reached, then where it ended.
+    const passed = FULFILMENT_STEPS.filter((step) => step === "PENDING" || dates[step]);
+
+    return [
+        ...passed.map((step) => ({ step, state: "completed", at: dates[step] })),
+        { step: order.status, state: "current", at: order.status === "CANCELLED" ? order.expiredAt : null },
+    ];
+}
+
+// Read-only tracking view of the owner's order: the same snapshot as
+// getOrder (minus the pay/cancel action flags) plus the recorded fulfilment
+// dates and the timeline. Another user's id behaves exactly like a missing one.
+// There is no courier integration, so no carrier or tracking number exists.
+export async function getOrderTracking(userId, id) {
+    const order = await prisma.order.findFirst({
+        where: { id, userId },
+        select: { ...orderSelect, shippedAt: true, deliveredAt: true },
+    });
+
+    if (!order) {
+        throw new ApiError(404, "Order not found");
+    }
+
+    const { cancellable, payable, paymentDueBy, ...details } = toOrderResponse(order);
+
+    return {
+        ...details,
+        shippedAt: order.shippedAt,
+        deliveredAt: order.deliveredAt,
+        // An online order that cannot move on until it is paid.
+        awaitingPayment: order.status === "PENDING" && awaitsPayment(order),
+        timeline: trackingTimeline(order),
+    };
+}
+
 // Order history page size. maxPage keeps the offset a safe integer.
 export const ORDER_PAGINATION = { defaultLimit: 10, maxLimit: 50, maxPage: 10_000 };
 

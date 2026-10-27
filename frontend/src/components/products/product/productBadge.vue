@@ -1,6 +1,7 @@
 <template>
 
-    <div v-if="badge" class="pointer-events-none absolute left-3 top-3 z-10">
+    <!-- max-w leaves room for the wishlist heart in the top-right corner. -->
+    <div v-if="badge" class="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-4.25rem)]">
 
         <div :class="badgeClasses">
 

@@ -28,7 +28,7 @@
                 <QuantitySelector :quantity="quantity" :max="selectedVariant?.stock ?? null"
                     @increase="increaseQuantity" @decrease="decreaseQuantity" />
 
-                <PurchaseActions class="flex-1" :disabled="!canPurchase" :loading="adding" @add-to-cart="handleAddToCart" />
+                <PurchaseActions class="flex-1" :product-id="product.id" :product-name="product.name" :disabled="!canPurchase" :loading="adding" @add-to-cart="handleAddToCart" />
 
             </div>
 

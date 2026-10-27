@@ -56,11 +56,16 @@
                         </p>
                     </div>
 
-                    <PrimaryButton :to="{ name: 'order-receipt', params: { id: order.id } }" variant="outline" size="sm"
-                        class="self-start sm:self-auto">
-                        <DocumentTextIcon class="h-4 w-4" aria-hidden="true" />
-                        View receipt
-                    </PrimaryButton>
+                    <div class="flex flex-wrap gap-3 self-start sm:self-auto">
+                        <PrimaryButton :to="{ name: 'order-tracking', params: { id: order.id } }" variant="outline" size="sm">
+                            <TruckIcon class="h-4 w-4" aria-hidden="true" />
+                            Track order
+                        </PrimaryButton>
+                        <PrimaryButton :to="{ name: 'order-receipt', params: { id: order.id } }" variant="outline" size="sm">
+                            <DocumentTextIcon class="h-4 w-4" aria-hidden="true" />
+                            View receipt
+                        </PrimaryButton>
+                    </div>
 
                 </header>
 
@@ -196,6 +201,7 @@ import {
     CreditCardIcon,
     DocumentTextIcon,
     ExclamationTriangleIcon,
+    TruckIcon,
 } from "@heroicons/vue/24/outline";
 
 import Header from "@/components/layout/Header/Header.vue";

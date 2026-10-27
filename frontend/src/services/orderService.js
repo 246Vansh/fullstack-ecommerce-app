@@ -52,6 +52,15 @@ export const orderService = {
         return data.data;
     },
 
+    // Read-only tracking view of the signed-in user's own order: the order
+    // snapshot plus a timeline of its fulfilment steps, dated only where the
+    // server recorded a date.
+    async getOrderTracking(id) {
+        const { data } = await apiClient.get(`/orders/${id}/tracking`);
+
+        return data.data;
+    },
+
     // The server checks ownership and status, and restores stock atomically.
     async cancelOrder(id) {
         const { data } = await apiClient.post(`/orders/${id}/cancel`);

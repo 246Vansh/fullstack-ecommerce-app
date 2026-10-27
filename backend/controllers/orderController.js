@@ -1,6 +1,6 @@
 import { matchedData } from "express-validator";
 
-import { createOrder, getOrder, listOrders } from "../services/orderService.js";
+import { createOrder, getOrder, getOrderTracking, listOrders } from "../services/orderService.js";
 import { cancelOrderAfterPaymentCheck, isOnlinePaymentEnabled } from "../services/paymentService.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -25,6 +25,15 @@ export async function getMyOrder(req, res) {
     const { id } = matchedData(req, { locations: ["params"] });
 
     const data = await getOrder(req.user.id, id);
+
+    res.json({ success: true, data });
+}
+
+// Read-only: the owner comes from the token and nothing about the order changes.
+export async function getMyOrderTracking(req, res) {
+    const { id } = matchedData(req, { locations: ["params"] });
+
+    const data = await getOrderTracking(req.user.id, id);
 
     res.json({ success: true, data });
 }

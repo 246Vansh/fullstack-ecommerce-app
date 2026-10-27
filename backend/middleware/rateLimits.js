@@ -61,6 +61,13 @@ export const notificationMutationLimiter = limiter({
     keyGenerator: (req) => `user:${req.user.id}`,
 });
 
+// Wishlist adds and removes, keyed by user (use after authenticate). One
+// request per heart toggle; reads use generalLimiter.
+export const wishlistMutationLimiter = limiter({
+    limit: 300,
+    keyGenerator: (req) => `user:${req.user.id}`,
+});
+
 // Profile edits, keyed by user (use after authenticate).
 export const profileUpdateLimiter = limiter({
     limit: 20,

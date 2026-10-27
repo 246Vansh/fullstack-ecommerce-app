@@ -36,8 +36,12 @@
 
                         </div>
 
-                        <!-- Tabs -->
-                        <TabGroup as="div" class="mt-2">
+                        <!-- Shopping -->
+                        <h3 class="mt-2 px-4 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                            Shopping
+                        </h3>
+
+                        <TabGroup as="div" class="mt-1">
 
                             <div class="border-b border-gray-200">
 
@@ -130,97 +134,88 @@
 
                         </TabGroup>
 
-                        <!-- Account Links -->
+                        <!-- My Account -->
 
-                        <div class="space-y-6 border-t border-gray-200 px-4 py-6">
+                        <section class="border-t border-gray-200 px-4 py-6" aria-labelledby="mobile-account-heading">
+
+                            <h3 id="mobile-account-heading" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                                My Account
+                            </h3>
 
                             <template v-if="auth.isAuthenticated">
 
-                                <p class="font-medium text-gray-500">
-                                    Signed in as {{ auth.user.firstName }}
-                                </p>
-
-                                <div class="flow-root">
-
-                                    <RouterLink :to="ROUTES.NOTIFICATIONS"
-                                        class="-m-2 flex items-center justify-between gap-3 rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
-                                        @click="closeMenu">
-                                        Notifications
-                                        <span v-if="notifications.unreadCount"
-                                            class="min-w-6 rounded-full bg-brand px-2 py-0.5 text-center text-xs font-semibold text-white tabular-nums">
-                                            {{ formatUnreadBadge(notifications.unreadCount) }}
-                                            <span class="sr-only">unread</span>
-                                        </span>
-                                    </RouterLink>
-
+                                <div class="mt-3 flex items-center gap-3 rounded-card bg-slate-50 px-3 py-3">
+                                    <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-base font-semibold text-brand" aria-hidden="true">
+                                        {{ initial }}
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-semibold text-slate-900">
+                                            <span class="sr-only">Signed in as </span>{{ fullName }}
+                                        </p>
+                                        <p v-if="auth.user.email" class="truncate text-xs text-slate-500">{{ auth.user.email }}</p>
+                                    </div>
                                 </div>
 
-                                <div class="flow-root">
+                                <ul role="list" class="mt-3 space-y-1">
 
-                                    <RouterLink :to="ROUTES.ORDERS"
-                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
-                                        @click="closeMenu">
-                                        My Orders
-                                    </RouterLink>
+                                    <li v-for="link in accountLinks" :key="link.to">
+                                        <RouterLink :to="link.to" :class="rowClass" @click="closeMenu">
+                                            <component :is="link.icon" class="size-5 shrink-0 text-slate-400 group-hover:text-brand group-aria-[current=page]:text-brand" aria-hidden="true" />
+                                            <span class="flex-1">{{ link.label }}</span>
+                                            <span v-if="link.badge" :class="link.badgeClass">
+                                                {{ link.badge }}
+                                                <span class="sr-only">{{ link.badgeLabel }}</span>
+                                            </span>
+                                        </RouterLink>
+                                    </li>
 
-                                </div>
+                                </ul>
 
-                                <div class="flow-root">
+                                <div class="my-3 h-px bg-slate-100" aria-hidden="true"></div>
 
-                                    <RouterLink :to="ROUTES.ACCOUNT"
-                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
-                                        @click="closeMenu">
-                                        Account Settings
-                                    </RouterLink>
-
-                                </div>
-
-                                <div v-if="auth.isAdmin" class="flow-root">
-
-                                    <RouterLink :to="ROUTES.ADMIN"
-                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
-                                        @click="closeMenu">
-                                        Admin
-                                    </RouterLink>
-
-                                </div>
-
-                                <div class="flow-root">
-
-                                    <button type="button" :disabled="loggingOut"
-                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand cursor-pointer disabled:opacity-50"
-                                        @click="logout">
-                                        Logout
-                                    </button>
-
-                                </div>
+                                <button type="button" :disabled="loggingOut"
+                                    class="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left font-medium text-slate-700 transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-brand cursor-pointer disabled:cursor-wait disabled:opacity-50"
+                                    @click="logout">
+                                    <ArrowRightStartOnRectangleIcon class="size-5 shrink-0 text-slate-400" aria-hidden="true" />
+                                    {{ loggingOut ? "Logging out…" : "Logout" }}
+                                </button>
 
                             </template>
 
-                            <template v-else>
+                            <!-- Guest -->
+                            <div v-else class="mt-4 grid gap-3">
 
-                                <div class="flow-root">
+                                <RouterLink :to="ROUTES.LOGIN"
+                                    class="flex min-h-11 items-center justify-center rounded-control bg-brand px-4 font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                    @click="closeMenu">
+                                    Sign In
+                                </RouterLink>
 
-                                    <RouterLink :to="ROUTES.LOGIN" class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
-                                        @click="closeMenu">
-                                        Sign In
-                                    </RouterLink>
+                                <RouterLink :to="ROUTES.REGISTER"
+                                    class="flex min-h-11 items-center justify-center rounded-control border border-slate-300 bg-white px-4 font-semibold text-slate-900 transition-colors hover:border-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                    @click="closeMenu">
+                                    Create Account
+                                </RouterLink>
 
-                                </div>
+                            </div>
 
-                                <div class="flow-root">
+                        </section>
 
-                                    <RouterLink :to="ROUTES.REGISTER"
-                                        class="-m-2 block rounded-md p-2 font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
-                                        @click="closeMenu">
-                                        Create Account
-                                    </RouterLink>
+                        <!-- Admin: a convenience link only; the API checks the ADMIN role on every /api/admin request. -->
 
-                                </div>
+                        <section v-if="auth.isAdmin" class="border-t border-gray-200 px-4 py-6" aria-labelledby="mobile-admin-heading">
 
-                            </template>
+                            <h3 id="mobile-admin-heading" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                                Admin
+                            </h3>
 
-                        </div>
+                            <RouterLink :to="ROUTES.ADMIN" :class="[rowClass, 'mt-3']" @click="closeMenu">
+                                <Cog6ToothIcon class="size-5 shrink-0 text-slate-400 group-hover:text-brand group-aria-[current=page]:text-brand" aria-hidden="true" />
+                                <span class="flex-1">Admin dashboard</span>
+                                <span class="rounded-full bg-brand-soft px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-brand uppercase">Admin</span>
+                            </RouterLink>
+
+                        </section>
 
                     </DialogPanel>
 
@@ -246,19 +241,28 @@ import {
     TabPanels
 } from "@headlessui/vue";
 
-import { XMarkIcon } from "@heroicons/vue/24/outline";
+import {
+    ArrowRightStartOnRectangleIcon,
+    BellIcon,
+    Cog6ToothIcon,
+    HeartIcon,
+    ShoppingBagIcon,
+    UserCircleIcon,
+    XMarkIcon,
+} from "@heroicons/vue/24/outline";
 
 import { navigation } from "@/constants/navigation";
 
 import { useMobileMenu } from "@/composables/useMobileMenu";
 
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
 import { ROUTES } from "@/config";
 import { useAuth } from "@/composables/useAuth";
 import { useAuthStore } from "@/stores/authStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useWishlistStore } from "@/stores/wishlistStore";
 import { formatUnreadBadge } from "@/utils/notifications";
 import { restoreFocusAfterDialog } from "@/router/pageFocus";
 
@@ -269,6 +273,31 @@ const {
 
 const auth = useAuthStore();
 const notifications = useNotificationStore();
+const wishlist = useWishlistStore();
+
+const initial = computed(() => auth.user?.firstName?.trim().charAt(0).toUpperCase() || "?");
+const fullName = computed(() => [auth.user?.firstName, auth.user?.lastName].filter(Boolean).join(" "));
+
+// Same pages and icons as the desktop profile menu, plus Notifications
+// (on desktop that is the header bell).
+const accountLinks = computed(() => [
+    {
+        to: ROUTES.NOTIFICATIONS, label: "Notifications", icon: BellIcon,
+        badge: notifications.unreadCount ? formatUnreadBadge(notifications.unreadCount) : "",
+        badgeLabel: "unread",
+        badgeClass: "min-w-6 rounded-full bg-brand px-2 py-0.5 text-center text-xs font-semibold text-white tabular-nums",
+    },
+    { to: ROUTES.ORDERS, label: "My Orders", icon: ShoppingBagIcon },
+    {
+        to: ROUTES.WISHLIST, label: "Wishlist", icon: HeartIcon,
+        badge: wishlist.loaded && wishlist.ids.size ? String(wishlist.ids.size) : "",
+        badgeLabel: "saved",
+        badgeClass: "rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 tabular-nums",
+    },
+    { to: ROUTES.ACCOUNT, label: "Account Settings", icon: UserCircleIcon },
+]);
+
+const rowClass = "group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand aria-[current=page]:bg-brand-soft/60 aria-[current=page]:text-brand";
 
 // A menu link navigates and closes the menu; focus then belongs to the new page.
 const route = useRoute();

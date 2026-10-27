@@ -11,6 +11,7 @@ import addressRoutes from "./addressRoutes.js";
 import checkoutRoutes from "./checkoutRoutes.js";
 import orderRoutes from "./orderRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
+import wishlistRoutes from "./wishlistRoutes.js";
 import adminRoutes from "./adminRoutes.js";
 import webhookRoutes from "./webhookRoutes.js";
 
@@ -27,6 +28,7 @@ router.use("/addresses", addressRoutes);
 router.use("/checkout", checkoutRoutes);
 router.use("/orders", orderRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/wishlist", wishlistRoutes);
 router.use("/admin", adminRoutes);
 router.use("/webhooks", webhookRoutes);
 

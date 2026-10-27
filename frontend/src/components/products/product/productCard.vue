@@ -1,4 +1,6 @@
 <template>
+    <!-- The wishlist button sits over the image but outside the link (a button inside a link is invalid). -->
+    <div class="relative">
     <RouterLink :to="{
         name: 'product-details',
         params: {
@@ -41,6 +43,15 @@
         </article>
     </RouterLink>
 
+    <!-- A frame the size of the image (same 4:5 ratio as ProductImage, at the top of
+         the card) so the heart is placed within the image; clicks pass through it to the link. -->
+    <div class="pointer-events-none absolute inset-x-0 top-0 z-20 aspect-[4/5]">
+        <div class="pointer-events-auto absolute top-2.5 right-2.5 sm:top-3 sm:right-3">
+            <WishlistButton overlay :product-id="product.id" :name="product.name" />
+        </div>
+    </div>
+    </div>
+
 </template>
 
 
@@ -52,6 +63,8 @@ import { computed } from "vue";
 import ProductImage from "@/components/ui/productImage.vue";
 
 import ProductPrice from "@/components/ui/productPrice.vue";
+
+import WishlistButton from "@/components/ui/wishlistButton.vue";
 
 
 import ProductBadge from "./productBadge.vue";

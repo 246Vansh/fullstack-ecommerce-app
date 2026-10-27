@@ -1,8 +1,5 @@
 <template>
-  <div class="ml-auto flex items-center gap-1 sm:gap-2">
-
-    <!-- Authentication -->
-    <AuthLinks />
+  <div class="ml-auto flex items-center gap-1 sm:gap-1.5">
 
     <!-- No currency selector: each product, cart and order is shown in its own stored currency. -->
 
@@ -14,6 +11,10 @@
 
     <!-- Cart -->
     <CartButton />
+
+    <!-- Account (desktop): profile menu or Sign In / Create Account, last so
+         its dropdown opens at the right edge. On mobile it lives in the drawer. -->
+    <AuthLinks />
 
   </div>
 </template>

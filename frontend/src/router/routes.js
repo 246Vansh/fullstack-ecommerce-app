@@ -68,10 +68,24 @@ export const routes = [
     },
 
     {
+        path: "/orders/:id(\\d+)/track",
+        name: "order-tracking",
+        component: () => import("@/pages/orderTrackingPage.vue"),
+        meta: { title: "Track Order", requiresAuth: true },
+    },
+
+    {
         path: "/account",
         name: "account",
         component: () => import("@/pages/accountPage.vue"),
         meta: { title: "Account Settings", requiresAuth: true },
+    },
+
+    {
+        path: "/wishlist",
+        name: "wishlist",
+        component: () => import("@/pages/wishlistPage.vue"),
+        meta: { title: "Wishlist", requiresAuth: true },
     },
 
     {
@@ -80,9 +94,6 @@ export const routes = [
         component: () => import("@/pages/notificationsPage.vue"),
         meta: { title: "Notifications", requiresAuth: true },
     },
-
-    // /trackOrder is not registered until tracking exists; its page still
-    // renders static placeholder data.
 
     {
         path: "/login",

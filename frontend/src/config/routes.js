@@ -12,6 +12,8 @@ export const ROUTES = {
 
     ORDERS: "/orders",
 
+    WISHLIST: "/wishlist",
+
     ACCOUNT: "/account",
 
     NOTIFICATIONS: "/notifications",

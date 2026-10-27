@@ -22,7 +22,7 @@ export const SORT_VALUES = Object.keys(SORT_ORDERS);
 
 const categorySelect = { id: true, name: true, slug: true };
 
-const listSelect = {
+export const listSelect = {
     id: true,
     name: true,
     slug: true,
@@ -48,7 +48,7 @@ const toNumber = (value) => (value == null ? null : Number(value));
 
 const unique = (values) => [...new Set(values.filter(Boolean))];
 
-function toListItem(product) {
+export function toListItem(product) {
     const { images, variants, ...rest } = product;
 
     return {

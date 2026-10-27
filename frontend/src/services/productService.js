@@ -17,8 +17,9 @@ const UNSUPPORTED_DEFAULTS = {
     rating: 0,
     reviewCount: 0,
     reviews: [],
-    isFavorite: false,
 };
+
+// Wishlist state is not a product field: see stores/wishlistStore.js.
 
 function normalizeListItem(product) {
     return {

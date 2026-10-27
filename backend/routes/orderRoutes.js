@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body, param, query } from "express-validator";
 
-import { createMyOrder, getMyOrder, getMyOrders, cancelMyOrder } from "../controllers/orderController.js";
+import { createMyOrder, getMyOrder, getMyOrderTracking, getMyOrders, cancelMyOrder } from "../controllers/orderController.js";
 import { startMyPayment, verifyMyPayment, refreshMyPayment } from "../controllers/paymentController.js";
 import { ORDER_PAGINATION, PAYMENT_METHODS } from "../services/orderService.js";
 import { CURRENCIES } from "../services/pricingService.js";
@@ -58,6 +58,7 @@ router.use(authenticate);
 router.get("/", listRules, validate, getMyOrders);
 router.post("/", orderMutationLimiter, createRules, validate, createMyOrder);
 router.get("/:id", idRules, validate, getMyOrder);
+router.get("/:id/tracking", idRules, validate, getMyOrderTracking);
 router.post("/:id/cancel", orderMutationLimiter, idRules, validate, cancelMyOrder);
 
 // Online payment for the customer's own order (see services/paymentService.js).

@@ -203,6 +203,55 @@ dbTest("3/4/5. order detail: own order only; others and missing ids are 404", as
     assert.equal((await call("GET", "/orders/abc", a)).status, 422, "malformed id fails validation");
 });
 
+dbTest("tracking: own order only, read-only, timeline from stored status and dates", async () => {
+    const a = await makeUser("tracker");
+    const b = await makeUser("snoop");
+    const order = await placeOrder(a, [[variants[0], 2]]);
+    const path = `/orders/${order.id}/tracking`;
+
+    assert.equal((await call("GET", path)).status, 401, "unauthenticated");
+    assert.equal((await call("GET", "/orders/abc/tracking", a)).status, 422, "malformed id fails validation");
+
+    const foreign = await call("GET", path, b);
+    assert.equal(foreign.status, 404);
+    assert.deepEqual(foreign.body, (await call("GET", "/orders/999999999/tracking", b)).body, "same response as a missing order");
+
+    const pending = (await call("GET", path, a)).body.data;
+    assert.equal(pending.orderNumber, order.orderNumber);
+    assert.equal(pending.status, "PENDING");
+    assert.equal(pending.items[0].quantity, 2);
+    assert.equal(pending.shippingAddress.city, ADDRESS.city);
+    assert.equal(pending.shippedAt, null);
+    assert.deepEqual(pending.timeline.map((s) => [s.step, s.state]), [
+        ["PENDING", "current"], ["CONFIRMED", "upcoming"], ["PROCESSING", "upcoming"], ["SHIPPED", "upcoming"], ["DELIVERED", "upcoming"],
+    ]);
+    assert.ok(pending.timeline[0].at, "placed date is recorded");
+    assert.ok(pending.timeline.slice(1).every((s) => s.at === null), "no date is invented for later steps");
+    for (const field of ["userId", "notes", "razorpayOrderId", "razorpayPaymentId", "unappliedPayments", "cancellable", "payable"]) {
+        assert.ok(!(field in pending), `${field} is not exposed`);
+    }
+
+    // Shipped without a recorded confirmation date: earlier steps completed, dated only where stored.
+    const shippedAt = new Date("2026-01-02T03:04:05.000Z");
+    await prisma.order.update({ where: { id: order.id }, data: { status: "SHIPPED", shippedAt } });
+    const shipped = (await call("GET", path, a)).body.data;
+    assert.deepEqual(shipped.timeline.map((s) => s.state), ["completed", "completed", "completed", "current", "upcoming"]);
+    assert.equal(shipped.timeline[1].at, null);
+    assert.equal(shipped.timeline[3].at, shippedAt.toISOString());
+
+    // Reading the tracking view changes nothing.
+    const row = await prisma.order.findUnique({ where: { id: order.id }, select: { status: true, paymentStatus: true, updatedAt: true } });
+    await call("GET", path, a);
+    assert.deepEqual(await prisma.order.findUnique({ where: { id: order.id }, select: { status: true, paymentStatus: true, updatedAt: true } }), row);
+
+    // Cancelled from PENDING: placed, then cancelled (no stored date for a customer cancellation).
+    await prisma.order.update({ where: { id: order.id }, data: { status: "PENDING", shippedAt: null } });
+    assert.equal((await call("POST", `/orders/${order.id}/cancel`, a)).status, 200);
+    const cancelled = (await call("GET", path, a)).body.data;
+    assert.deepEqual(cancelled.timeline.map((s) => [s.step, s.state]), [["PENDING", "completed"], ["CANCELLED", "current"]]);
+    assert.equal(cancelled.timeline[1].at, null);
+});
+
 dbTest("6/7. a pending order is cancelled and its stock restored", async () => {
     const a = await makeUser("cancel");
     const start = await stockOf(variants[0].id);

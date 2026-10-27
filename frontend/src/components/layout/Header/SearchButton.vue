@@ -1,5 +1,5 @@
 <template>
-  <div class="flex lg:ml-4">
+  <div class="flex">
 
     <button ref="toggleButton" type="button"
       class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand cursor-pointer"
