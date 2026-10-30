@@ -1,7 +1,5 @@
 <template>
-  <div class="hidden lg:ml-2 lg:flex lg:items-center lg:gap-4 lg:border-l lg:border-slate-200 lg:pl-3">
-
-    <!-- The left border divides the account group from the search/bell/cart icons. -->
+  <div class="hidden lg:mr-1 lg:flex lg:items-center lg:gap-4">
 
     <!-- Signed in: one profile menu instead of a row of links, so new account
          pages are added to PROFILE_LINKS rather than to the header bar.
@@ -9,15 +7,12 @@
          returning focus to the button. -->
     <Menu v-if="auth.isAuthenticated" v-slot="{ open }" as="div" class="relative">
 
-      <MenuButton
-        class="flex h-10 max-w-44 items-center gap-2 rounded-full py-1 pr-2.5 pl-1 text-sm font-medium ring-1 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer"
-        :class="open ? 'bg-slate-50 text-slate-900 ring-slate-300' : 'text-slate-700 ring-slate-200'">
-        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand" aria-hidden="true">
-          {{ initial }}
-        </span>
-        <span class="truncate">{{ auth.user.firstName }}</span>
-        <span class="sr-only">, account menu</span>
-        <ChevronDownIcon class="size-4 shrink-0 text-slate-400 transition-transform duration-200" :class="{ 'rotate-180': open }" aria-hidden="true" />
+      <!-- Just the initials; the name is in the menu header and for screen readers. -->
+      <MenuButton :title="fullName"
+        class="flex size-10 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold tracking-wide text-brand ring-1 transition-colors hover:ring-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand cursor-pointer"
+        :class="open ? 'ring-brand/50' : 'ring-transparent'">
+        <span aria-hidden="true">{{ initials }}</span>
+        <span class="sr-only">Account menu for {{ fullName }}</span>
       </MenuButton>
 
       <transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 motion-safe:-translate-y-1"
@@ -31,8 +26,8 @@
 
           <!-- Who is signed in (not a menu item, so arrow keys skip it). -->
           <div class="flex items-center gap-2.5 px-2.5 py-2">
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand" aria-hidden="true">
-              {{ initial }}
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold tracking-wide text-brand" aria-hidden="true">
+              {{ initials }}
             </span>
             <div class="min-w-0 leading-tight">
               <p class="truncate text-[0.9375rem] font-semibold text-slate-900">{{ fullName }}</p>
@@ -108,7 +103,6 @@ import { RouterLink } from "vue-router";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import {
   ArrowRightStartOnRectangleIcon,
-  ChevronDownIcon,
   Cog6ToothIcon,
   HeartIcon,
   ShoppingBagIcon,
@@ -135,7 +129,12 @@ const PROFILE_LINKS = [
 
 const loggingOut = ref(false);
 
-const initial = computed(() => auth.user?.firstName?.trim().charAt(0).toUpperCase() || "?");
+// First letters of first and last name ("Vansh Sharma" -> "VS"); one letter
+// when there is no last name.
+const initials = computed(() => [auth.user?.firstName, auth.user?.lastName]
+  .map((name) => name?.trim().charAt(0).toUpperCase())
+  .filter(Boolean)
+  .join("") || "?");
 const fullName = computed(() => [auth.user?.firstName, auth.user?.lastName].filter(Boolean).join(" "));
 
 // `active` is the item under the pointer or keyboard focus. Every row is the

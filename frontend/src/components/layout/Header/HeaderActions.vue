@@ -3,6 +3,10 @@
 
     <!-- No currency selector: each product, cart and order is shown in its own stored currency. -->
 
+    <!-- Account (desktop): initials menu or Sign In / Create Account, first,
+         with search/bell/cart to its right. On mobile it lives in the drawer. -->
+    <AuthLinks />
+
     <!-- Search -->
     <SearchButton />
 
@@ -11,10 +15,6 @@
 
     <!-- Cart -->
     <CartButton />
-
-    <!-- Account (desktop): profile menu or Sign In / Create Account, last so
-         its dropdown opens at the right edge. On mobile it lives in the drawer. -->
-    <AuthLinks />
 
   </div>
 </template>

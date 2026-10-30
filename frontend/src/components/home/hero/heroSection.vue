@@ -9,9 +9,22 @@
                     Women &middot; Men &middot; Shoes &middot; Accessories
                 </p>
 
+                <!-- Written out word by word behind a blinking cursor. Every word
+                     holds its place from the start, so nothing below moves;
+                     screen readers get the whole sentence at once. -->
                 <h1 id="hero-heading"
                     class="mt-4 text-4xl font-semibold tracking-tight text-balance text-slate-900 sm:text-5xl lg:text-6xl">
-                    Wardrobe staples, all in one place
+                    <span class="sr-only">{{ HEADLINE }}</span>
+                    <span aria-hidden="true">
+                        <template v-for="(word, index) in HEADLINE_WORDS" :key="index">
+                            <span class="relative inline-block transition-[opacity,translate,filter] duration-500 ease-out"
+                                :class="index < wordsShown ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-2 opacity-0 blur-sm'">
+                                {{ word }}
+                                <span v-if="caretVisible && index === wordsShown - 1"
+                                    class="animate-caret absolute top-[0.12em] -right-[0.14em] bottom-[0.08em] w-[0.06em] rounded-full bg-brand"></span>
+                            </span>{{ " " }}
+                        </template>
+                    </span>
                 </h1>
 
                 <p class="mt-6 max-w-lg text-lg leading-8 text-pretty text-slate-600">
@@ -69,6 +82,33 @@ const SHOP_LINKS = [
 const LARGE_SIZES = "(min-width: 1024px) 1020px, 60vw";
 const SMALL_SIZES = "(min-width: 1024px) 500px, 60vw";
 
+// ------------------------------------------------------------ headline
+
+const HEADLINE = "Wardrobe staples, all in one place";
+const HEADLINE_WORDS = HEADLINE.split(" ");
+
+// Pause before the first word / between words / cursor kept after the last.
+const TYPE_DELAY_MS = 350;
+const TYPE_WORD_MS = 280;
+const CARET_LINGER_MS = 1800;
+
+const wordsShown = ref(0);
+const caretVisible = ref(true);
+
+let typeTimer = null;
+
+function typeHeadline() {
+    typeTimer = setTimeout(function typeNext() {
+        wordsShown.value += 1;
+
+        if (wordsShown.value < HEADLINE_WORDS.length) {
+            typeTimer = setTimeout(typeNext, TYPE_WORD_MS);
+        } else {
+            typeTimer = setTimeout(() => { caretVisible.value = false; }, CARET_LINGER_MS);
+        }
+    }, TYPE_DELAY_MS);
+}
+
 // ------------------------------------------------------------ rotation
 
 const setIndex = ref(0);
@@ -119,8 +159,18 @@ function onVisibilityChange() {
 }
 
 onMounted(() => {
-    // Visitors who ask for reduced motion keep the first set.
-    if (heroImageSets.length < 2 || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    // Visitors who ask for reduced motion get the whole headline at once.
+    if (reducedMotion) {
+        wordsShown.value = HEADLINE_WORDS.length;
+        caretVisible.value = false;
+    } else {
+        typeHeadline();
+    }
+
+    // ...and keep the first set of photos.
+    if (heroImageSets.length < 2 || reducedMotion) return;
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     if (!document.hidden) start();
@@ -128,6 +178,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     unmounted = true;
+    clearTimeout(typeTimer);
     stop();
     document.removeEventListener("visibilitychange", onVisibilityChange);
 });

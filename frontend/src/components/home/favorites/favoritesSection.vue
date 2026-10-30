@@ -12,8 +12,8 @@
                 description="The latest additions to the catalog." link-text="Shop all products"
                 link-href="/products" />
 
-            <!-- Product Grid -->
-            <FavoriteGrid :products="products" :loading="loading" :placeholders="LIMIT" />
+            <!-- Product row, sliding through the newest products one at a time. -->
+            <FavoriteGrid :products="products" :loading="loading" :placeholders="3" />
 
         </div>
 
@@ -28,18 +28,19 @@ import FavoriteGrid from "./favoriteGrid.vue";
 
 import { productService } from "@/services/productService";
 
-const LIMIT = 3;
+// Newest products the row cycles through.
+const POOL = 12;
 
 const products = ref([]);
 const loading = ref(true);
 
 const controller = new AbortController();
 
-// The three newest catalog products; a failure just leaves the section hidden.
+// The newest catalog products; a failure just leaves the section hidden.
 onMounted(async () => {
     try {
         const result = await productService.listProducts(
-            { sort: "newest", limit: LIMIT },
+            { sort: "newest", limit: POOL },
             { signal: controller.signal },
         );
 

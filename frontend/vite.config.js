@@ -26,7 +26,8 @@ export default defineConfig(({ command, mode, isPreview }) => {
     ],
     server: {
       host: '0.0.0.0',
-      allowedHosts: ['chafe-angelic-coastal.ngrok-free.dev'],
+      //allowedHosts: ['chafe-angelic-coastal.ngrok-free.dev'],
+      allowedHosts: ['http://localhost:5173'],
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:5000',
