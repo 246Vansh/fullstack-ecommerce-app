@@ -37,6 +37,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.12.1",
+    "nodemailer": "^7.0.13",
     "prisma": "^7.8.0",
     "razorpay": "2.9.6"
   },

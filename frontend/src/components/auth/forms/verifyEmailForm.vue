@@ -31,7 +31,7 @@
                     {{ STATE_TEXT[state].body }}
                 </p>
 
-                <p v-if="resendMessage" class="mt-3 text-sm font-medium text-slate-800">
+                <p v-if="resendMessage" :class="['mt-3 text-sm font-medium', resendFailed ? 'text-red-700' : 'text-slate-800']">
                     {{ resendMessage }}
                 </p>
 
@@ -126,6 +126,12 @@ const token = typeof route.query.token === "string" ? route.query.token : "";
 const state = ref(token ? "verifying" : "pending");
 const resending = ref(false);
 const resendMessage = ref("");
+const resendFailed = ref(false);
+
+// 503: the mail server did not take the email. Said here, because production
+// replaces every 5xx message with a generic one. An earlier, unexpired link
+// still works (the server only retires it once a new one is delivered).
+const SEND_FAILED_MESSAGE = "We couldn't send the email right now. Please try again in a few minutes. If you already have a link from us, it still works until it expires.";
 
 const canResend = computed(() => auth.isAuthenticated && !auth.user?.emailVerifiedAt && state.value !== "verified");
 
@@ -150,11 +156,15 @@ async function resend() {
 
     resending.value = true;
     resendMessage.value = "";
+    resendFailed.value = false;
 
     try {
         resendMessage.value = (await accountService.resendVerificationEmail()).message;
     } catch (error) {
-        resendMessage.value = parseApiError(error).message;
+        const { status, message } = parseApiError(error);
+
+        resendFailed.value = true;
+        resendMessage.value = status === 503 ? SEND_FAILED_MESSAGE : message;
     } finally {
         resending.value = false;
     }

@@ -198,6 +198,25 @@ export function validateEnv(env = process.env) {
         errors.push(`MAIL_PROVIDER must be one of: ${MAIL_PROVIDERS.join(", ")}`);
     }
 
+    if (env.MAIL_PROVIDER === "smtp") {
+        if (!String(env.SMTP_HOST ?? "").trim()) {
+            errors.push("SMTP_HOST is required when MAIL_PROVIDER=smtp");
+        }
+        if (env.SMTP_PORT && !/^\d+$/.test(env.SMTP_PORT)) {
+            errors.push("SMTP_PORT must be a port number, e.g. 587 or 465 (unset = 587)");
+        }
+        if (env.SMTP_SECURE && !["true", "false"].includes(env.SMTP_SECURE)) {
+            errors.push('SMTP_SECURE must be "true" or "false" (unset = true on port 465 only)');
+        }
+        if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASS)) {
+            errors.push("SMTP_USER and SMTP_PASS must be set together");
+        }
+        // The provider rejects mail from an unverified sender, so check its shape here.
+        if (!/^(?:[^<>]*<\s*)?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+\s*>?$/.test(String(env.MAIL_FROM ?? "").trim())) {
+            errors.push('MAIL_FROM is required when MAIL_PROVIDER=smtp, e.g. "My Shop <no-reply@shop.example.com>"');
+        }
+    }
+
     if (env.NODE_ENV === "production") {
         // The console provider writes working reset links to the log.
         if (env.MAIL_PROVIDER === "console") {

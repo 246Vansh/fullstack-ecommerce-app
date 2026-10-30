@@ -3,9 +3,10 @@ import bcrypt from "bcryptjs";
 
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
-import { issueUserToken, consumeUserToken } from "./userTokenService.js";
+import { issueUserToken, consumeUserToken, discardUserToken, replaceOlderUserTokens, tokenLifetimeMs } from "./userTokenService.js";
 import { revokeAllUserSessions } from "./refreshTokenService.js";
 import { sendMail, appLink } from "./mailService.js";
+import { verificationEmail } from "./mailTemplates.js";
 
 export const SALT_ROUNDS = 12;
 
@@ -85,24 +86,31 @@ export async function getUserById(id) {
 }
 
 // Emails a verification link unless the address is already verified (or a
-// link was sent in the last minute). Returns whether one was sent; callers
-// that do not need the answer do not await it.
+// link was sent in the last minute). Returns whether one was sent, and
+// rejects with 503 when the mail provider did not accept it; callers that do
+// not need the answer do not await it. Earlier links keep working until the
+// new one has been delivered, so a failed send never leaves the user without one.
 export async function sendVerificationEmail(user) {
     if (user.emailVerifiedAt) return false;
 
-    const token = await issueUserToken(user.id, "EMAIL_VERIFICATION");
+    const token = await issueUserToken(user.id, "EMAIL_VERIFICATION", { replaceOlder: false });
     if (!token) return false;
 
-    sendMail({
+    const delivered = await sendMail({
         to: user.email,
-        subject: "Verify your email address",
-        text: `Hi ${user.firstName},
-
-Confirm your email address by opening this link (valid for 24 hours):
-${appLink("/verify-email", token)}
-
-If you did not create an account, ignore this email.`,
+        ...verificationEmail({
+            firstName: user.firstName,
+            link: appLink("/verify-email", token),
+            lifetimeMs: tokenLifetimeMs("EMAIL_VERIFICATION"),
+        }),
     }, "verification");
+
+    if (!delivered) {
+        await discardUserToken(token);
+        throw new ApiError(503, "We could not send the verification email right now. Please try again in a few minutes.");
+    }
+
+    await replaceOlderUserTokens(token);
 
     return true;
 }

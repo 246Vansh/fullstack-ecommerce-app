@@ -102,7 +102,7 @@ before(async () => {
 
     await assertOnTestDatabase(prisma);
 
-    for (const key of ["reset", "expired", "race", "sessions", "other", "logoutall", "delete", "resend"]) await createUser(key);
+    for (const key of ["reset", "expired", "race", "sessions", "other", "logoutall", "delete", "resend", "resendfail", "resendok"]) await createUser(key);
     await createUser("verified", { verified: true });
     await createUser("admin", { role: "ADMIN" });
 
@@ -272,6 +272,55 @@ dbTest("email verification: resend emails a new link, then reports the cooldown 
     assert.equal(await prisma.userToken.count({ where: { userId: users.resend.id, purpose: "EMAIL_VERIFICATION", usedAt: null } }), 1);
 
     // The emailed link still verifies.
+    assert.equal((await send("POST", "/auth/verify-email", { body: { token } })).status, 200);
+});
+
+// An earlier link, issued before the one-minute cooldown (bypassed here).
+async function plantEarlierVerificationToken(userId) {
+    const token = crypto.randomBytes(32).toString("base64url");
+    await prisma.userToken.create({
+        data: {
+            userId, purpose: "EMAIL_VERIFICATION", tokenHash: sha256(token),
+            createdAt: new Date(Date.now() - 2 * 60 * 1000), expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
+    });
+    return token;
+}
+
+dbTest("email verification: a resend the mail server refuses is a 503 and the earlier link still works", async () => {
+    const earlier = await plantEarlierVerificationToken(users.resendfail.id);
+
+    // MAIL_PROVIDER=disabled: every send fails, like an SMTP outage.
+    const failing = await startServer({ ...testServerEnv(guard), MAIL_PROVIDER: "disabled" });
+    try {
+        const { body } = await login(failing.url, { email: emailFor("resendfail"), password: PASSWORD });
+        const res = await fetch(`${failing.url}/account/verification-email`, {
+            method: "POST", headers: { Authorization: `Bearer ${body.accessToken}` },
+        });
+        assert.equal(res.status, 503);
+        assert.match((await res.json()).message, /could not send the verification email/);
+    } finally {
+        await failing.stop();
+    }
+
+    // The undelivered token is gone and the earlier one was not retired.
+    const rows = await prisma.userToken.findMany({ where: { userId: users.resendfail.id, purpose: "EMAIL_VERIFICATION" } });
+    assert.deepEqual(rows.map((r) => [r.tokenHash, r.usedAt]), [[sha256(earlier), null]]);
+
+    assert.equal((await send("POST", "/auth/verify-email", { body: { token: earlier } })).status, 200);
+});
+
+dbTest("email verification: a delivered resend retires the earlier link; only the new one verifies", async () => {
+    const earlier = await plantEarlierVerificationToken(users.resendok.id);
+    const email = emailFor("resendok");
+    const { accessToken } = await signIn(email);
+    const before = mailCount(email);
+
+    assert.equal((await send("POST", "/account/verification-email", { token: accessToken })).status, 200);
+    const token = await mailedToken(email, "/verify-email", { after: before });
+    assert.ok(token, "verification link emailed");
+
+    assert.equal((await send("POST", "/auth/verify-email", { body: { token: earlier } })).status, 400, "earlier link retired");
     assert.equal((await send("POST", "/auth/verify-email", { body: { token } })).status, 200);
 });
 
