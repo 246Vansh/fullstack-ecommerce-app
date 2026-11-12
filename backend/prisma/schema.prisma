@@ -58,6 +58,14 @@ enum OrderStatus {
   REFUNDED
 }
 
+// PERCENTAGE: discountValue is a percent (0.01-100) of the merchandise
+// subtotal, optionally capped by maximumDiscountAmount. FIXED: discountValue
+// is an amount in the coupon's currency.
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
 // One value per order/payment event a customer is told about.
 enum NotificationType {
   ORDER_PLACED
@@ -401,6 +409,11 @@ model Order {
   shippingZipCode   String  @db.VarChar(20)
   shippingCountry   String  @db.VarChar(100)
 
+  // The coupon applied at checkout (its use is counted in coupons.usedCount
+  // while the order is not cancelled) and its code as it was when placed.
+  couponId   Int?
+  couponCode String? @db.VarChar(40)
+
   deliveryMethod String?   @db.VarChar(50)
   notes          String?   @db.Text
   placedAt       DateTime  @default(now())
@@ -410,6 +423,7 @@ model Order {
   updatedAt      DateTime  @updatedAt
 
   user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  coupon            Coupon?            @relation(fields: [couponId], references: [id], onDelete: Restrict)
   items             OrderItem[]
   unappliedPayments UnappliedPayment[]
   notifications     Notification[]
@@ -417,7 +431,39 @@ model Order {
   @@index([userId, createdAt])
   @@index([status])
   @@index([status, reservationExpiresAt])
+  @@index([couponId, userId])
   @@map("orders")
+}
+
+// Public promotional codes any customer can apply at checkout. A coupon
+// applies only to carts in its currency (amounts are never converted).
+// usedCount is the number of orders holding a use right now: claimed when an
+// order is placed (conditional UPDATE, so usageLimit can never be exceeded)
+// and given back when that order is cancelled or expires unpaid, exactly like
+// reserved stock (services/couponService.js). A coupon used by any order can
+// only be deactivated, never deleted.
+model Coupon {
+  id                    Int          @id @default(autoincrement())
+  code                  String       @unique @db.VarChar(40)
+  description           String?      @db.VarChar(255)
+  discountType          DiscountType
+  discountValue         Decimal      @db.Decimal(10, 2)
+  currency              String       @db.Char(3)
+  minimumOrderAmount    Decimal      @default(0) @db.Decimal(10, 2)
+  maximumDiscountAmount Decimal?     @db.Decimal(10, 2)
+  usageLimit            Int?         @db.UnsignedInt
+  usageLimitPerUser     Int?         @db.UnsignedInt
+  usedCount             Int          @default(0) @db.UnsignedInt
+  startsAt              DateTime     @default(now())
+  expiresAt             DateTime?
+  isActive              Boolean      @default(true)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  orders Order[]
+
+  @@index([isActive, createdAt])
+  @@map("coupons")
 }
 
 // A captured Razorpay payment that could not be applied to its order (the

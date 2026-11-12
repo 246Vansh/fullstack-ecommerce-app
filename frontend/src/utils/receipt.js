@@ -32,7 +32,7 @@ export function receiptTotals(order) {
     return [
         { label: "Subtotal", value: formatPrice(order.subtotal, currency) },
         { label: "Shipping", value: isPositive(order.shipping) ? formatPrice(order.shipping, currency) : "Free" },
-        ...(isPositive(order.discount) ? [{ label: "Discount", value: `-${formatPrice(order.discount, currency)}` }] : []),
+        ...(isPositive(order.discount) ? [{ label: order.couponCode ? `Discount (${order.couponCode})` : "Discount", value: `-${formatPrice(order.discount, currency)}` }] : []),
         ...(isPositive(order.tax) ? [{ label: "Tax", value: formatPrice(order.tax, currency) }] : []),
     ];
 }

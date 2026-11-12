@@ -16,8 +16,11 @@
 
         <orderItems :products="products" />
 
+        <couponField :applied="coupon" :applying="couponApplying" :error="couponError" :disabled="placing"
+            @apply="$emit('apply-coupon', $event)" @remove="$emit('remove-coupon')" />
+
         <orderTotals :subtotal="subtotal" :discount="discount" :shipping="shipping" :tax="tax" :total="total"
-            :currency="currency" />
+            :currency="currency" :coupon-code="coupon?.code ?? ''" />
 
         <checkoutButton :disabled="!canProceed" :loading="placing" :payment-method="paymentMethod"
             :reason="blockedReason" :error="placeError" @place="$emit('place-order')" />
@@ -30,6 +33,7 @@
 import orderInformation from "./orderInformation.vue";
 import orderItems from "./orderItems.vue";
 import orderTotals from "./orderTotals.vue";
+import couponField from "./couponField.vue";
 import checkoutButton from "./checkoutButton.vue";
 
 defineProps({
@@ -76,7 +80,20 @@ defineProps({
         default: "",
     },
 
+    // The applied coupon from the server (null: none), and the apply state.
+    coupon: {
+        type: Object,
+        default: null,
+    },
+
+    couponApplying: Boolean,
+
+    couponError: {
+        type: String,
+        default: "",
+    },
+
 });
 
-defineEmits(["place-order"]);
+defineEmits(["place-order", "apply-coupon", "remove-coupon"]);
 </script>

@@ -1,14 +1,17 @@
 import { apiClient } from "./apiClient";
 
 // Orders are priced and built entirely by the server; placing one sends only
-// which saved address to ship to, the payment method (COD or RAZORPAY), plus
+// which saved address to ship to, the payment method (COD or RAZORPAY), an
+// applied coupon code (re-checked and priced by the server), plus
 // the total and currency the customer was shown so the server can refuse the
 // order (409) if prices changed in the meantime.
 export const orderService = {
 
-    async createOrder(addressId, expectedTotal, paymentMethod = "COD", expectedCurrency) {
+    async createOrder(addressId, expectedTotal, paymentMethod = "COD", expectedCurrency, couponCode) {
         const { data } = await apiClient.post("/orders", {
-            addressId, expectedTotal, paymentMethod, ...(expectedCurrency && { expectedCurrency }),
+            addressId, expectedTotal, paymentMethod,
+            ...(expectedCurrency && { expectedCurrency }),
+            ...(couponCode && { couponCode }),
         });
 
         return data.data;

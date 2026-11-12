@@ -178,6 +178,12 @@ export const routes = [
                 component: () => import("@/pages/admin/adminOrderDetailPage.vue"),
                 meta: { title: "Order · Admin" },
             },
+            {
+                path: "coupons",
+                name: "admin-coupons",
+                component: () => import("@/pages/admin/adminCouponsPage.vue"),
+                meta: { title: "Coupons · Admin" },
+            },
         ],
     },
 

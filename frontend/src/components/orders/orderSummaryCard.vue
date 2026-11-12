@@ -62,6 +62,6 @@ const totals = computed(() => [
     { label: "Subtotal", value: formatPrice(props.order.subtotal, props.order.currency) },
     { label: "Shipping", value: formatPrice(props.order.shipping, props.order.currency) },
     { label: "Tax", value: formatPrice(props.order.tax, props.order.currency) },
-    ...(Number(props.order.discount) > 0 ? [{ label: "Discount", value: `-${formatPrice(props.order.discount, props.order.currency)}` }] : []),
+    ...(Number(props.order.discount) > 0 ? [{ label: props.order.couponCode ? `Discount (${props.order.couponCode})` : "Discount", value: `-${formatPrice(props.order.discount, props.order.currency)}` }] : []),
 ]);
 </script>

@@ -7,6 +7,7 @@ import { orderService } from "@/services/orderService";
 import { parseApiError } from "@/services/apiClient";
 import { useCartStore } from "@/stores/cartStore";
 import { useRazorpayPayment } from "@/composables/useRazorpayPayment";
+import { normalizeCouponCode } from "@/utils/couponRules";
 
 // Checkout page state. Everything shown comes from GET /api/checkout; the
 // page only formats the server's prices and totals, it never computes them.
@@ -28,6 +29,16 @@ export function useCheckout() {
         addresses.value.find((address) => address.id === selectedAddressId.value) ?? null
     );
 
+    // ------------------------------------------------------------ coupon
+
+    // The code the customer applied. It is sent with every checkout load; the
+    // server answers with checkout.coupon (it applies, with its discount) or
+    // checkout.couponError (it no longer does).
+    const couponCode = ref("");
+    const couponApplying = ref(false);
+    const couponError = ref("");
+    const appliedCoupon = computed(() => checkout.value?.coupon ?? null);
+
     let latest = 0;
 
     async function load(addressId = selectedAddressId.value) {
@@ -41,10 +52,19 @@ export function useCheckout() {
             // login, so the checkout reflects the merged server cart.
             if (!checkout.value) await cart.loadCart();
 
-            const data = await checkoutService.getCheckout(addressId);
+            const data = await checkoutService.getCheckout(addressId, couponCode.value || undefined);
 
             // Only the most recent request wins (e.g. quick address switches).
-            if (request === latest) checkout.value = data;
+            if (request === latest) {
+                checkout.value = data;
+
+                // An applied coupon stopped applying (the cart changed, it
+                // expired, its uses ran out): drop it and say why.
+                if (couponCode.value && data.couponError) {
+                    couponError.value = `${couponCode.value} was removed: ${data.couponError.message}`;
+                    couponCode.value = "";
+                }
+            }
         } catch (err) {
             if (request === latest) error.value = parseApiError(err).message;
         } finally {
@@ -76,6 +96,43 @@ export function useCheckout() {
         await load(id === selectedAddressId.value ? null : selectedAddressId.value);
     }
 
+    // Checks the code with the server first (no use is taken), so a code that
+    // does not apply shows its reason and leaves the current totals as they are.
+    async function applyCoupon(code) {
+        const normalized = normalizeCouponCode(code);
+
+        if (couponApplying.value || placing.value) return false;
+
+        if (!normalized) {
+            couponError.value = "Enter a coupon code.";
+            return false;
+        }
+
+        couponApplying.value = true;
+        couponError.value = "";
+
+        try {
+            await checkoutService.validateCoupon(normalized);
+            couponCode.value = normalized;
+            await load();
+            return Boolean(appliedCoupon.value);
+        } catch (err) {
+            const { message, fields } = parseApiError(err);
+            couponError.value = fields.couponCode ?? message;
+            return false;
+        } finally {
+            couponApplying.value = false;
+        }
+    }
+
+    function removeCoupon() {
+        if (placing.value) return;
+
+        couponCode.value = "";
+        couponError.value = "";
+        return load();
+    }
+
     const placing = ref(false);
     const placeError = ref("");
     const payment = useRazorpayPayment();
@@ -97,7 +154,10 @@ export function useCheckout() {
 
         try {
             // The displayed server total and currency are sent only as a check, never as the price.
-            const order = await orderService.createOrder(selectedAddressId.value, summary.value?.total, paymentMethod, summary.value?.currency);
+            // The coupon is sent by code only; the server re-checks it and prices the discount.
+            const order = await orderService.createOrder(
+                selectedAddressId.value, summary.value?.total, paymentMethod, summary.value?.currency, appliedCoupon.value?.code,
+            );
 
             // The server emptied the cart; resync the header badge.
             cart.loadCart();
@@ -115,7 +175,16 @@ export function useCheckout() {
 
             await router.push({ name: "orderSuccess", params: { id: order.id } });
         } catch (err) {
-            placeError.value = parseApiError(err).message;
+            const { message, fields } = parseApiError(err);
+            placeError.value = message;
+
+            // The coupon no longer applies: reload without it, so the totals
+            // shown are the ones the order would now have.
+            if (fields.couponCode) {
+                couponError.value = `${couponCode.value} was removed: ${fields.couponCode}`;
+                couponCode.value = "";
+                await load();
+            }
 
             // Stock or availability changed: reload so the affected items are shown.
             if (err.response?.status === 409) await load();
@@ -141,6 +210,11 @@ export function useCheckout() {
         placing,
         placeError,
         placeOrder,
+        appliedCoupon,
+        couponApplying,
+        couponError,
+        applyCoupon,
+        removeCoupon,
     };
 
 }

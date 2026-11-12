@@ -6,6 +6,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { loadCartItems } from "./checkoutService.js";
 import { notifyOrderEvent } from "./notificationService.js";
 import { calculateTotals, lineTotalOf, roundMoney, toMoney } from "./pricingService.js";
+import { claimCoupon, evaluateCoupon, isLockFailure, lockOrderCoupon, reclaimCoupon, releaseCoupon } from "./couponService.js";
 
 // Waiting for another checkout of the same variant or cart can take a moment
 // under load; these bound it instead of Prisma's 2s/5s defaults.
@@ -71,6 +72,7 @@ const orderSelect = {
     tax: true,
     discount: true,
     total: true,
+    couponCode: true,
     placedAt: true,
     createdAt: true,
     updatedAt: true,
@@ -144,6 +146,8 @@ function toOrderResponse(order) {
         tax: toMoney(order.tax),
         discount: toMoney(order.discount),
         total: toMoney(order.total),
+        // The coupon code applied when the order was placed (null: none).
+        couponCode: order.couponCode ?? null,
         shippingAddress: {
             firstName: order.shippingFirstName,
             lastName: order.shippingLastName,
@@ -170,6 +174,12 @@ const stockConflict = (details) => new ApiError(409, "Some items in your cart ar
 | 2. Validate the address and every cart item against current data.
 | 3. Price everything with pricingService. The order takes the cart's one
 |    currency (a cart with items in another currency has an issue and stops at 2).
+|    A coupon code is checked again here (couponService) and its discount
+|    priced from the database; if the total differs from expectedTotal the
+|    order stops before anything is reserved.
+| 3b. Claim one use of the coupon (conditional UPDATE on the coupon row), so
+|    usage limits hold under concurrent orders. Before stock: the lock order
+|    is orders -> coupon -> variants everywhere (see couponService).
 | 4. Decrement stock with a conditional UPDATE (stock >= quantity). MySQL
 |    row-locks the variant and re-checks the condition on the latest committed
 |    row, so two buyers can never both take the last units; the loser's
@@ -181,7 +191,7 @@ const stockConflict = (details) => new ApiError(409, "Some items in your cart ar
 | steps; the HTTP controller never passes it.
 */
 
-async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurrency, paymentMethod = "COD" }, hooks) {
+async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurrency, paymentMethod = "COD", couponCode }, hooks) {
     const step = async (name) => hooks?.afterStep?.(name, tx);
 
     // A bare UPDATE takes the row lock before any read, so the reads below
@@ -217,8 +227,14 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurren
 
     await step("validated");
 
+    // The coupon is decided again from the database; nothing the checkout
+    // page showed is trusted. Throws a 422 naming couponCode if it no longer applies.
+    const applied = couponCode
+        ? await evaluateCoupon(tx, userId, couponCode, { subtotal: calculateTotals(priced).subtotal, currency })
+        : null;
+
     // Decimals from the one pricing policy; stored exactly as calculated.
-    const totals = calculateTotals(priced, { address });
+    const totals = calculateTotals(priced, { address, coupon: applied?.coupon });
 
     // The total (and currency) the customer saw at checkout. If either changed
     // since, stop before touching stock so they can review the new total.
@@ -228,6 +244,16 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurren
             { field: "expectedTotal", code: "PRICE_CHANGED", message: `The total is now ${toMoney(totals.total).toFixed(2)} ${currency}` },
         ]);
     }
+
+    // A coupon can bring the total to zero, which cannot be paid online (the
+    // order would hold its stock, be unpayable and expire).
+    if (paymentMethod === "RAZORPAY" && !totals.total.greaterThan(0)) {
+        throw new ApiError(422, "Nothing is left to pay online for this order. Choose Cash on Delivery to place it.", [
+            { field: "paymentMethod", code: "NOTHING_TO_PAY", message: "Nothing is left to pay online for this order" },
+        ]);
+    }
+
+    if (applied) await claimCoupon(tx, applied.coupon, userId);
 
     // Fixed order (by variant id) so two multi-item orders cannot deadlock.
     const byVariant = [...priced].sort((a, b) => a.item.variant.id - b.item.variant.id);
@@ -273,6 +299,8 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurren
             reservationExpiresAt: paymentMethod === "RAZORPAY" ? new Date(placedAt.getTime() + RESERVATION_MS) : null,
             ...totals,
             currency,
+            couponId: applied?.coupon.id ?? null,
+            couponCode: applied?.coupon.code ?? null,
             shippingFirstName: address.firstName,
             shippingLastName: address.lastName,
             shippingPhone: address.phone,
@@ -317,10 +345,10 @@ const isOrderNumberClash = (err) => err instanceof Prisma.PrismaClientKnownReque
 // No payment is taken here: the order is created PENDING and UNPAID, with the
 // server's prices. For RAZORPAY orders, paymentService then collects payment
 // against this stored total and marks it PAID only after verification.
-export async function createOrder(userId, { addressId, expectedTotal, expectedCurrency, paymentMethod }, hooks) {
+export async function createOrder(userId, { addressId, expectedTotal, expectedCurrency, paymentMethod, couponCode }, hooks) {
     for (let attempt = 1; ; attempt++) {
         try {
-            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal, expectedCurrency, paymentMethod }, hooks), TRANSACTION_OPTIONS);
+            const order = await prisma.$transaction((tx) => placeOrder(tx, userId, { addressId, expectedTotal, expectedCurrency, paymentMethod, couponCode }, hooks), TRANSACTION_OPTIONS);
 
             // Committed: the order and its items exist. Never throws.
             await notifyOrderEvent({ ...order, userId }, "ORDER_PLACED");
@@ -333,7 +361,7 @@ export async function createOrder(userId, { addressId, expectedTotal, expectedCu
             if (isOrderNumberClash(err) && attempt < ORDER_NUMBER_ATTEMPTS) continue;
 
             // Deadlock / lock wait / transaction timeout: nothing was committed.
-            if (err instanceof Prisma.PrismaClientKnownRequestError && ["P2028", "P2034"].includes(err.code)) {
+            if (isLockFailure(err)) {
                 throw new ApiError(409, "Your order could not be placed right now. Please try again.");
             }
 
@@ -641,9 +669,10 @@ async function restoreStock(tx, orderId, step) {
 |    cancellable. This row-locks the order and re-checks the condition on the
 |    latest committed row, so of two concurrent cancels only one matches; the
 |    other waits for the lock, then matches 0 rows and gets 409.
-| 2. Re-read the order items and give each variant its quantity back, in
+| 2. Give back the order's coupon use, if it had one (couponService).
+| 3. Re-read the order items and give each variant its quantity back, in
 |    variant id order (the same order checkout locks them in).
-| Any failure rolls back both the status change and every stock increment.
+| Any failure rolls back the status change, the coupon use and every stock increment.
 |
 | `hooks.afterStep(name, tx)` is a test seam, as in placeOrder.
 */
@@ -673,6 +702,8 @@ export async function cancelOrder(userId, id, hooks) {
 
             await step("status");
 
+            await releaseCoupon(tx, id);
+
             await restoreStock(tx, id, step);
 
             return tx.order.findUnique({ where: { id }, select: orderSelect });
@@ -685,7 +716,7 @@ export async function cancelOrder(userId, id, hooks) {
     } catch (err) {
         if (err instanceof ApiError) throw err;
 
-        if (err instanceof Prisma.PrismaClientKnownRequestError && ["P2028", "P2034"].includes(err.code)) {
+        if (isLockFailure(err)) {
             throw new ApiError(409, "Your order could not be cancelled right now. Please try again.");
         }
 
@@ -699,7 +730,8 @@ export async function cancelOrder(userId, id, hooks) {
 |--------------------------------------------------------------------------
 | expireOrder: one transaction. A conditional UPDATE moves the order to
 | CANCELLED (setting expiredAt) only while it is still an online order,
-| PENDING, unpaid and past its deadline; then its stock is given back. Paying
+| PENDING, unpaid and past its deadline; then its coupon use (if any) and its
+| stock are given back. Paying
 | the order (paymentService) is the opposite conditional UPDATE on the same
 | row (PENDING + unpaid -> PAID). MySQL row-locks the order for whichever
 | runs first and re-checks the other's WHERE against the committed row, so
@@ -744,6 +776,8 @@ export async function expireOrder(id, now = new Date(), hooks) {
         if (count === 0) return false;
 
         await step("status");
+
+        await releaseCoupon(tx, id);
 
         await restoreStock(tx, id, step);
 
@@ -829,6 +863,9 @@ export async function reinstateExpiredOrder(order, payment, hooks) {
 
         if (owed) return "REFUND_DUE";
 
+        // Before the variants (lock order: orders -> coupon -> variants).
+        const couponId = await lockOrderCoupon(tx, order.id);
+
         const { available, items } = await lockAndCheckStock(tx, order.id);
 
         await step("checked");
@@ -858,6 +895,9 @@ export async function reinstateExpiredOrder(order, payment, hooks) {
         if (count !== 1) throw new Error("Expired order changed while locked");
 
         await step("status");
+
+        // The order holds its coupon use again (released when it expired).
+        await reclaimCoupon(tx, couponId);
 
         for (const { variantId, quantity } of items) {
             // Checked above under the same lock; the condition is a second guard.

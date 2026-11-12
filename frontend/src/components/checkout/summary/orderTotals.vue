@@ -12,8 +12,10 @@
             </div>
 
             <!-- Only a real (non-zero) discount from the server is shown. -->
-            <div v-if="discount > 0" class="flex justify-between">
-                <dt class="text-slate-600">Discount</dt>
+            <div v-if="discount > 0" class="flex justify-between gap-3">
+                <dt class="min-w-0 wrap-anywhere text-slate-600">
+                    Discount<span v-if="couponCode" class="font-mono text-xs"> ({{ couponCode }})</span>
+                </dt>
                 <dd class="font-medium text-brand">-{{ formatPrice(discount, currency) }}</dd>
             </div>
 
@@ -64,6 +66,12 @@ defineProps({
 
     // The checkout's one currency; null when the cart mixes currencies (shown as a dash).
     currency: String,
+
+    // The coupon behind the discount, if any (label only).
+    couponCode: {
+        type: String,
+        default: "",
+    },
 
 });
 

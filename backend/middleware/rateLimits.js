@@ -94,6 +94,16 @@ export const reviewMutationLimiter = limiter({
 
 // "Forgot password" requests, per IP. Each one may send an email; the
 // service also sends at most one link per account per minute.
+// Trying coupon codes, per user: POST /coupons/validate and checkout loads
+// that carry a couponCode share it, so codes cannot be guessed by trying many
+// in a row. Applying one code costs two (validate, then the checkout reload),
+// and each address change with a coupon applied costs one more.
+export const couponAttemptLimiter = limiter({
+    limit: 60,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many coupon attempts, please try again later" },
+});
+
 export const passwordResetRequestLimiter = limiter({
     limit: 5,
     message: { success: false, message: "Too many password reset requests, please try again later" },

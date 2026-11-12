@@ -7,6 +7,7 @@ import { ORDER_PAGINATION, PAYMENT_METHODS } from "../services/orderService.js";
 import { CURRENCIES } from "../services/pricingService.js";
 import { authenticate } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
+import { couponCodeBody } from "../middleware/couponRules.js";
 import { orderMutationLimiter, paymentLimiter } from "../middleware/rateLimits.js";
 
 const router = Router();
@@ -24,6 +25,8 @@ const createRules = [
     // Optional; COD when left out (the behaviour before online payment).
     body("paymentMethod").optional()
         .isIn(PAYMENT_METHODS).withMessage(`paymentMethod must be one of: ${PAYMENT_METHODS.join(", ")}`),
+    // Optional: a coupon code; checked again and priced by the server.
+    couponCodeBody(),
 ];
 
 // Exactly what Razorpay Checkout returns, in its documented formats.

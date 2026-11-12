@@ -72,7 +72,7 @@
                         <shippingCard :addresses="addresses" :selected-id="selectedAddressId" :save="saveAddress" :remove="deleteAddress"
                             :disabled="placing" @select="selectAddress" />
 
-                        <!-- Delivery methods, coupons and order notes are not implemented, so they are not shown. -->
+                        <!-- Delivery methods and order notes are not implemented, so they are not shown. -->
                         <paymentCard v-model="paymentMethod" :methods="paymentMethods" :disabled="placing" />
 
                     </section>
@@ -87,7 +87,8 @@
                             :customer="auth.user"
                             :address="selectedAddress" :can-proceed="validation.canProceed && !loading" :placing="placing"
                             :payment-method="paymentMethod" :blocked-reason="blockedReason" :place-error="placeError"
-                            @place-order="placeOrder(paymentMethod)" />
+                            :coupon="appliedCoupon" :coupon-applying="couponApplying" :coupon-error="couponError"
+                            @place-order="placeOrder(paymentMethod)" @apply-coupon="applyCoupon" @remove-coupon="removeCoupon" />
 
                     </aside>
 
@@ -188,6 +189,11 @@ const {
     placing,
     placeError,
     placeOrder,
+    appliedCoupon,
+    couponApplying,
+    couponError,
+    applyCoupon,
+    removeCoupon,
 } = useCheckout();
 
 // Server checkout items in the shape the summary components render.

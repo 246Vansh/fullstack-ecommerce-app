@@ -7,6 +7,10 @@ import {
     listCategories, createCategory, updateCategory,
 } from "../controllers/adminCatalogController.js";
 import { listOrders, getOrder, updateOrderStatus } from "../controllers/adminOrderController.js";
+import {
+    listCoupons, getCoupon, createCoupon, updateCoupon, activateCoupon, deactivateCoupon, deleteCoupon,
+} from "../controllers/adminCouponController.js";
+import { ADMIN_COUPON_PAGINATION, COUPON_CODE } from "../services/couponService.js";
 import { ADMIN_PAGINATION, MAX_STOCK } from "../services/adminCatalogService.js";
 import { ADMIN_ORDER_PAGINATION, FULFILMENT_STEPS, ORDER_STATUSES } from "../services/orderService.js";
 import { CURRENCIES } from "../services/pricingService.js";
@@ -193,6 +197,49 @@ const orderListRules = [
     singleQuery("refundDue").optional().isIn(["true", "false"]).withMessage("refundDue must be true or false").toBoolean(true),
 ];
 
+// ------------------------------------------------------------ coupons
+
+const MAX_USES = 1_000_000_000;
+
+// Zero allowed (no minimum).
+const amountOrZero = (path) => body(path).optional()
+    .custom((value) => (typeof value === "number" || typeof value === "string") && MONEY.test(String(value).trim()))
+    .withMessage(`${label(path)} must be an amount from 0 with at most 2 decimals (max 99999999.99)`)
+    .customSanitizer((value) => String(value).trim());
+
+const nullableCount = (path) => body(path).optional()
+    .custom((value) => value === null || (Number.isInteger(value) && value >= 1 && value <= MAX_USES))
+    .withMessage(`${label(path)} must be a whole number from 1 to ${MAX_USES}, or null for no limit`);
+
+const dateTime = (path, { nullable }) => body(path).optional()
+    .custom((value) => (nullable && value === null)
+        || (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(Date.parse(value))))
+    .withMessage(`${label(path)} must be an ISO 8601 date-time${nullable ? " or null" : ""}`)
+    .customSanitizer((value) => (value === null ? null : new Date(value)));
+
+const couponFields = ({ required }) => [
+    text("code", { max: 40, required, upper: true, pattern: COUPON_CODE, message: "code must be 3-40 letters, numbers, '-' or '_'" }),
+    text("description", { max: 255, nullable: true }),
+    (required ? body("discountType").exists().withMessage("discountType is required").bail() : body("discountType").optional())
+        .isIn(["PERCENTAGE", "FIXED"]).withMessage("discountType must be PERCENTAGE or FIXED"),
+    money("discountValue", { required }),
+    (required ? body("currency").exists().withMessage("currency is required").bail() : body("currency").optional())
+        .isIn(CURRENCIES).withMessage(`currency must be one of: ${CURRENCIES.join(", ")}`),
+    amountOrZero("minimumOrderAmount"),
+    money("maximumDiscountAmount", { nullable: true }),
+    nullableCount("usageLimit"),
+    nullableCount("usageLimitPerUser"),
+    dateTime("startsAt", { nullable: false }),
+    dateTime("expiresAt", { nullable: true }),
+    flag("isActive"),
+];
+
+const couponListRules = [
+    ...paginationRules(ADMIN_COUPON_PAGINATION),
+    singleQuery("search").optional().isString().trim().isLength({ max: 40 }).withMessage("search must be at most 40 characters"),
+    singleQuery("isActive").optional().isIn(["true", "false"]).withMessage("isActive must be true or false").toBoolean(true),
+];
+
 // Only the step requested; the server derives which status it must follow.
 const orderStatusRules = [
     idParam,
@@ -223,5 +270,15 @@ router.patch("/categories/:id", idParam, categoryFields({ required: false }), va
 router.get("/orders", orderListRules, validate, listOrders);
 router.get("/orders/:id", idParam, validate, getOrder);
 router.patch("/orders/:id/status", orderStatusRules, validate, updateOrderStatus);
+
+// Coupons. usedCount is changed only by orders, never through these routes.
+router.get("/coupons", couponListRules, validate, listCoupons);
+router.post("/coupons", couponFields({ required: true }), validate, createCoupon);
+router.get("/coupons/:id", idParam, validate, getCoupon);
+router.patch("/coupons/:id", idParam, couponFields({ required: false }), validate, requireChanges, updateCoupon);
+router.post("/coupons/:id/activate", idParam, validate, activateCoupon);
+router.post("/coupons/:id/deactivate", idParam, validate, deactivateCoupon);
+// Only a coupon no order has used; others can only be deactivated.
+router.delete("/coupons/:id", idParam, validate, deleteCoupon);
 
 export default router;

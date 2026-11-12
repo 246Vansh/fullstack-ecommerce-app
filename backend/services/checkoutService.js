@@ -1,5 +1,7 @@
 import prisma from "../config/db.js";
+import { ApiError } from "../utils/ApiError.js";
 import { listAddresses } from "./addressService.js";
+import { evaluateCoupon, toAppliedCoupon } from "./couponService.js";
 import {
     calculateTotals, serializeTotals, toMoney, unitPriceOf, originalPriceOf, lineTotalOf, currencyOf, MIXED_CURRENCY,
 } from "./pricingService.js";
@@ -139,13 +141,56 @@ export async function loadCartItems(client, userId) {
     return { priced, issues, currency };
 }
 
+// A coupon checked against a loaded cart: { coupon, discount } when it
+// applies, or { error: { code, message } } when it does not. Read-only: no
+// use is taken (that happens only when an order is placed).
+async function couponFor(userId, couponCode, { priced, issues, currency }) {
+    if (priced.length === 0) {
+        return { error: { code: "CART_EMPTY", message: "Your cart is empty" } };
+    }
+
+    // A cart in more than one currency is never totalled, so it cannot be discounted.
+    if (issues.some((issue) => issue.code === MIXED_CURRENCY)) {
+        return { error: { code: MIXED_CURRENCY, message: "Remove the items in another currency before applying a coupon" } };
+    }
+
+    try {
+        return await evaluateCoupon(prisma, userId, couponCode, { subtotal: calculateTotals(priced).subtotal, currency });
+    } catch (err) {
+        if (!(err instanceof ApiError) || !err.details?.[0]?.code) throw err;
+        return { error: { code: err.details[0].code, message: err.message } };
+    }
+}
+
+// POST /coupons/validate: whether a code applies to the user's cart right now,
+// and the totals it would give. Throws 422 (field couponCode) when it does not.
+export async function validateCouponForCart(userId, couponCode) {
+    const cart = await loadCartItems(prisma, userId);
+    const result = await couponFor(userId, couponCode, cart);
+
+    if (result.error) {
+        throw new ApiError(422, result.error.message, [{ field: "couponCode", ...result.error }]);
+    }
+
+    return {
+        coupon: toAppliedCoupon(result.coupon, result.discount),
+        summary: { ...serializeTotals(calculateTotals(cart.priced, { coupon: result.coupon })), currency: cart.currency },
+    };
+}
+
 // Read-only snapshot of what the user would buy. `addressId` selects one of
 // the user's addresses; anything else falls back to their default.
-export async function getCheckout(userId, { addressId } = {}) {
-    const [{ priced, issues, currency }, addresses] = await Promise.all([
+// `couponCode` is a code the customer applied: when it applies, the summary
+// includes its discount; when it does not, couponError says why and the
+// summary is without it.
+export async function getCheckout(userId, { addressId, couponCode } = {}) {
+    const [cart, addresses] = await Promise.all([
         loadCartItems(prisma, userId),
         listAddresses(userId),
     ]);
+    const { priced, issues, currency } = cart;
+    const applied = couponCode ? await couponFor(userId, couponCode, cart) : null;
+    const coupon = applied?.coupon ?? null;
 
     const items = priced.map(({ item }) => item);
 
@@ -165,7 +210,9 @@ export async function getCheckout(userId, { addressId } = {}) {
         // different currencies are not added up, and every amount is null.
         summary: mixedCurrency
             ? { subtotal: null, shipping: null, tax: null, discount: null, total: null, currency: null }
-            : { ...serializeTotals(calculateTotals(priced, { address })), currency },
+            : { ...serializeTotals(calculateTotals(priced, { address, coupon })), currency },
+        coupon: coupon ? toAppliedCoupon(coupon, applied.discount) : null,
+        couponError: applied?.error ?? null,
         addresses,
         selectedAddressId: address?.id ?? null,
         validation: {
