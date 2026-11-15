@@ -193,8 +193,9 @@ before(async () => {
 
     // DOTENV_CONFIG_OVERRIDE (any non-empty value, even "false") would make the
     // server's dotenv replace this DATABASE_URL with the one in .env; spawn
-    // drops undefined keys, so the server never sees it.
-    server = await startServer({ DATABASE_URL: guard.url, DOTENV_CONFIG_OVERRIDE: undefined });
+    // drops undefined keys, so the server never sees it. Status changes email
+    // the customer: console, never the SMTP provider .env may name.
+    server = await startServer({ DATABASE_URL: guard.url, DOTENV_CONFIG_OVERRIDE: undefined, MAIL_PROVIDER: "console" });
 
     // Before any request that writes: the server reads an order that exists
     // only in the test database (a GET, so a misrouted server changes nothing).
