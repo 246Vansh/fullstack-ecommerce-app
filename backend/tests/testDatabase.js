@@ -75,6 +75,11 @@ export async function openTestDatabase(env = process.env) {
     if (!guard.ok) return { guard, skip, prisma: undefined };
 
     env.DATABASE_URL = guard.url;
+    // Orders placed by tests queue customer emails: never deliver them for
+    // real (.env may name an SMTP provider). Spawned servers inherit this; a
+    // production-mode server must set "disabled" itself (config/env.js
+    // refuses console in production).
+    env.MAIL_PROVIDER = "console";
     const { default: prisma } = await import("../config/db.js");
     return { guard, skip, prisma };
 }

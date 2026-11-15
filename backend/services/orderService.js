@@ -790,7 +790,7 @@ export async function expireOrder(id, now = new Date(), hooks) {
     if (expired) {
         try {
             const order = await prisma.order.findUnique({ where: { id }, select: { id: true, userId: true, orderNumber: true } });
-            if (order) await notifyOrderEvent(order, "ORDER_CANCELLED");
+            if (order) await notifyOrderEvent(order, "ORDER_CANCELLED", { reason: "expired" });
         } catch (err) {
             console.error(`Failed to create ORDER_CANCELLED notification for order ${id}: ${err?.code ?? err?.name ?? "unknown error"}`);
         }

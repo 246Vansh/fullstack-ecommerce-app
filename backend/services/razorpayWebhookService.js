@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { applyPayment, loadOrderByGatewayOrder } from "./paymentService.js";
+import { queueRefundEmail } from "./orderEmailService.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -114,6 +115,11 @@ async function handleRefundProcessed(refund) {
         where: { razorpayPaymentId: refund.payment_id, refundedAt: null, amount: refund.amount, currency: refund.currency },
         data: { refundedAt: new Date(), razorpayRefundId: refund.id },
     });
+
+    // Only the delivery whose UPDATE recorded the refund emails the customer,
+    // with the amount Razorpay reports as refunded; a replay matches 0 rows.
+    // Queued, never awaited, so it cannot delay or fail the webhook response.
+    if (count) queueRefundEmail(refund);
 
     return count ? "refund_recorded" : "refund_not_tracked";
 }

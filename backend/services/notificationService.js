@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
+import { queueOrderEmail } from "./orderEmailService.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -70,21 +71,31 @@ const ORDER_MESSAGES = {
 };
 
 // `order` needs id, userId (the owner, from the database) and orderNumber.
-export async function notifyOrderEvent(order, type) {
+// `reason` tells the email which kind of event this was ("expired" for an
+// ORDER_CANCELLED by the expiry worker); the notification itself ignores it.
+//
+// The customer email is queued only when this call created the notification:
+// the same dedupeKey that keeps the notification unique keeps the email
+// once-only. Queuing never waits for the email or throws (orderEmailService).
+export async function notifyOrderEvent(order, type, { reason } = {}) {
+    let created = false;
+
     try {
         const [title, message] = ORDER_MESSAGES[type](order.orderNumber ?? `#${order.id}`);
 
-        await createNotification({
+        ({ created } = await createNotification({
             userId: order.userId,
             type,
             title,
             message,
             orderId: order.id,
             dedupeKey: `order:${order.id}:${type}`,
-        });
+        }));
     } catch (err) {
         console.error(`Failed to create ${type} notification for order ${order.id}: ${err?.code ?? err?.name ?? "unknown error"}`);
     }
+
+    if (created) queueOrderEmail(order.id, type, { reason });
 }
 
 export const countUnread =(userId) => prisma.notification.count({ where: { userId, readAt: null } });

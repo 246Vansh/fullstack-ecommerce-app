@@ -53,7 +53,7 @@ export const MAIL_PROVIDERS = Object.keys(PROVIDERS);
 
 // "harsh@example.com" -> "h***@example.com": enough to match a log line to a
 // report without writing full addresses to the log.
-const maskAddress = (address) => String(address).replace(/^(.).*(@.*)$/, "$1***$2");
+export const maskAddress = (address) => String(address).replace(/^(.).*(@.*)$/, "$1***$2");
 
 // Resolves true when the provider accepted the message, false otherwise; never
 // rejects. A failure is logged with the provider's diagnostics (error code,
