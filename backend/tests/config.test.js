@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
-import prisma, { databaseSsl, createConnectionErrorLogger } from "../config/db.js";
+import { databaseSsl, createConnectionErrorLogger } from "../config/db.js";
 import { migrationDatabaseUrl } from "../prisma.config.js";
 import { validateEnv, parseTrustProxy } from "../config/env.js";
 import { createdCutoffMs } from "../config/reservations.js";
@@ -461,20 +461,20 @@ test("migrations: prisma migrate status verifies the database certificate when D
 });
 
 test("13. seed refuses to run outside development/test, before touching the database", async () => {
-    const watched = { where: { email: "customer@example.com" }, select: { passwordHash: true, updatedAt: true } };
-    const userBefore = await prisma.user.findUnique(watched);
-    const stockBefore = await prisma.productVariant.findMany({ select: { id: true, stock: true }, orderBy: { id: "asc" } });
+    // The seed never sees a real database: DATABASE_URL points at a closed
+    // loopback port with throwaway credentials (dotenv does not override it,
+    // and DOTENV_CONFIG_OVERRIDE is dropped). config/db.js connects only on the
+    // first query, so a refusal never connects; if the NODE_ENV check ever
+    // broke, the seed would fail to connect instead of writing anywhere, and
+    // this test would fail because "Refusing to seed" is missing.
+    const unreachable = { DATABASE_URL: "mysql://seed_guard_check:unused@127.0.0.1:1/seed_guard_check", DOTENV_CONFIG_OVERRIDE: undefined };
 
     for (const NODE_ENV of ["production", "staging"]) {
-        const { code, output } = await runNode(["prisma/seed.js"], { NODE_ENV });
+        const { code, output } = await runNode(["prisma/seed.js"], { ...unreachable, NODE_ENV });
         assert.equal(code, 1, output);
         assert.match(output, /Refusing to seed/);
         assert.doesNotMatch(output, /Seed complete/);
     }
-
-    assert.deepEqual(await prisma.user.findUnique(watched), userBefore, "user password/updatedAt unchanged");
-    assert.deepEqual(await prisma.productVariant.findMany({ select: { id: true, stock: true }, orderBy: { id: "asc" } }), stockBefore, "stock unchanged");
-    await prisma.$disconnect();
 });
 
 test("test servers never run the reservation expiry worker against the configured database", () => {
