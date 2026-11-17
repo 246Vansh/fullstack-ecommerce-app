@@ -36,6 +36,7 @@ const payments = guard.ok ? await import("../services/paymentService.js") : {};
 const webhooks = guard.ok ? await import("../services/razorpayWebhookService.js") : {};
 const emails = guard.ok ? await import("../services/orderEmailService.js") : {};
 const notifications = guard.ok ? await import("../services/notificationService.js") : {};
+const refunds = guard.ok ? await import("../services/refundService.js") : {};
 
 const dbTest = (name, fn) => test(name, { skip }, fn);
 testDatabaseGuardTest(test, guard);
@@ -55,6 +56,7 @@ const capture = async (message, label) => {
 // Every queued email for this user, after all queued sends have settled.
 async function mailTo(user) {
     await emails.flushOrderEmails();
+    await refunds.flushRefundEmails();
     return sent.filter((m) => m.to === user.email);
 }
 
@@ -183,6 +185,7 @@ after(async () => {
             await tx.razorpayWebhookEvent.deleteMany({
                 where: { OR: [{ eventKey: { in: created.eventKeys } }, { razorpayOrderId: { in: created.gatewayOrders } }] },
             });
+            await tx.razorpayRefund.deleteMany({ where: { order: { userId: { in: userIds } } } });
             await tx.unappliedPayment.deleteMany({ where: { order: { userId: { in: userIds } } } });
             await tx.order.deleteMany({ where: { userId: { in: userIds } } });
             await tx.cartItem.deleteMany({ where: { cart: { userId: { in: userIds } } } });
@@ -409,7 +412,7 @@ dbTest("Razorpay: an unpaid order that expires gets one 'payment not received' e
 
 // ------------------------------------------------------------ refunds
 
-dbTest("refund.processed: one email with Razorpay's refunded amount; replays and unmatched refunds send none", async () => {
+dbTest("refund.processed: one email per refund id with its own amount and the running total; replays send none", async () => {
     const user = await makeUser("refund");
     const order = await placeOnline(user);
     const paymentId = nextId("pay");
@@ -417,23 +420,265 @@ dbTest("refund.processed: one email with Razorpay's refunded amount; replays and
         data: { orderId: order.id, razorpayPaymentId: paymentId, razorpayOrderId: order.razorpayOrderId, amount: 4000, currency: "USD", reason: "order_already_paid" },
     });
 
-    // Not this payment's amount: not recorded, so not emailed.
-    const wrong = refundEvent({ id: nextId("rfnd"), payment_id: paymentId, amount: 100, currency: "USD" });
-    assert.equal((await handle(wrong)).outcome, "refund_not_tracked");
-    assert.deepEqual(await mailTo(user), []);
+    // A partial refund: stored, counted and emailed (still owed: not refunded yet).
+    const firstId = nextId("rfnd");
+    assert.equal((await handle(refundEvent({ id: firstId, payment_id: paymentId, amount: 1000, currency: "USD" }))).outcome, "unapplied_refund_partial");
+    assert.equal((await prisma.unappliedPayment.findUnique({ where: { razorpayPaymentId: paymentId } })).refundedAt, null);
 
+    // The rest: the payment is now refunded in full.
     const refundId = nextId("rfnd");
-    const body = refundEvent({ id: refundId, payment_id: paymentId, amount: 4000, currency: "USD" });
+    const body = refundEvent({ id: refundId, payment_id: paymentId, amount: 3000, currency: "USD" });
     const eventId = newEventId();
-    assert.equal((await handle(body, eventId)).outcome, "refund_recorded");
+    assert.equal((await handle(body, eventId)).outcome, "unapplied_refunded");
     assert.equal((await handle(body, eventId)).status, "duplicate", "same event replayed");
-    assert.equal((await handle(body)).outcome, "refund_not_tracked", "same refund under a new event id");
+    assert.equal((await handle(body)).outcome, "unapplied_refund_full", "same refund under a new event id: stored once");
+    assert.equal(await prisma.razorpayRefund.count({ where: { razorpayPaymentId: paymentId } }), 2);
 
     const mail = await mailTo(user);
-    assert.equal(mail.length, 1);
-    assert.equal(mail[0].subject, `Refund processed for order ${order.orderNumber}`);
-    assert.match(mail[0].text, /refund of \$40\.00/);
-    assert.ok(mail[0].text.includes(`Refund reference: ${refundId}`));
+    assert.equal(mail.length, 2, "one email per refund id");
+    for (const m of mail) assert.equal(m.subject, `Refund processed for order ${order.orderNumber}`);
+    assert.match(mail[0].text, /refund of \$10\.00/);
+    assert.ok(mail[0].text.includes(`Refund reference: ${firstId}`));
+    assert.match(mail[0].text, /Refunded so far: \$10\.00 of \$40\.00 paid/);
+    assert.match(mail[1].text, /refund of \$30\.00/);
+    assert.ok(mail[1].text.includes(`Refund reference: ${refundId}`));
+    assert.match(mail[1].text, /has now been refunded in full/);
+    assert.ok(mail[0].messageId?.startsWith(`<refund.${firstId}@`), "fixed Message-ID per refund");
+});
+
+// ------------------------------------------------------------ refund email outbox
+
+// A settled refund of this order, due for its email now.
+async function dueRefund(order, amount = 1000) {
+    const now = new Date();
+    return prisma.razorpayRefund.create({
+        data: {
+            razorpayRefundId: nextId("rfnd"), razorpayPaymentId: nextId("pay"), amount, currency: "USD",
+            settledAt: now, orderId: order.id, emailDueAt: now,
+        },
+    });
+}
+
+const outboxRow = (refund) => prisma.razorpayRefund.findUnique({ where: { id: refund.id } });
+
+dbTest("outbox: a failed send is retried after a backoff until accepted, then never sent again", async () => {
+    const user = await makeUser("outbox-retry");
+    const refund = await dueRefund(await place(user));
+    const errors = mock.method(console, "error", () => {});
+
+    try {
+        emails.setOrderMailSender(async () => false);
+        assert.equal((await refunds.deliverDueRefundEmails({ ids: [refund.id] })).failed, 1);
+    } finally {
+        emails.setOrderMailSender(capture);
+        errors.mock.restore();
+    }
+
+    let row = await outboxRow(refund);
+    assert.equal(row.emailSentAt, null);
+    assert.equal(row.emailAttempts, 1);
+    assert.equal(row.emailLastError, "SEND_FAILED");
+    assert.ok(row.emailDueAt > new Date(), "due again later, not immediately");
+    assert.equal((await refunds.deliverDueRefundEmails({ ids: [refund.id] })).sent, 0, "not before its backoff");
+
+    const later = () => new Date(Date.now() + 2 * 60 * 60 * 1000);
+    assert.equal((await refunds.deliverDueRefundEmails({ ids: [refund.id], now: later })).sent, 1);
+    row = await outboxRow(refund);
+    assert.ok(row.emailSentAt);
+    assert.equal(row.emailAttempts, 2);
+
+    assert.equal((await refunds.deliverDueRefundEmails({ ids: [refund.id], now: later })).sent, 0);
+    assert.equal((await mailTo(user)).filter((m) => m.label === "refund processed").length, 1);
+});
+
+dbTest("outbox: concurrent senders claim a refund once; a claim abandoned by a crash is retried with the same Message-ID", async () => {
+    const user = await makeUser("outbox-claim");
+    const refund = await dueRefund(await place(user));
+
+    const results = await Promise.all([1, 2, 3].map(() => refunds.deliverDueRefundEmails({ ids: [refund.id] })));
+    assert.equal(results.reduce((n, r) => n + r.sent, 0), 1, "sent by exactly one sender");
+    const first = (await mailTo(user)).filter((m) => m.label === "refund processed");
+    assert.equal(first.length, 1);
+
+    // A sender that claimed the row and died before recording the result
+    // (simulated: claimed, not sent). Nobody else sends it until the claim expires.
+    const crashed = await dueRefund(await place(user));
+    await prisma.razorpayRefund.update({ where: { id: crashed.id }, data: { emailLockedUntil: new Date(Date.now() + refunds.EMAIL_CLAIM_MS), emailAttempts: 1 } });
+    assert.equal((await refunds.deliverDueRefundEmails({ ids: [crashed.id] })).sent, 0, "claimed elsewhere");
+    const afterClaim = () => new Date(Date.now() + refunds.EMAIL_CLAIM_MS + 1000);
+    assert.equal((await refunds.deliverDueRefundEmails({ ids: [crashed.id], now: afterClaim })).sent, 1, "retried once the claim expired");
+
+    const mail = (await mailTo(user)).filter((m) => m.label === "refund processed");
+    const crashedRow = await outboxRow(crashed);
+    // The host is MAIL_FROM's domain (or CLIENT_URL's); the refund id makes it fixed per refund.
+    assert.match(mail.at(-1).messageId, new RegExp(`^<refund\\.${crashedRow.razorpayRefundId}@[A-Za-z0-9.-]+>$`), "Message-ID fixed per refund");
+});
+
+dbTest("outbox: gives up after the maximum attempts and records why", async () => {
+    const user = await makeUser("outbox-giveup");
+    const refund = await dueRefund(await place(user));
+    await prisma.razorpayRefund.update({ where: { id: refund.id }, data: { emailAttempts: refunds.EMAIL_MAX_ATTEMPTS - 1 } });
+    const errors = mock.method(console, "error", () => {});
+
+    try {
+        emails.setOrderMailSender(async () => false);
+        assert.equal((await refunds.deliverDueRefundEmails({ ids: [refund.id] })).gave_up, 1);
+    } finally {
+        emails.setOrderMailSender(capture);
+        errors.mock.restore();
+    }
+
+    const row = await outboxRow(refund);
+    assert.equal(row.emailLastError, "GAVE_UP");
+    assert.equal(row.emailDueAt, null);
+    assert.equal(row.emailSentAt, null);
+});
+
+dbTest("outbox: an error preparing one refund's email is a failed attempt; the rest of the batch is still sent; it gives up in the end", async () => {
+    const user = await makeUser("outbox-prepare");
+    const errors = mock.method(console, "error", () => {});
+
+    try {
+        // A refund whose totals cannot be worked out (its order's currency
+        // has no minor-unit rule): refundEmailTotals throws.
+        const badOrder = await place(user);
+        const bad = await dueRefund(badOrder);
+        await prisma.order.update({ where: { id: badOrder.id }, data: { razorpayPaymentId: bad.razorpayPaymentId, currency: "EUR" } });
+        await prisma.razorpayRefund.update({ where: { id: bad.id }, data: { emailDueAt: new Date(Date.now() - 60_000) } });
+        const good = await dueRefund(await place(user));
+
+        const counts = await refunds.deliverDueRefundEmails({ ids: [bad.id, good.id] });
+        assert.equal(counts.failed, 1);
+        assert.equal(counts.sent, 1, "the bad refund (first in the batch) does not stop the next one");
+        assert.ok((await outboxRow(good)).emailSentAt);
+
+        let row = await outboxRow(bad);
+        assert.equal(row.emailLastError, "PREPARE_FAILED");
+        assert.equal(row.emailAttempts, 1);
+        assert.equal(row.emailLockedUntil, null, "released, not left claimed");
+        assert.ok(row.emailDueAt > new Date(), "retried after the backoff");
+
+        // It counts towards exhaustion like any failure.
+        await prisma.razorpayRefund.update({ where: { id: bad.id }, data: { emailAttempts: refunds.EMAIL_MAX_ATTEMPTS - 1, emailDueAt: new Date() } });
+        assert.equal((await refunds.deliverDueRefundEmails({ ids: [bad.id] })).gave_up, 1);
+        row = await outboxRow(bad);
+        assert.equal(row.emailLastError, "GAVE_UP");
+        assert.equal(row.emailDueAt, null);
+    } finally {
+        errors.mock.restore();
+    }
+});
+
+// A mail sender whose first call waits until released (with the given
+// answer); every later call is accepted at once. Records every call.
+function gatedSender() {
+    const calls = [];
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let started;
+    const firstStarted = new Promise((resolve) => { started = resolve; });
+
+    const sender = async (message) => {
+        calls.push(message);
+        if (calls.length === 1) {
+            started();
+            return gate;
+        }
+        return true;
+    };
+
+    return { sender, calls, firstStarted, finishFirst: (answer) => release(answer) };
+}
+
+// A sender (A) that outlives its claim; a second sender (B) takes the row
+// over and sends; then A finishes with `lateAnswer`.
+async function outlivedClaim(label, lateAnswer) {
+    const user = await makeUser(label);
+    const refund = await dueRefund(await place(user));
+    const gated = gatedSender();
+    const warnings = mock.method(console, "warn", () => {});
+
+    try {
+        emails.setOrderMailSender(gated.sender);
+
+        // A: claims now; its send hangs (no timeout within this test).
+        const a = refunds.deliverDueRefundEmails({ ids: [refund.id], sendTimeoutMs: 10 * 60 * 1000 });
+        await gated.firstStarted;
+
+        // B: runs after A's claim expired, takes ownership and sends.
+        const afterClaim = () => new Date(Date.now() + refunds.EMAIL_CLAIM_MS + 1000);
+        const b = await refunds.deliverDueRefundEmails({ ids: [refund.id], now: afterClaim });
+        assert.equal(b.sent, 1, "the new owner sends");
+        const byB = await outboxRow(refund);
+        assert.ok(byB.emailSentAt);
+
+        // A finishes late.
+        gated.finishFirst(lateAnswer);
+        const late = await a;
+        assert.equal(late.lost_claim, 1, "the late sender knows it lost the claim");
+
+        const final = await outboxRow(refund);
+        assert.equal(final.emailSentAt.getTime(), byB.emailSentAt.getTime(), "B's recorded send is never overwritten");
+        assert.equal(final.emailLastError, byB.emailLastError, "no error written over B's result");
+        assert.equal(final.emailDueAt?.getTime(), byB.emailDueAt?.getTime());
+        assert.equal(final.emailLockedUntil, null);
+        assert.equal(final.emailAttempts, 2);
+        assert.ok(warnings.mock.calls.some((c) => String(c.arguments[0]).includes("refund_email_claim_lost")), "lost claim logged");
+
+        // Sent: no later run sends it again.
+        assert.equal((await refunds.deliverDueRefundEmails({ ids: [refund.id], now: () => new Date(Date.now() + 24 * 60 * 60 * 1000) })).sent, 0);
+        return gated.calls.length;
+    } finally {
+        emails.setOrderMailSender(capture);
+        warnings.mock.restore();
+    }
+}
+
+dbTest("outbox fencing: a sender that outlives its claim and then fails cannot overwrite the new owner's result", async () => {
+    const errors = mock.method(console, "error", () => {});
+    try {
+        assert.equal(await outlivedClaim("fence-fail", false), 2);
+    } finally {
+        errors.mock.restore();
+    }
+});
+
+dbTest("outbox fencing: a sender that outlives its claim and then succeeds keeps the first recorded send", async () => {
+    assert.equal(await outlivedClaim("fence-sent", true), 2);
+});
+
+dbTest("outbox: an attempt is cut off by the send timeout and retried; a send accepted after it is still recorded once", async () => {
+    const user = await makeUser("outbox-timeout");
+    const refund = await dueRefund(await place(user));
+    const gated = gatedSender();
+    const errors = mock.method(console, "error", () => {});
+    const warnings = mock.method(console, "warn", () => {});
+
+    try {
+        emails.setOrderMailSender(gated.sender);
+
+        const counts = await refunds.deliverDueRefundEmails({ ids: [refund.id], sendTimeoutMs: 50 });
+        assert.equal(counts.failed, 1);
+        let row = await outboxRow(refund);
+        assert.equal(row.emailLastError, "SEND_TIMEOUT");
+        assert.equal(row.emailLockedUntil, null, "claim released for the retry");
+        assert.ok(row.emailDueAt > new Date(), "retried after the backoff");
+        assert.equal(row.emailSentAt, null);
+        assert.ok(refunds.EMAIL_SEND_TIMEOUT_MS < refunds.EMAIL_CLAIM_MS, "the timeout ends an attempt inside its claim");
+
+        // The provider accepts the timed-out send after all: recorded, so
+        // the scheduled retry does not send it again.
+        gated.finishFirst(true);
+        await refunds.flushRefundEmails();
+        row = await outboxRow(refund);
+        assert.ok(row.emailSentAt, "late acceptance recorded");
+        assert.equal((await refunds.deliverDueRefundEmails({ ids: [refund.id], now: () => new Date(Date.now() + 24 * 60 * 60 * 1000) })).sent, 0);
+        assert.equal(gated.calls.length, 1, "sent once");
+    } finally {
+        emails.setOrderMailSender(capture);
+        errors.mock.restore();
+        warnings.mock.restore();
+    }
 });
 
 // ------------------------------------------------------------ failures

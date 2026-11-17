@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { applyPayment, loadOrderByGatewayOrder } from "./paymentService.js";
-import { queueRefundEmail } from "./orderEmailService.js";
+import { recordRefund, settleRefundsForPayment } from "./refundService.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -33,8 +33,10 @@ import { queueRefundEmail } from "./orderEmailService.js";
 |
 | Handled events: payment.captured and order.paid (apply the payment),
 | payment.failed (acknowledged; a failed attempt never changes an order, so
-| it cannot undo a payment), refund.processed (marks an unapplied payment as
-| refunded). Anything else is acknowledged and ignored.
+| it cannot undo a payment), refund.processed (stored once per refund id and
+| reconciled by refundService: cumulative partial and full refunds of a paid
+| order or an unapplied payment, including refunds that arrive before their
+| capture). Anything else is acknowledged and ignored.
 */
 
 const webhookSecret = () => String(process.env.RAZORPAY_WEBHOOK_SECRET ?? "").trim();
@@ -109,19 +111,22 @@ async function handlePaymentEvent(payment, { capture }) {
     }
 }
 
-// Only a full refund of an unapplied payment, as Razorpay reports it processed.
+// Stores the refund (once per refund id, whatever the number of deliveries)
+// and settles every refund of its payment (refundService). A refund for a
+// payment not known yet is kept and matched later: by the capture when it is
+// applied, or by the refund worker. The event is recorded only after both
+// committed, so a crash in between is retried by Razorpay.
 async function handleRefundProcessed(refund) {
-    const { count } = await prisma.unappliedPayment.updateMany({
-        where: { razorpayPaymentId: refund.payment_id, refundedAt: null, amount: refund.amount, currency: refund.currency },
-        data: { refundedAt: new Date(), razorpayRefundId: refund.id },
-    });
-
-    // Only the delivery whose UPDATE recorded the refund emails the customer,
-    // with the amount Razorpay reports as refunded; a replay matches 0 rows.
-    // Queued, never awaited, so it cannot delay or fail the webhook response.
-    if (count) queueRefundEmail(refund);
-
-    return count ? "refund_recorded" : "refund_not_tracked";
+    try {
+        await recordRefund(refund);
+    } catch (err) {
+        // The same refund id with different details: logged by recordRefund
+        // and answered as final (a retry would conflict the same way).
+        if (err instanceof ApiError && err.statusCode === 409) return "refund_conflict";
+        throw err;
+    }
+    const { outcome } = await settleRefundsForPayment(refund.payment_id);
+    return outcome;
 }
 
 // rawBody: the request body bytes; headers: lower-cased request headers.
@@ -173,7 +178,7 @@ export async function handleWebhook(rawBody, headers, hooks) {
     // delivery of the same event may have recorded it first: that is fine.
     await prisma.razorpayWebhookEvent.createMany({ data: [{ eventKey, event, outcome, ...ids }], skipDuplicates: true });
 
-    if (["unknown_order", "refused", "refund_not_tracked"].includes(outcome)) {
+    if (["unknown_order", "refused", "refund_pending_match", "refund_conflict"].includes(outcome)) {
         console.warn(`Razorpay webhook ${JSON.stringify({ event, outcome, ...ids })}`);
     }
 

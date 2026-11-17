@@ -27,4 +27,21 @@ export const adminOrderService = {
         return data.data;
     },
 
+    // Sends a refund email whose retries are exhausted again; 409 when it is
+    // no longer exhausted (sent, or already being retried). -> the order.
+    async resendRefundEmail(id, refundId) {
+        const { data } = await apiClient.post(`/admin/orders/${id}/refunds/${encodeURIComponent(refundId)}/resend-email`);
+
+        return data.data;
+    },
+
+    // Acknowledges the refund state the admin was shown ({ refundCount,
+    // refundedAmount } from paymentRefunds), which unblocks fulfilment; 409
+    // when a refund arrived since (reload and review again). -> the order.
+    async acknowledgeRefund(id, { refundCount, refundedAmount }) {
+        const { data } = await apiClient.post(`/admin/orders/${id}/refund-review`, { refundCount, refundedAmount });
+
+        return data.data;
+    },
+
 };

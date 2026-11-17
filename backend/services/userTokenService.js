@@ -80,8 +80,11 @@ export async function consumeUserToken(tx, token, purpose) {
 
     const tokenHash = hashToken(token);
 
-    // Plain read to learn which user row to lock first.
-    const found = await prisma.userToken.findUnique({ where: { tokenHash }, select: { userId: true } });
+    // Plain (non-locking) read to learn which user row to lock first. Through
+    // tx, not prisma: the transaction already holds a pooled connection, and
+    // asking the pool for a second one lets ~10 concurrent requests exhaust it
+    // while each waits for another connection.
+    const found = await tx.userToken.findUnique({ where: { tokenHash }, select: { userId: true } });
     if (!found) return null;
 
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${found.userId} FOR UPDATE`;

@@ -5,6 +5,7 @@ import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { SALT_ROUNDS, safeUserSelect, sendVerificationEmail } from "./authService.js";
 import { revokeAllUserSessions } from "./refreshTokenService.js";
+import { cancelOpenCodOrdersForDeletion } from "./orderService.js";
 
 // The only User columns a profile update may write. role, email,
 // emailVerifiedAt and passwordHash are never accepted here, even if a caller
@@ -133,5 +134,9 @@ export async function deleteAccount(userId, { password }) {
         await tx.cart.deleteMany({ where: { userId } });
         await tx.userToken.deleteMany({ where: { userId } });
         await tx.refreshToken.deleteMany({ where: { userId } });
-    });
+
+        // Nobody can confirm, pay for or cancel these any more: give their
+        // stock (and coupon uses) back now instead of holding it forever.
+        await cancelOpenCodOrdersForDeletion(tx, userId);
+    }, { maxWait: 10_000, timeout: 20_000 });
 }

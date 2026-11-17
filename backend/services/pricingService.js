@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 
+import { ApiError } from "../utils/ApiError.js";
+
 /*
 |--------------------------------------------------------------------------
 | Pricing: the single place where money is decided.
@@ -119,4 +121,24 @@ export function calculateTotals(items, { address = null, coupon = null } = {}) {
 
 export function serializeTotals(totals) {
     return Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, toMoney(value)]));
+}
+
+// Minor units per major unit for the currencies accepted online.
+const CURRENCY_EXPONENTS = { INR: 2, USD: 2 };
+
+// The stored Decimal total in the currency's minor units (paise, cents).
+export function toMinorUnits(total, currency) {
+    const exponent = CURRENCY_EXPONENTS[currency];
+
+    if (exponent === undefined) {
+        throw new ApiError(422, `Online payment is not available for ${currency} orders`);
+    }
+
+    const minor = new Prisma.Decimal(total).mul(10 ** exponent);
+
+    if (!minor.isInteger() || minor.lte(0)) {
+        throw new ApiError(422, "This order total cannot be paid online");
+    }
+
+    return minor.toNumber();
 }

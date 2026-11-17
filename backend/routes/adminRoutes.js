@@ -6,7 +6,7 @@ import {
     createVariant, updateVariant, deactivateVariant,
     listCategories, createCategory, updateCategory,
 } from "../controllers/adminCatalogController.js";
-import { listOrders, getOrder, updateOrderStatus } from "../controllers/adminOrderController.js";
+import { listOrders, getOrder, updateOrderStatus, acknowledgeOrderRefund, resendOrderRefundEmail } from "../controllers/adminOrderController.js";
 import {
     listCoupons, getCoupon, createCoupon, updateCoupon, activateCoupon, deactivateCoupon, deleteCoupon,
 } from "../controllers/adminCouponController.js";
@@ -247,6 +247,21 @@ const orderStatusRules = [
         .isIn(FULFILMENT_STEPS.slice(1)).withMessage(`status must be one of: ${FULFILMENT_STEPS.slice(1).join(", ")}`),
 ];
 
+// The refund state the admin was shown: both must match the current one.
+const refundReviewRules = [
+    idParam,
+    body("refundCount").exists().withMessage("refundCount is required").bail()
+        .isInt({ min: 1, max: 1_000_000 }).withMessage("refundCount must be a positive integer").toInt(),
+    body("refundedAmount").exists().withMessage("refundedAmount is required").bail()
+        .isInt({ min: 0, max: 1_000_000_000_000 }).withMessage("refundedAmount must be a non-negative integer (minor units)").toInt(),
+];
+
+// A Razorpay refund id of this order.
+const refundEmailResendRules = [
+    idParam,
+    param("refundId").matches(/^rfnd_[A-Za-z0-9]{1,40}$/).withMessage("refundId must be a Razorpay refund id"),
+];
+
 // ------------------------------------------------------------ routes
 
 router.get("/products", listRules, validate, listProducts);
@@ -270,6 +285,8 @@ router.patch("/categories/:id", idParam, categoryFields({ required: false }), va
 router.get("/orders", orderListRules, validate, listOrders);
 router.get("/orders/:id", idParam, validate, getOrder);
 router.patch("/orders/:id/status", orderStatusRules, validate, updateOrderStatus);
+router.post("/orders/:id/refund-review", refundReviewRules, validate, acknowledgeOrderRefund);
+router.post("/orders/:id/refunds/:refundId/resend-email", refundEmailResendRules, validate, resendOrderRefundEmail);
 
 // Coupons. usedCount is changed only by orders, never through these routes.
 router.get("/coupons", couponListRules, validate, listCoupons);

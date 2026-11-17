@@ -117,6 +117,13 @@
                                     <span v-if="order.refundDue" class="block text-xs font-semibold text-red-700 max-lg:inline max-lg:text-sm">
                                         <span class="lg:hidden"> · </span>Refund due
                                     </span>
+                                    <!-- Refunds of the payment that paid it; a review blocks fulfilment. -->
+                                    <span v-if="order.refundReviewRequired" class="block text-xs font-semibold text-amber-700 max-lg:inline max-lg:text-sm">
+                                        <span class="lg:hidden"> · </span>Refund review required
+                                    </span>
+                                    <span v-else-if="order.refundState === 'PARTIAL'" class="block text-xs font-medium text-slate-600 max-lg:inline max-lg:text-sm">
+                                        <span class="lg:hidden"> · </span>Partially refunded
+                                    </span>
                                 </p>
 
                                 <!-- Desktop columns -->
