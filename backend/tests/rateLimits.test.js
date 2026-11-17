@@ -25,7 +25,10 @@ const USER = { email: `phase6-limits-${RUN}@example.test`, password: `Limits-${R
 const CATEGORY_SLUG = `phase6-limits-${RUN}`;
 let user, category;
 
-const badLogin = (url, headers) => post(`${url}/auth/login`, { email: "nobody-phase6@example.com", password: "Wrong-Pass-123" }, { headers });
+// A different unknown email every time, so these tests exercise the per-IP
+// limiter only, never the per-account one (10 failures per email).
+let badLoginSeq = 0;
+const badLogin = (url, headers) => post(`${url}/auth/login`, { email: `nobody-phase6-${++badLoginSeq}@example.com`, password: "Wrong-Pass-123" }, { headers });
 
 // Every server gets the guarded database last, so no per-test setting can
 // replace it, and must list this run's category (a GET on the general

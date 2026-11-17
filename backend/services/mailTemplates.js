@@ -278,19 +278,24 @@ export function orderEmail(kind, order) {
 | refund's own (minor units, as Razorpay reports them); nothing is computed
 | from the order. { firstName, orderNumber, amount, currency, refundId, link? }
 */
-export function refundEmail({ firstName, orderNumber, amount, currency, refundId, link }) {
+export function refundEmail({ firstName, orderNumber, amount, currency, refundId, totals, link }) {
     const name = appName();
     const refunded = formatMoney(fromMinorUnits(amount, currency), currency);
     const subject = `Refund processed for order ${orderNumber}`;
     const intro = `Your refund of ${refunded} for a payment made on order ${orderNumber} has been processed.`;
     const timing = "Depending on your bank or card issuer, it can take a few business days to appear on your statement.";
     const reference = `Refund reference: ${refundId}`;
+    // Running total of this payment's refunds, up to and including this one.
+    const progress = totals ? (totals.full
+        ? `This payment (${formatMoney(fromMinorUnits(totals.capturedAmount, currency), currency)}) has now been refunded in full.`
+        : `Refunded so far: ${formatMoney(fromMinorUnits(totals.refundedSoFar, currency), currency)} of ${formatMoney(fromMinorUnits(totals.capturedAmount, currency), currency)} paid.`) : null;
 
     const text = [
         `Hi ${firstName},`,
         "",
         intro,
         "",
+        ...(progress ? [progress, ""] : []),
         timing,
         "",
         reference,
@@ -304,6 +309,7 @@ export function refundEmail({ firstName, orderNumber, amount, currency, refundId
         `<p style="${P}">Hi ${escapeHtml(firstName)},</p>`,
         `<p style="${P}">${escapeHtml(intro)}</p>`,
         `<p style="margin:0 0 24px;padding:12px 16px;background:#f4f5f4;border-radius:6px;font-size:14px;line-height:1.6;">Amount refunded: <strong>${escapeHtml(refunded)}</strong> (${escapeHtml(currency)})<br>${escapeHtml(reference)}</p>`,
+        ...(progress ? [`<p style="${P}">${escapeHtml(progress)}</p>`] : []),
         `<p style="${P}">${escapeHtml(timing)}</p>`,
         ...(link ? [buttonHtml(link, "View Order")] : []),
         `<p style="margin:0;${SMALL}">— The ${escapeHtml(name)} team</p>`,

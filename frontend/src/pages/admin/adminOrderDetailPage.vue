@@ -56,14 +56,44 @@
 
                 <div class="mt-5 border-t border-slate-100 pt-5">
 
-                    <p v-if="!order.nextStatus" class="flex items-start gap-2 text-sm text-slate-600">
+                    <!-- A refund of this order's payment (partial, or with an anomaly) blocks
+                         fulfilment until an admin acknowledges exactly the state shown here. -->
+                    <div v-if="order.refundReview?.blocking" role="region" aria-labelledby="refund-review-heading"
+                        class="mb-4 rounded-control border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                        <h3 id="refund-review-heading" class="flex items-center gap-1.5 font-semibold">
+                            <ExclamationTriangleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+                            Refund review required before fulfilment
+                        </h3>
+                        <p v-if="paymentRefunds" class="mt-1">
+                            {{ paymentRefunds.state }}: {{ paymentRefunds.refunded }} of {{ paymentRefunds.captured }} refunded,
+                            <span class="font-semibold">{{ paymentRefunds.net }} retained</span>. Check the refunds in the Payment
+                            section, then confirm that this order should still be fulfilled.
+                        </p>
+                        <ul v-if="paymentRefunds?.anomalies.length" class="mt-2 list-disc space-y-1 pl-5">
+                            <li v-for="message in paymentRefunds.anomalies" :key="message">{{ message }}</li>
+                        </ul>
+                        <p v-if="order.refundReview.reviewedAt" class="mt-2 text-amber-800">
+                            An earlier acknowledgement ({{ formatDate(order.refundReview.reviewedAt, true) }}) no longer
+                            applies: refunds have changed since.
+                        </p>
+                        <PrimaryButton id="acknowledge-refund" tag="button" class="mt-3" :loading="acknowledging" @click="acknowledgeRefund">
+                            {{ acknowledging ? "Saving..." : "I have reviewed the refunds; allow fulfilment" }}
+                        </PrimaryButton>
+                    </div>
+                    <p v-else-if="order.refundReview?.acknowledged" class="mb-4 flex items-start gap-2 text-sm text-slate-600">
+                        <CheckCircleIcon class="mt-px h-5 w-5 shrink-0 text-green-600" aria-hidden="true" />
+                        Refunds reviewed by {{ order.refundReview.reviewedBy?.name ?? "an admin" }} on
+                        {{ formatDate(order.refundReview.reviewedAt, true) }}.
+                    </p>
+
+                    <p v-if="!order.nextStatus && !order.refundReview?.blocking" class="flex items-start gap-2 text-sm text-slate-600">
                         <InformationCircleIcon class="mt-px h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
                         {{ order.awaitingPayment && order.status === "PENDING"
                             ? "Awaiting online payment. The order can be confirmed once the payment is verified."
                             : order.status === "DELIVERED" ? "This order has been delivered." : "This order no longer changes status." }}
                     </p>
 
-                    <template v-else>
+                    <template v-else-if="order.nextStatus">
                         <div v-if="!confirming" class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <p class="text-sm text-slate-600">
                                 Next step: <span class="font-semibold text-slate-900">{{ statusLabel(order.nextStatus) }}</span>
@@ -200,6 +230,34 @@
                             </div>
                         </dl>
 
+                        <!-- Refunds of the payment that paid this order (Razorpay refund.processed). -->
+                        <div v-if="paymentRefunds" class="mt-4 border-t border-slate-200 pt-4">
+                            <h3 class="text-sm font-semibold text-slate-900">Refunds</h3>
+                            <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                <dt class="text-slate-500">Captured</dt>
+                                <dd class="text-right tabular-nums text-slate-900">{{ paymentRefunds.captured }}</dd>
+                                <dt class="text-slate-500">Refunded</dt>
+                                <dd class="text-right tabular-nums text-slate-900">{{ paymentRefunds.refunded }}</dd>
+                                <dt class="font-medium text-slate-700">Net retained</dt>
+                                <dd class="text-right font-semibold tabular-nums text-slate-900">{{ paymentRefunds.net }}</dd>
+                                <dt class="text-slate-500">State</dt>
+                                <dd class="text-right font-medium text-slate-900">{{ paymentRefunds.state }}</dd>
+                            </dl>
+                            <ul class="mt-3 space-y-2 text-sm">
+                                <li v-for="refund in paymentRefundRecords" :key="refund.id">
+                                    <p class="font-medium tabular-nums text-slate-900">
+                                        {{ refund.amount }}<span v-if="!refund.counted" class="font-semibold text-red-700"> · not counted</span>
+                                    </p>
+                                    <p class="wrap-anywhere font-mono text-xs text-slate-600">{{ refund.id }}</p>
+                                    <p class="text-xs text-slate-500">{{ formatDate(refund.receivedAt, true) }} · {{ refund.email }}</p>
+                                    <button v-if="refund.resendable" type="button" :disabled="resending === refund.id"
+                                        class="mt-1 text-xs font-semibold text-brand underline disabled:opacity-50" @click="resendRefundEmail(refund.id)">
+                                        {{ resending === refund.id ? "Resending..." : "Resend email" }}
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
                         <!-- Captured money the server could not apply to this order. Refund it in the
                              Razorpay dashboard; it is marked refunded only when Razorpay confirms it. -->
                         <div v-if="order.unappliedPayments?.length" class="mt-4 border-t border-slate-200 pt-4">
@@ -217,8 +275,15 @@
                                     <p :class="payment.refundedAt ? 'text-slate-600' : 'font-semibold text-red-700'">
                                         {{ payment.refundedAt
                                             ? `Refunded ${formatDate(payment.refundedAt, true)} (confirmed by Razorpay)`
-                                            : "Refund not confirmed yet: refund it in the Razorpay dashboard" }}
+                                            : payment.refunds?.refundedAmount
+                                                ? `Partly refunded: ${formatMinor(payment.refunds.refundedAmount, payment.currency)} of ${formatMinor(payment.amount, payment.currency)}; refund the rest in the Razorpay dashboard`
+                                                : "Refund not confirmed yet: refund it in the Razorpay dashboard" }}
                                     </p>
+                                    <ul v-if="payment.refunds?.refunds?.length" class="mt-1 space-y-0.5 text-xs text-slate-500">
+                                        <li v-for="refund in refundRecordRows(payment.refunds)" :key="refund.id">
+                                            {{ refund.amount }} · <span class="font-mono">{{ refund.id }}</span> · {{ refund.email }}
+                                        </li>
+                                    </ul>
                                 </li>
                             </ul>
                         </div>
@@ -247,6 +312,7 @@ import { adminOrderService } from "@/services/adminOrderService";
 import { parseApiError } from "@/services/apiClient";
 import { formatDate, formatPrice, paymentMethodLabel, paymentStatusLabel, statusLabel } from "@/composables/useOrderSuccess";
 import { receiptAddressLines, receiptLines, receiptTotals } from "@/utils/receipt";
+import { acknowledgementFor, formatMinor, refundRecordRows, refundSummaryRows } from "@/utils/refunds";
 import { focusHeadingAfterLoad, focusMainContent, setPageTitle } from "@/router/pageFocus";
 
 const BACK = { label: "All orders", to: { name: "admin-orders" } };
@@ -259,6 +325,7 @@ const UNAPPLIED_REASONS = {
     order_already_paid: "second payment for an order already paid",
     duplicate_capture: "duplicate payment",
     amount_or_currency_mismatch: "amount or currency did not match the order",
+    refunded_before_applied: "refunded in full by Razorpay before it could be applied",
 };
 
 // The fulfilment path the server walks one step at a time (display only).
@@ -275,11 +342,15 @@ const confirming = ref(false);
 const saving = ref(false);
 const actionError = ref("");
 const actionDone = ref("");
+const acknowledging = ref(false);
+const resending = ref("");
 
 const stepIndex = computed(() => FLOW.indexOf(order.value?.status));
 const lines = computed(() => receiptLines(order.value));
 const totals = computed(() => receiptTotals(order.value));
 const addressLines = computed(() => receiptAddressLines(order.value?.shippingAddress));
+const paymentRefunds = computed(() => refundSummaryRows(order.value?.paymentRefunds));
+const paymentRefundRecords = computed(() => refundRecordRows(order.value?.paymentRefunds));
 const customerName = computed(() => {
     const address = order.value?.shippingAddress;
     return [address?.firstName, address?.lastName].filter(Boolean).join(" ");
@@ -365,6 +436,63 @@ async function advance() {
             confirming.value = false;
             focusAfterUpdate("advance-order");
         }
+    }
+}
+
+// Acknowledges exactly the refund state on screen. If a refund arrived since
+// the page loaded, the server refuses (409) and the latest state is shown,
+// so a stale acknowledgement can never approve refunds the admin has not seen.
+async function acknowledgeRefund() {
+    if (acknowledging.value) return;
+
+    const current = requestId;
+    const { id, paymentRefunds: view } = order.value;
+    acknowledging.value = true;
+    actionError.value = "";
+    actionDone.value = "";
+
+    try {
+        const updated = await adminOrderService.acknowledgeRefund(id, acknowledgementFor(view));
+        if (current !== requestId) return;
+        order.value = updated;
+        actionDone.value = "Refunds acknowledged. The order can be fulfilled.";
+    } catch (err) {
+        if (current !== requestId) return;
+        actionError.value = parseApiError(err).message;
+
+        if (err.response?.status === 409) {
+            const latest = await adminOrderService.getOrder(id).catch(() => null);
+            if (latest && current === requestId) order.value = latest;
+        }
+    } finally {
+        acknowledging.value = false;
+        if (current === requestId) focusAfterUpdate(order.value?.nextStatus ? "advance-order" : "acknowledge-refund");
+    }
+}
+
+// Asks the server to send an exhausted refund email again (one request at a
+// time); the order is reloaded either way so the email state shown is current.
+async function resendRefundEmail(refundId) {
+    if (resending.value) return;
+
+    const current = requestId;
+    const { id } = order.value;
+    resending.value = refundId;
+    actionError.value = "";
+    actionDone.value = "";
+
+    try {
+        const updated = await adminOrderService.resendRefundEmail(id, refundId);
+        if (current !== requestId) return;
+        order.value = updated;
+        actionDone.value = "The refund email will be sent again.";
+    } catch (err) {
+        if (current !== requestId) return;
+        actionError.value = parseApiError(err).message;
+        const latest = await adminOrderService.getOrder(id).catch(() => null);
+        if (latest && current === requestId) order.value = latest;
+    } finally {
+        resending.value = "";
     }
 }
 

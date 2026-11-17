@@ -11,6 +11,7 @@ import apiRouter from "./routes/index.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { generalLimiter } from "./middleware/rateLimits.js";
 import { startReservationExpiryWorker } from "./services/reservationService.js";
+import { startRefundWorker } from "./services/refundService.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -48,6 +49,11 @@ const server = app.listen(PORT, () => {
 // in several instances at once. RESERVATION_EXPIRY_WORKER=false turns it off here.
 const stopExpiryWorker = process.env.RESERVATION_EXPIRY_WORKER === "false" ? null : startReservationExpiryWorker();
 
+// Settles Razorpay refunds still waiting for their payment and sends due
+// refund emails, with retries (services/refundService.js). On by default; safe
+// in several instances at once. REFUND_WORKER=false turns it off here.
+const stopRefundWorker = process.env.REFUND_WORKER === "false" ? null : startRefundWorker();
+
 // SIGTERM (process managers, containers) and SIGINT (Ctrl+C): stop accepting
 // connections, let in-flight requests finish, then close the database pool.
 // nodemon restarts the dev server with SIGUSR2, which is left alone.
@@ -67,7 +73,7 @@ function shutdown(signal) {
     }, SHUTDOWN_TIMEOUT_MS).unref();
 
     // A sweep in progress finishes its current transactions before the pool closes.
-    const workerStopped = stopExpiryWorker?.();
+    const workerStopped = Promise.all([stopExpiryWorker?.(), stopRefundWorker?.()]);
 
     server.close(async (err) => {
         await workerStopped;

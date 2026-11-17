@@ -8,8 +8,9 @@ import nodemailer from "nodemailer";
 //             production, where the log would hold working reset links.
 //   disabled  default in production. Sends nothing; the requests that send
 //             mail still succeed, so the response never reveals it.
-// Each provider has the signature send({ to, subject, text, html }) and
-// rejects when the message was not accepted.
+// Each provider has the signature send({ to, subject, text, html, messageId? })
+// and rejects when the message was not accepted. messageId (optional) sets a
+// fixed Message-ID header, e.g. so a resent message carries the same id.
 
 let smtpTransport;
 
@@ -30,8 +31,8 @@ function smtp(env = process.env) {
 }
 
 const PROVIDERS = {
-    smtp: async ({ to, subject, text, html }) => {
-        const info = await smtp().sendMail({ from: process.env.MAIL_FROM, to, subject, text, html });
+    smtp: async ({ to, subject, text, html, messageId }) => {
+        const info = await smtp().sendMail({ from: process.env.MAIL_FROM, to, subject, text, html, ...(messageId && { messageId }) });
         // The server can accept the connection but refuse the recipient.
         if (!info.accepted?.includes(to)) {
             throw Object.assign(new Error("recipient rejected by the SMTP server"), { response: info.response });

@@ -181,6 +181,10 @@ export function validateEnv(env = process.env) {
         errors.push('RESERVATION_EXPIRY_WORKER must be "true" or "false" (unset = true)');
     }
 
+    if (env.REFUND_WORKER && !["true", "false"].includes(env.REFUND_WORKER)) {
+        errors.push('REFUND_WORKER must be "true" or "false" (unset = true)');
+    }
+
     if (String(env.RESERVATION_CREATED_CUTOFF ?? "").trim() && createdCutoffMs(env.RESERVATION_CREATED_CUTOFF) === null) {
         errors.push(`RESERVATION_CREATED_CUTOFF must be a duration with a unit from 1m to 24h, e.g. 90m or 2h (unset = ${DEFAULT_CREATED_CUTOFF})`);
     }

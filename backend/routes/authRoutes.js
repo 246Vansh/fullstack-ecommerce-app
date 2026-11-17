@@ -16,7 +16,7 @@ import { authenticate } from "../middleware/auth.js";
 import { requireTrustedOrigin } from "../middleware/origin.js";
 import { validate, newPasswordRule, MAX_PASSWORD_INPUT_LENGTH } from "../middleware/validate.js";
 import {
-    credentialsLimiter, sessionLimiter, passwordResetRequestLimiter, emailTokenLimiter,
+    credentialsLimiter, loginAccountLimiter, sessionLimiter, passwordResetRequestLimiter, emailTokenLimiter,
 } from "../middleware/rateLimits.js";
 
 const router = Router();
@@ -56,7 +56,10 @@ const resetPasswordRules = [emailTokenRule, newPasswordRule("password")];
 router.use(requireTrustedOrigin);
 
 router.post("/register", credentialsLimiter, registerRules, validate, register);
-router.post("/login", credentialsLimiter, loginRules, validate, login);
+// loginAccountLimiter after loginRules: it keys on the email as loginRules
+// normalized it (lower-cased; provider aliases such as gmail +tags removed),
+// so every alias of one account shares that account's budget.
+router.post("/login", credentialsLimiter, loginRules, loginAccountLimiter, validate, login);
 router.post("/refresh", sessionLimiter, refresh);
 router.post("/logout", sessionLimiter, logout);
 router.post("/logout-all", sessionLimiter, logoutAll);

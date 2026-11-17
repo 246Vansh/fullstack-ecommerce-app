@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { allowedNodeEnvironmentFlags } from "node:process";
 
 if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is not set");
@@ -46,7 +45,11 @@ export function createConnectionErrorLogger(log = console.error, now = Date.now)
 // mysql://USER:PASSWORD@HOST:PORT/DATABASE
 const url = new URL(process.env.DATABASE_URL);
 const ssl = databaseSsl();
-const isTest = process.env.NODE_ENV === "test";
+// Outside production, let the driver fetch MySQL's RSA public key so
+// caching_sha2_password logins work without TLS even after a MySQL restart
+// empties the server's auth cache. Production must use DATABASE_SSL instead:
+// an unverified fetched key could be swapped by a man-in-the-middle.
+const allowPublicKeyRetrieval = process.env.NODE_ENV !== "production";
 
 const adapter = new PrismaMariaDb({
     host: url.hostname,
@@ -54,7 +57,7 @@ const adapter = new PrismaMariaDb({
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.slice(1),
-    ...(isTest && { allowPublicKeyRetrieval: true }),
+    ...(allowPublicKeyRetrieval && { allowPublicKeyRetrieval: true }),
     connectionLimit: 10,
     ...(ssl && { ssl }),
     logger: { error: createConnectionErrorLogger() },

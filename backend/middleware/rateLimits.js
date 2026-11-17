@@ -32,6 +32,22 @@ export const credentialsLimiter = limiter({
     message: { success: false, message: "Too many attempts, please try again later" },
 });
 
+// Failed logins per account, whatever IP they come from, so password
+// guessing against one account from many addresses is slowed too. Use after
+// the route's email rules (authRoutes loginRules): the key is the email as
+// they normalized it, so aliases of one account (e.g. gmail +tags, any letter
+// case) share one budget. The trim/lower-case here is only a fallback.
+// Successful logins are not counted, so the owner who knows the password is
+// never locked out by their own sign-ins; a lock caused by someone else's
+// guessing lasts at most the window. A malformed email (normalized to false)
+// shares one key; the per-IP credentialsLimiter still applies to it.
+export const loginAccountLimiter = limiter({
+    limit: 10,
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => `login:${String(req.body?.email ?? "").trim().toLowerCase().slice(0, 254)}`,
+    message: { success: false, message: "Too many failed sign-in attempts for this account, please try again later" },
+});
+
 // Refresh and logout run on every page load; generous, but bounded.
 export const sessionLimiter = limiter({
     limit: 120,

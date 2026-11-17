@@ -96,6 +96,8 @@ model User {
   addresses     Address[]
   cart          Cart?
   orders        Order[]
+  refundReviews Order[]        @relation("OrderRefundReviewer")
+  refundEmailResends RazorpayRefund[] @relation("RefundEmailResendRequester")
   refreshTokens RefreshToken[]
   userTokens    UserToken[]
   reviews       Review[]
@@ -414,6 +416,16 @@ model Order {
   couponId   Int?
   couponCode String? @db.VarChar(40)
 
+  // Admin acknowledgement of a partial refund of the payment that paid this
+  // order (fulfilment is blocked until it is acknowledged). It approves only
+  // the refund state it was given for: refundReviewedCount refund records
+  // totalling refundReviewedAmount (minor units). Any later refund record
+  // changes the count, so a stale acknowledgement never approves it.
+  refundReviewedAt     DateTime?
+  refundReviewedById   Int?
+  refundReviewedCount  Int?      @db.UnsignedInt
+  refundReviewedAmount Int?      @db.UnsignedInt
+
   deliveryMethod String?   @db.VarChar(50)
   notes          String?   @db.Text
   placedAt       DateTime  @default(now())
@@ -423,6 +435,8 @@ model Order {
   updatedAt      DateTime  @updatedAt
 
   user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  refundReviewedBy  User?              @relation("OrderRefundReviewer", fields: [refundReviewedById], references: [id], onDelete: SetNull)
+  refunds           RazorpayRefund[]
   coupon            Coupon?            @relation(fields: [couponId], references: [id], onDelete: Restrict)
   items             OrderItem[]
   unappliedPayments UnappliedPayment[]
@@ -490,6 +504,46 @@ model UnappliedPayment {
   @@index([orderId])
   @@index([refundedAt])
   @@map("unapplied_payments")
+}
+
+// One row per Razorpay refund (refund.processed), whatever the number of
+// deliveries: the durable record refunds are summed from. A refund may arrive
+// before the payment it refunds is known (razorpayPaymentId has no foreign
+// key); settledAt and orderId are set once it is matched to the order whose
+// payment it refunds, or to the order of an unapplied payment.
+//
+// Email outbox (one email per refund, at least once): emailDueAt is set when
+// the refund is settled (its recipient is then known) and moved forward after
+// each failed attempt; emailSentAt is set once the provider accepted it.
+// emailLockedUntil is a short claim, so concurrent senders skip the row.
+model RazorpayRefund {
+  id                Int       @id @default(autoincrement())
+  razorpayRefundId  String    @unique @db.VarChar(64)
+  razorpayPaymentId String    @db.VarChar(64)
+  // As Razorpay reported it: minor units (cents, paise) and currency.
+  amount            Int       @db.UnsignedInt
+  currency          String    @db.Char(3)
+  receivedAt        DateTime  @default(now())
+  settledAt         DateTime?
+  orderId           Int?
+
+  emailDueAt       DateTime?
+  emailSentAt      DateTime?
+  emailAttempts    Int       @default(0) @db.UnsignedSmallInt
+  emailLockedUntil DateTime?
+  emailLastError   String?   @db.VarChar(40)
+  // The admin who last asked for an exhausted email to be sent again, and when.
+  emailResendRequestedAt   DateTime?
+  emailResendRequestedById Int?
+
+  order                  Order? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  emailResendRequestedBy User?  @relation("RefundEmailResendRequester", fields: [emailResendRequestedById], references: [id], onDelete: SetNull)
+
+  @@index([razorpayPaymentId])
+  @@index([settledAt])
+  @@index([orderId])
+  @@index([emailSentAt, emailDueAt])
+  @@map("razorpay_refunds")
 }
 
 // Razorpay webhook deliveries already handled, so a redelivery is answered

@@ -49,7 +49,7 @@ const CASES = [
 for (const [name, env, expected] of CASES) {
     test(`14. startup fails: ${name}`, async () => {
         // Startup is refused before anything runs; the expiry worker is off regardless.
-        const { code, output } = await runNode(["server.js"], { PORT: "5599", RESERVATION_EXPIRY_WORKER: "false", ...env });
+        const { code, output } = await runNode(["server.js"], { PORT: "5599", RESERVATION_EXPIRY_WORKER: "false", REFUND_WORKER: "false", ...env });
 
         assert.equal(code, 1, output);
         assert.match(output, /Invalid configuration/);
@@ -62,7 +62,7 @@ for (const [name, env, expected] of CASES) {
 }
 
 test("14. several problems are reported together", async () => {
-    const { code, output } = await runNode(["server.js"], { PORT: "5599", RESERVATION_EXPIRY_WORKER: "false", CLIENT_URL: "", JWT_ACCESS_SECRET: "" });
+    const { code, output } = await runNode(["server.js"], { PORT: "5599", RESERVATION_EXPIRY_WORKER: "false", REFUND_WORKER: "false", CLIENT_URL: "", JWT_ACCESS_SECRET: "" });
     assert.equal(code, 1);
     assert.match(output, /CLIENT_URL is required/);
     assert.match(output, /JWT_ACCESS_SECRET is required/);
@@ -314,7 +314,7 @@ test("DATABASE_SSL=true rejects a database certificate that is not trusted", asy
     // End to end: the app configured from the environment fails closed, and
     // logs why once (only the code), despite the pool's repeated retries.
     // The expiry worker stays off: this server uses the development database settings.
-    const server = await startServer({ DATABASE_SSL: "true", DATABASE_SSL_CA: TEST_CA, RESERVATION_EXPIRY_WORKER: "false" });
+    const server = await startServer({ DATABASE_SSL: "true", DATABASE_SSL_CA: TEST_CA, RESERVATION_EXPIRY_WORKER: "false", REFUND_WORKER: "false" });
     try {
         assert.equal((await fetch(`${server.url}/health`)).status, 503, server.output());
         const output = server.output();
@@ -477,14 +477,17 @@ test("13. seed refuses to run outside development/test, before touching the data
     }
 });
 
-test("test servers never run the reservation expiry worker against the configured database", () => {
+test("test servers never run the reservation expiry or refund worker against the configured database", () => {
     // Every server this file starts (directly, or through runNode) sets the flag
     // explicitly, and startServer() defaults it off for every other test file.
     const source = readFileSync(fileURLToPath(import.meta.url), "utf8");
     const starts = source.match(/(startServer\(\{[^}]*\}|runNode\(\["server\.js"\], \{[^}]*\})/g) ?? [];
     assert.ok(starts.length >= 3, "found the server starts");
-    for (const call of starts) assert.match(call, /RESERVATION_EXPIRY_WORKER: "false"/, call);
+    for (const call of starts) {
+        assert.match(call, /RESERVATION_EXPIRY_WORKER: "false"/, call);
+        assert.match(call, /REFUND_WORKER: "false"/, call);
+    }
 
     const helpers = readFileSync(fileURLToPath(new URL("./helpers.js", import.meta.url)), "utf8");
-    assert.match(helpers, /env: \{ \.\.\.process\.env, RESERVATION_EXPIRY_WORKER: "false", \.\.\.env, PORT/);
+    assert.match(helpers, /env: \{ \.\.\.process\.env, RESERVATION_EXPIRY_WORKER: "false", REFUND_WORKER: "false", \.\.\.env, PORT/);
 });

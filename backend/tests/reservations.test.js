@@ -16,6 +16,7 @@ import "dotenv/config";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 
 import { signAccessToken } from "../utils/jwt.js";
 import { startServer } from "./helpers.js";
@@ -37,6 +38,8 @@ const orders = guard.ok ? await import("../services/orderService.js") : {};
 const payments = guard.ok ? await import("../services/paymentService.js") : {};
 const reservations = guard.ok ? await import("../services/reservationService.js") : {};
 const webhooks = guard.ok ? await import("../services/razorpayWebhookService.js") : {};
+const accounts = guard.ok ? await import("../services/accountService.js") : {};
+const refunds = guard.ok ? await import("../services/refundService.js") : {};
 
 const dbTest = (name, fn) => test(name, { skip }, fn);
 testDatabaseGuardTest(test, guard);
@@ -190,6 +193,8 @@ async function initiated(user, deadline, options) {
     return { ...order, razorpayOrderId };
 }
 
+const emptyCart = (user) => prisma.cartItem.deleteMany({ where: { cart: { userId: user.id } } });
+
 const setDeadline = (id, deadline) => prisma.order.update({ where: { id }, data: { reservationExpiresAt: deadline } });
 
 const rejectsWith = (promise, status, pattern) => assert.rejects(promise, (err) => {
@@ -255,6 +260,10 @@ after(async () => {
         await deleteInTestDatabase(prisma, async (tx) => {
             await tx.razorpayWebhookEvent.deleteMany({
                 where: { OR: [{ eventKey: { in: created.eventKeys } }, { razorpayOrderId: { in: created.gatewayOrders } }] },
+            });
+            // Refunds of this run's payments, matched to an order or still waiting.
+            await tx.razorpayRefund.deleteMany({
+                where: { OR: [{ order: { userId: { in: userIds } } }, { razorpayPaymentId: { in: [...gatewayPayments.keys()] } }] },
             });
             await tx.unappliedPayment.deleteMany({ where: { order: { userId: { in: userIds } } } });
             await tx.order.deleteMany({ where: { userId: { in: userIds } } });
@@ -698,28 +707,448 @@ dbTest("late: repeated captures after a reinstatement neither re-take stock nor 
     assert.equal((await stored(order.id)).razorpayPaymentId, payment.id);
 });
 
-dbTest("refund: only Razorpay's refund.processed for the full amount marks a refund done, once", async () => {
+// ------------------------------------------------------------ refunds (reconciliation)
+
+const refundRows = (paymentId) => prisma.razorpayRefund.findMany({ where: { razorpayPaymentId: paymentId }, orderBy: { id: "asc" } });
+const refund = (paymentId, amount, currency = "USD", id = nextId("rfnd")) => ({ id, body: refundEvent({ id, payment_id: paymentId, amount, currency }) });
+
+// A paid online order (2 x 20.00 USD = 4000 cents, stock reserved), paid through the webhook.
+async function paidOrder(user = alice) {
+    const order = await initiated(user, null);
+    const payment = gatewayPayment(order.razorpayOrderId);
+    assert.equal((await deliver(paymentEvent("payment.captured", payment))).body.outcome, "paid");
+    return { order, payment };
+}
+
+dbTest("refund: partial refunds of an unapplied payment are summed; it is refunded once they cover it, once", async () => {
     const order = await initiated(alice, null);
     await orders.cancelOrder(alice.id, order.id);
     const payment = gatewayPayment(order.razorpayOrderId);
     await deliver(paymentEvent("payment.captured", payment));
 
-    // Partial: not done.
-    const partial = await deliver(refundEvent({ id: nextId("rfnd"), payment_id: payment.id, amount: 1000, currency: "USD" }));
-    assert.equal(partial.body.outcome, "refund_not_tracked");
-    assert.equal((await unapplied(order.id))[0].refundedAt, null);
+    const first = refund(payment.id, 1000);
+    assert.equal((await deliver(first.body)).body.outcome, "unapplied_refund_partial");
+    assert.equal((await unapplied(order.id))[0].refundedAt, null, "still owed");
+    assert.equal((await orders.getOrder(alice.id, order.id)).refundDue, true);
 
-    const refundId = nextId("rfnd");
-    const full = refundEvent({ id: refundId, payment_id: payment.id, amount: 4000, currency: "USD" });
-    assert.equal((await deliver(full)).body.outcome, "refund_recorded");
+    const rest = refund(payment.id, 3000);
+    assert.equal((await deliver(rest.body)).body.outcome, "unapplied_refunded");
     const [record] = await unapplied(order.id);
     assert.ok(record.refundedAt);
-    assert.equal(record.razorpayRefundId, refundId);
+    assert.equal(record.razorpayRefundId, rest.id, "the refund that completed it");
 
-    // Re-sent: recorded once.
-    assert.equal((await deliver(full)).body.outcome, "refund_not_tracked");
+    // The same refund again (new event id): stored once, nothing changes.
+    assert.equal((await deliver(rest.body)).body.outcome, "unapplied_refund_full");
     assert.equal((await unapplied(order.id))[0].refundedAt.getTime(), record.refundedAt.getTime());
+    assert.equal((await refundRows(payment.id)).length, 2);
     assert.equal((await orders.getOrder(alice.id, order.id)).refundDue, false);
+});
+
+dbTest("refund: partial refunds of a paid order are summed; the order is REFUNDED and restocked exactly once when they cover it", async () => {
+    const { order, payment } = await paidOrder();
+    const stock = await stockOf(variants[0]);
+
+    assert.equal((await deliver(refund(payment.id, 1000).body)).body.outcome, "order_refund_partial");
+    let row = await stored(order.id);
+    assert.equal(row.paymentStatus, "PAID", "a partial refund keeps the capture");
+    assert.equal(row.status, "PENDING");
+
+    const view = await orders.getAdminOrder(order.id);
+    assert.deepEqual(
+        [view.paymentRefunds.capturedAmount, view.paymentRefunds.refundedAmount, view.paymentRefunds.netRetained, view.paymentRefunds.refundState],
+        [4000, 1000, 3000, "PARTIAL"]);
+
+    const rest = refund(payment.id, 3000);
+    assert.equal((await deliver(rest.body)).body.outcome, "order_refunded");
+    row = await stored(order.id);
+    assert.equal(row.paymentStatus, "REFUNDED");
+    assert.equal(row.status, "REFUNDED");
+    assert.equal(await stockOf(variants[0]), stock + 2, "unshipped stock returned");
+
+    assert.equal((await deliver(rest.body)).body.outcome, "order_refund_full", "replayed under a new event id");
+    assert.equal(await stockOf(variants[0]), stock + 2, "never restocked twice");
+    await rejectsWith(orders.advanceOrderStatus(order.id, "CONFIRMED"), 409);
+});
+
+dbTest("refund then late capture: delayed and repeated order.paid / payment.captured after a full refund are already applied, never a refund due", async () => {
+    const { order, payment } = await paidOrder();
+    assert.equal((await deliver(refund(payment.id, 4000).body)).body.outcome, "order_refunded");
+    const stock = await stockOf(variants[0]);
+
+    // Delayed events for the same payment, one at a time and then concurrently,
+    // each under its own event id (order.paid and payment.captured are
+    // separate events, and Razorpay retries each).
+    assert.equal((await deliver(paymentEvent("order.paid", payment))).body.outcome, "state_refunded");
+    assert.equal((await deliver(paymentEvent("payment.captured", payment))).body.outcome, "state_refunded");
+    const replays = await Promise.all([1, 2, 3].flatMap(() => [
+        deliver(paymentEvent("order.paid", payment)), deliver(paymentEvent("payment.captured", payment)),
+    ]));
+    assert.ok(replays.every((r) => r.status === 200 && r.body.outcome === "state_refunded"), JSON.stringify(replays.map((r) => r.body.outcome)));
+
+    // The browser's verification and the customer's refresh say the same.
+    assert.equal((await verify(alice, order, payment)).state, "REFUNDED");
+
+    assert.deepEqual(await unapplied(order.id), [], "no false 'refund due' record");
+    assert.equal((await orders.getOrder(alice.id, order.id)).refundDue, false);
+    const row = await stored(order.id);
+    assert.equal(row.paymentStatus, "REFUNDED");
+    assert.equal(row.status, "REFUNDED");
+    assert.equal(await stockOf(variants[0]), stock, "stock untouched by the replays");
+    assert.equal((await refundRows(payment.id)).length, 1);
+    const { data } = await orders.listAdminOrders({ page: 1, limit: 100, refundDue: true });
+    assert.equal(data.some((o) => o.id === order.id), false, "not listed as refund due");
+});
+
+dbTest("refund email resend: admins only, this order's exhausted refund only, once under concurrency; recorded and delivered", async () => {
+    const { order, payment } = await paidOrder();
+    const first = refund(payment.id, 1000);
+    await deliver(first.body);
+    const other = await paidOrder();
+
+    // Exhausted: retries used up (as the outbox leaves it after giving up).
+    const exhaust = () => prisma.razorpayRefund.update({
+        where: { razorpayRefundId: first.id },
+        data: { emailSentAt: null, emailDueAt: null, emailLockedUntil: null, emailLastError: "GAVE_UP", emailAttempts: 12 },
+    });
+    await exhaust();
+
+    const resend = (user, orderId = order.id, refundId = first.id) => fetch(`${server.url}/admin/orders/${orderId}/refunds/${refundId}/resend-email`, {
+        method: "POST", headers: user.headers,
+    });
+
+    assert.equal((await resend(alice)).status, 403, "customers cannot resend");
+    assert.equal((await resend(admin, order.id, "not-a-refund")).status, 422);
+    assert.equal((await resend(admin, other.order.id)).status, 404, "another order's refund id is refused");
+    assert.equal((await resend(admin, order.id, "rfnd_unknown000")).status, 404);
+
+    // Concurrent requests: exactly one resets the row.
+    const statuses = (await Promise.all([1, 2, 3].map(() => resend(admin)))).map((r) => r.status).sort();
+    assert.deepEqual(statuses, [200, 409, 409]);
+
+    let row = await prisma.razorpayRefund.findUnique({ where: { razorpayRefundId: first.id } });
+    assert.equal(row.emailResendRequestedById, admin.id, "who asked");
+    assert.ok(row.emailResendRequestedAt, "and when");
+
+    // Delivered through the normal claim (the server's fast path), once.
+    for (let i = 0; i < 50 && !row.emailSentAt; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        row = await prisma.razorpayRefund.findUnique({ where: { razorpayRefundId: first.id } });
+    }
+    assert.ok(row.emailSentAt, "sent after the resend");
+    assert.equal(row.emailAttempts, 1, "a fresh set of attempts, one used");
+    assert.equal(row.emailLastError, null);
+
+    // Already sent, or not exhausted (still pending/retrying): refused.
+    assert.equal((await resend(admin)).status, 409);
+    await prisma.razorpayRefund.update({ where: { razorpayRefundId: first.id }, data: { emailSentAt: null, emailDueAt: new Date(Date.now() + 60_000), emailLastError: "SEND_FAILED" } });
+    assert.equal((await resend(admin)).status, 409, "a retrying email is not reset");
+
+    const view = await orders.getAdminOrder(order.id);
+    assert.equal(view.paymentRefunds.refunds[0].emailResendRequestedBy.id, admin.id);
+});
+
+dbTest("refund: a full refund after shipping marks the order REFUNDED without touching stock", async () => {
+    const { order, payment } = await paidOrder();
+    await prisma.order.update({ where: { id: order.id }, data: { status: "SHIPPED", shippedAt: new Date() } });
+    const stock = await stockOf(variants[0]);
+
+    assert.equal((await deliver(refund(payment.id, 4000).body)).body.outcome, "order_refunded");
+    assert.equal((await stored(order.id)).status, "REFUNDED");
+    assert.equal(await stockOf(variants[0]), stock, "goods already shipped");
+});
+
+dbTest("refund: a partial refund after shipping changes no status", async () => {
+    const { order, payment } = await paidOrder();
+    await prisma.order.update({ where: { id: order.id }, data: { status: "SHIPPED", shippedAt: new Date() } });
+
+    assert.equal((await deliver(refund(payment.id, 500).body)).body.outcome, "order_refund_partial");
+    const row = await stored(order.id);
+    assert.equal(row.status, "SHIPPED");
+    assert.equal(row.paymentStatus, "PAID");
+});
+
+dbTest("refund before capture: a partial refund is kept, the later capture still pays the order, and fulfilment waits for review", async () => {
+    const order = await initiated(alice, null);
+    const payment = gatewayPayment(order.razorpayOrderId);
+
+    const early = refund(payment.id, 1000);
+    assert.equal((await deliver(early.body)).body.outcome, "refund_pending_match");
+    assert.equal((await refundRows(payment.id))[0].settledAt, null, "waiting for its payment");
+
+    assert.equal((await deliver(paymentEvent("payment.captured", payment))).body.outcome, "paid", "the capture is not discarded");
+    const row = await stored(order.id);
+    assert.equal(row.paymentStatus, "PAID");
+    const [linked] = await refundRows(payment.id);
+    assert.ok(linked.settledAt, "matched by the capture");
+    assert.equal(linked.orderId, order.id);
+
+    const view = await orders.getAdminOrder(order.id);
+    assert.equal(view.paymentRefunds.netRetained, 3000);
+    assert.equal(view.refundReview.blocking, true);
+    assert.equal(view.nextStatus, null, "no next step offered while review is required");
+    await assert.rejects(orders.advanceOrderStatus(order.id, "CONFIRMED"), (err) => {
+        assert.equal(err.statusCode, 409);
+        assert.equal(err.details[0].code, "REFUND_REVIEW_REQUIRED");
+        return true;
+    });
+});
+
+dbTest("refund before capture: a full refund means the capture never pays the order; it is recorded and refunded; expiry returns stock once", async () => {
+    const order = await initiated(alice, null);
+    const payment = gatewayPayment(order.razorpayOrderId);
+    const stock = await stockOf(variants[0]);
+
+    assert.equal((await deliver(refund(payment.id, 4000).body)).body.outcome, "refund_pending_match");
+    assert.equal((await deliver(paymentEvent("payment.captured", payment))).body.outcome, "refused");
+
+    const row = await stored(order.id);
+    assert.equal(row.paymentStatus, "UNPAID", "a fully refunded payment never pays the order");
+    assert.equal(row.razorpayPaymentId, null);
+    const [record] = await unapplied(order.id);
+    assert.equal(record.reason, "refunded_before_applied");
+    assert.ok(record.refundedAt, "already refunded: not owed");
+    assert.ok((await refundRows(payment.id))[0].settledAt);
+
+    // The browser's verification of the same payment is refused the same way.
+    await rejectsWith(verify(alice, order, payment), 409);
+    assert.equal((await stored(order.id)).paymentStatus, "UNPAID");
+
+    // The order expires as usual and gives its stock back once.
+    const deadline = epoch(90);
+    await setDeadline(order.id, deadline);
+    assert.equal(await orders.expireOrder(order.id, plus(deadline, 1)), true);
+    assert.equal(await orders.expireOrder(order.id, plus(deadline, 1)), false);
+    assert.equal(await stockOf(variants[0]), stock + 2);
+});
+
+dbTest("refund before a late capture: full -> never reinstated, recorded as refunded; partial -> reinstated and reviewed", async () => {
+    // Full refund first: the expired order stays cancelled.
+    const deadline = epoch(91);
+    const full = await initiated(alice, deadline);
+    assert.equal(await orders.expireOrder(full.id, plus(deadline, 1)), true);
+    const fullPayment = gatewayPayment(full.razorpayOrderId);
+    await deliver(refund(fullPayment.id, 4000).body);
+    await deliver(paymentEvent("payment.captured", fullPayment));
+    assert.equal((await stored(full.id)).status, "CANCELLED", "not reinstated");
+    const [record] = await unapplied(full.id);
+    assert.equal(record.reason, "refunded_before_applied");
+    assert.ok(record.refundedAt);
+
+    // Partial refund first: the capture reinstates the order as usual.
+    const partial = await initiated(alice, deadline);
+    assert.equal(await orders.expireOrder(partial.id, plus(deadline, 1)), true);
+    const payment = gatewayPayment(partial.razorpayOrderId);
+    await deliver(refund(payment.id, 500).body);
+    await deliver(paymentEvent("payment.captured", payment));
+    const row = await stored(partial.id);
+    assert.equal(row.status, "PENDING");
+    assert.equal(row.paymentStatus, "PAID");
+    assert.ok((await refundRows(payment.id))[0].settledAt);
+    assert.equal((await orders.getAdminOrder(partial.id)).refundReview.blocking, true);
+});
+
+dbTest("refund review: acknowledges only the state shown; a later refund invalidates it; admins only", async () => {
+    const { order, payment } = await paidOrder();
+    await deliver(refund(payment.id, 1000).body);
+
+    // Stale numbers (the admin saw nothing, or another amount) are refused.
+    await rejectsWith(refunds.acknowledgeRefund(order.id, admin.id, { refundCount: 1, refundedAmount: 900 }), 409, /changed/);
+    await rejectsWith(refunds.acknowledgeRefund(order.id, admin.id, { refundCount: 2, refundedAmount: 1000 }), 409, /changed/);
+
+    // Over HTTP: customers cannot acknowledge; the admin can.
+    const ack = (user, body) => fetch(`${server.url}/admin/orders/${order.id}/refund-review`, {
+        method: "POST", headers: { ...user.headers, "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    assert.equal((await ack(alice, { refundCount: 1, refundedAmount: 1000 })).status, 403);
+    assert.equal((await ack(admin, { refundCount: "x" })).status, 422);
+    const res = await ack(admin, { refundCount: 1, refundedAmount: 1000 });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.data.refundReview.acknowledged, true);
+    assert.equal(body.data.refundReview.reviewedBy.id, admin.id);
+    assert.equal(body.data.nextStatus, "CONFIRMED");
+
+    const reviewed = await stored(order.id);
+    assert.equal(reviewed.refundReviewedById, admin.id);
+    assert.equal(reviewed.refundReviewedCount, 1);
+    assert.equal(reviewed.refundReviewedAmount, 1000);
+
+    await orders.advanceOrderStatus(order.id, "CONFIRMED");
+
+    // A new refund: the acknowledgement no longer covers the state.
+    await deliver(refund(payment.id, 500).body);
+    await rejectsWith(orders.advanceOrderStatus(order.id, "PROCESSING"), 409);
+    await refunds.acknowledgeRefund(order.id, admin.id, { refundCount: 2, refundedAmount: 1500 });
+    await orders.advanceOrderStatus(order.id, "PROCESSING");
+});
+
+dbTest("refund anomalies: another currency is stored but never counted; over-refunds are FULL and restock once; both are flagged", async () => {
+    // Currency mismatch: the order stays PAID; review is required (and possible).
+    const { order, payment } = await paidOrder();
+    assert.equal((await deliver(refund(payment.id, 4000, "INR").body)).body.outcome, "order_refund_none");
+    assert.equal((await stored(order.id)).paymentStatus, "PAID", "an INR refund never refunds a USD payment");
+    let view = await orders.getAdminOrder(order.id);
+    assert.deepEqual(view.paymentRefunds.anomalies, ["CURRENCY_MISMATCH"]);
+    assert.equal(view.paymentRefunds.refundedAmount, 0);
+    assert.equal(view.paymentRefunds.refunds[0].counted, false);
+    assert.equal(view.refundReview.blocking, true);
+    await rejectsWith(orders.advanceOrderStatus(order.id, "CONFIRMED"), 409);
+    await refunds.acknowledgeRefund(order.id, admin.id, { refundCount: 1, refundedAmount: 0 });
+    await orders.advanceOrderStatus(order.id, "CONFIRMED");
+
+    // Over-refund: 4000 + 1000 of a 4000 payment.
+    const second = await paidOrder();
+    const stock = await stockOf(variants[0]);
+    assert.equal((await deliver(refund(second.payment.id, 4000).body)).body.outcome, "order_refunded");
+    assert.equal((await deliver(refund(second.payment.id, 1000).body)).body.outcome, "order_refund_full");
+    assert.equal(await stockOf(variants[0]), stock + 2, "restocked once");
+    view = await orders.getAdminOrder(second.order.id);
+    assert.equal(view.paymentRefunds.refundState, "FULL");
+    assert.equal(view.paymentRefunds.netRetained, 0);
+    assert.deepEqual(view.paymentRefunds.anomalies, ["OVER_REFUNDED"]);
+});
+
+dbTest("refund concurrency: duplicate and concurrent deliveries count each refund once and restock exactly once", async () => {
+    const { order, payment } = await paidOrder();
+    const stock = await stockOf(variants[0]);
+    const a = refund(payment.id, 2000);
+    const b = refund(payment.id, 2000);
+
+    // Each refund delivered three times at once, both refunds racing.
+    const results = await Promise.all([a, b, a, b, a, b].map((r) => deliver(r.body)));
+    assert.ok(results.every((r) => r.status === 200), JSON.stringify(results.map((r) => r.status)));
+    assert.equal(results.filter((r) => r.body.outcome === "order_refunded").length, 1, "one transition");
+
+    assert.equal((await refundRows(payment.id)).length, 2);
+    assert.equal((await stored(order.id)).paymentStatus, "REFUNDED");
+    assert.equal(await stockOf(variants[0]), stock + 2, "restocked exactly once");
+});
+
+dbTest("refund concurrency: a full refund racing its capture never leaves the order PAID", async () => {
+    for (let i = 0; i < 4; i++) {
+        const order = await initiated(alice, null);
+        const payment = gatewayPayment(order.razorpayOrderId);
+        const stockBefore = await stockOf(variants[0]);
+
+        const capture = paymentEvent("payment.captured", payment);
+        const full = refund(payment.id, 4000).body;
+        await Promise.all(i % 2 ? [deliver(capture), deliver(full)] : [deliver(full), deliver(capture)]);
+        await refunds.sweepRefunds();
+
+        const row = await stored(order.id);
+        assert.notEqual(row.paymentStatus, "PAID", `round ${i}: a fully refunded payment never leaves the order paid`);
+        if (row.paymentStatus === "REFUNDED") {
+            assert.equal(await stockOf(variants[0]), stockBefore + 2, `round ${i}: refunded order restocked once`);
+        } else {
+            const [record] = await unapplied(order.id);
+            assert.ok(record?.refundedAt, `round ${i}: recorded as refunded`);
+        }
+    }
+});
+
+dbTest("refund recovery: a crash between storing a refund (or a capture) and settling it is repaired by the worker sweep", async () => {
+    // Refund stored, process died before settling.
+    const { order, payment } = await paidOrder();
+    const stock = await stockOf(variants[0]);
+    assert.equal(await refunds.recordRefund({ id: nextId("rfnd"), payment_id: payment.id, amount: 4000, currency: "USD" }), true);
+    assert.equal((await stored(order.id)).paymentStatus, "PAID");
+
+    const swept = await refunds.sweepRefunds();
+    assert.ok(swept.settled >= 1);
+    assert.equal((await stored(order.id)).paymentStatus, "REFUNDED");
+    assert.equal(await stockOf(variants[0]), stock + 2);
+    await refunds.sweepRefunds();
+    assert.equal(await stockOf(variants[0]), stock + 2, "a second sweep changes nothing");
+
+    // A refund that waited for its capture, and the capture committed PAID
+    // but died before settling: the next payment check (or sweep) matches it.
+    const other = await initiated(alice, null);
+    const otherPayment = gatewayPayment(other.razorpayOrderId);
+    await deliver(refund(otherPayment.id, 1000).body);
+    await prisma.order.update({ where: { id: other.id }, data: { paymentStatus: "PAID", razorpayPaymentId: otherPayment.id, paidAt: new Date() } });
+    assert.equal((await refundRows(otherPayment.id))[0].settledAt, null);
+    await refunds.sweepRefunds();
+    assert.ok((await refundRows(otherPayment.id))[0].settledAt, "matched by the sweep");
+    assert.equal((await orders.getAdminOrder(other.id)).paymentRefunds.refundState, "PARTIAL");
+
+    // The same refund id with different details is refused, not merged.
+    const [first] = await refundRows(payment.id);
+    const conflict = refundEvent({ id: first.razorpayRefundId, payment_id: payment.id, amount: 1, currency: "USD" });
+    assert.equal((await deliver(conflict)).body.outcome, "refund_conflict");
+    assert.equal((await refundRows(payment.id))[0].amount, 4000);
+});
+
+dbTest("refund review vs fulfilment: an admin step racing a partial refund never ships an unreviewed refund", async () => {
+    const { order, payment } = await paidOrder();
+    const [advanced] = await Promise.allSettled([
+        orders.advanceOrderStatus(order.id, "CONFIRMED"),
+        deliver(refund(payment.id, 1000).body),
+    ]);
+
+    // Either the step committed before the refund (allowed: it was fulfilled
+    // before any refund existed), or it was refused because of the refund.
+    if (advanced.status === "rejected") assert.equal(advanced.reason.statusCode, 409);
+
+    // From here on, no further step without a review.
+    const next = advanced.status === "fulfilled" ? "PROCESSING" : "CONFIRMED";
+    await rejectsWith(orders.advanceOrderStatus(order.id, next), 409);
+});
+
+dbTest("admin list: orders show their refund state and whether a review blocks fulfilment", async () => {
+    const { order, payment } = await paidOrder();
+    await deliver(refund(payment.id, 1000).body);
+
+    const { data } = await orders.listAdminOrders({ page: 1, limit: 100 });
+    const listed = data.find((o) => o.id === order.id);
+    assert.equal(listed.refundState, "PARTIAL");
+    assert.equal(listed.refundReviewRequired, true);
+    assert.equal(listed.nextStatus, null);
+    assert.equal(listed.razorpayPaymentId, undefined, "internal columns are not listed");
+});
+
+dbTest("cod cap: at most 3 unconfirmed COD orders per customer; cancelling or confirming one frees a slot", async () => {
+    const user = await makeUser("codcap");
+    const placed = [];
+    for (let i = 0; i < orders.MAX_OPEN_COD_ORDERS; i++) placed.push(await place(user, { paymentMethod: "COD" }));
+
+    const stock = await stockOf(variants[0]);
+    await rejectsWith(place(user, { paymentMethod: "COD" }), 422, /at most 3 unconfirmed Cash on Delivery/);
+    assert.equal(await stockOf(variants[0]), stock, "a refused order takes no stock");
+    // A refused order leaves the cart as it was.
+    await emptyCart(user);
+
+    // Online orders are not capped (they expire on their own).
+    await place(user, { paymentMethod: "RAZORPAY" });
+
+    await orders.cancelOrder(user.id, placed[0].id);
+    const next = await place(user, { paymentMethod: "COD" });
+
+    await orders.advanceOrderStatus(next.id, "CONFIRMED");
+    await place(user, { paymentMethod: "COD" });
+    await rejectsWith(place(user, { paymentMethod: "COD" }), 422);
+    await emptyCart(user);
+});
+
+dbTest("account deletion: open COD orders are cancelled and their stock returned; online and confirmed orders are left", async () => {
+    const user = await makeUser("deleted");
+    const password = `Delete-${RUN}-Pass1`;
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(password, 10) } });
+
+    const open = await place(user, { paymentMethod: "COD" });
+    const confirmed = await place(user, { paymentMethod: "COD" });
+    await orders.advanceOrderStatus(confirmed.id, "CONFIRMED");
+    const online = await place(user, { paymentMethod: "RAZORPAY" });
+    const stock = await stockOf(variants[0]);
+
+    const { email } = await prisma.user.findUnique({ where: { id: user.id }, select: { email: true } });
+    await accounts.deleteAccount(user.id, { password });
+    // after() deletes fixture users by their original email.
+    await prisma.user.update({ where: { id: user.id }, data: { email } });
+
+    assert.equal((await stored(open.id)).status, "CANCELLED");
+    assert.equal((await stored(confirmed.id)).status, "CONFIRMED", "being fulfilled: left for the shop");
+    assert.equal((await stored(online.id)).status, "PENDING", "online: expires on its own deadline");
+    assert.equal(await stockOf(variants[0]), stock + 2, "only the open COD order's stock is returned");
 });
 
 // ------------------------------------------------------------ webhook endpoint

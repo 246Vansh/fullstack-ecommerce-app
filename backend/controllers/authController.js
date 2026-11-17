@@ -115,8 +115,14 @@ export async function logoutAll(req, res) {
 
 const RESET_REQUESTED = "If an account exists for that email, we've sent a link to reset its password.";
 
-export async function forgotPassword(req, res) {
-    await requestPasswordReset(req.body.email);
+// Answered before the lookup finishes: an existing account also issues a
+// token (a database transaction) and queues an email, so awaiting it would
+// make known emails measurably slower than unknown ones. The work continues
+// in the background; a failure is logged by code only (no email address).
+export function forgotPassword(req, res) {
+    requestPasswordReset(req.body.email).catch((err) => {
+        console.error(`Password reset request failed: ${err?.code ?? err?.name ?? "unknown error"}`);
+    });
 
     res.json({ success: true, message: RESET_REQUESTED });
 }

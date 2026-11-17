@@ -6,8 +6,11 @@ import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import {
     cancelOrder, getOrder, reinstateExpiredOrder, reservationEnded, UNPAID_PAYMENT_STATUSES, LATE_PAYMENT_STOCK_UNAVAILABLE,
+    REFUNDED_BEFORE_APPLIED,
 } from "./orderService.js";
 import { notifyOrderEvent } from "./notificationService.js";
+import { toMinorUnits } from "./pricingService.js";
+import { refundedAmountOf, settleRefundsForPayment } from "./refundService.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -44,9 +47,6 @@ import { notifyOrderEvent } from "./notificationService.js";
 | Nothing here logs the key secret, signatures or payment details; failures
 | log the order number and the gateway's status code only.
 */
-
-// Minor units per major unit for the currencies accepted online.
-const CURRENCY_EXPONENTS = { INR: 2, USD: 2 };
 
 const PAYABLE_PAYMENT_STATUSES = UNPAID_PAYMENT_STATUSES;
 
@@ -116,22 +116,9 @@ async function callGateway(operation, orderNumber, fn) {
     }
 }
 
-// The stored Decimal total in the currency's minor units (paise, cents).
-export function toMinorUnits(total, currency) {
-    const exponent = CURRENCY_EXPONENTS[currency];
-
-    if (exponent === undefined) {
-        throw new ApiError(422, `Online payment is not available for ${currency} orders`);
-    }
-
-    const minor = new Prisma.Decimal(total).mul(10 ** exponent);
-
-    if (!minor.isInteger() || minor.lte(0)) {
-        throw new ApiError(422, "This order total cannot be paid online");
-    }
-
-    return minor.toNumber();
-}
+// toMinorUnits lives in pricingService (no dependencies, so refundService
+// can use it without an import cycle); re-exported for existing callers.
+export { toMinorUnits };
 
 // Razorpay's documented check: hex HMAC-SHA256 of "order_id|payment_id" with
 // the key secret. Compared as bytes in constant time; anything that is not
@@ -316,6 +303,22 @@ async function reportRefundRequired(order, payment, reason) {
     });
 }
 
+// Never throws: the refund worker settles anything this misses.
+async function settleAfterCapture(paymentId) {
+    try {
+        await settleRefundsForPayment(paymentId);
+    } catch (err) {
+        console.error(`Refund settle after capture failed for ${safe(paymentId, SAFE_GATEWAY_ID)}: ${err?.code ?? err?.name ?? "error"}`);
+    }
+}
+
+// The order was paid by this very payment: PAID, or REFUNDED after a full
+// refund of it. A replayed or late capture of that payment (order.paid and
+// payment.captured are separate events, each retried by Razorpay) is then
+// "already applied": it must never be reported as money to refund.
+const APPLIED_PAYMENT_STATUSES = ["PAID", "REFUNDED"];
+const appliedBy = (order, paymentId) => APPLIED_PAYMENT_STATUSES.includes(order.paymentStatus) && order.razorpayPaymentId === paymentId;
+
 const holdsMoney = (payment) => ["captured", "authorized"].includes(payment?.status);
 
 const refusal = (paid) => new ApiError(409, paid
@@ -346,7 +349,13 @@ export async function applyPayment(order, payment) {
     // Already paid by another payment, or cancelled/moved on, before this one could be applied.
     if (order.status !== "PENDING" || !PAYABLE_PAYMENT_STATUSES.includes(order.paymentStatus)) {
         const paid = order.paymentStatus === "PAID";
-        if (paid && order.razorpayPaymentId === payment.id) return "PAID";
+        if (appliedBy(order, payment.id)) {
+            // Already applied (and possibly refunded since). Settling again
+            // repairs a crash between the capture and its settle (a no-op
+            // when nothing is waiting). -> PAID or REFUNDED.
+            await settleAfterCapture(payment.id);
+            return order.paymentStatus;
+        }
         if (holdsMoney(payment)) await reportRefundRequired(order, payment, paid ? "order_already_paid" : "order_not_payable");
         throw refusal(paid);
     }
@@ -354,6 +363,18 @@ export async function applyPayment(order, payment) {
     if (payment.status === "authorized") return "PROCESSING";
     if (payment.status === "failed") return "FAILED";
     if (payment.status !== "captured") return "UNPAID";
+
+    // Razorpay already refunded this payment in full (its refund webhook came
+    // first): it must not pay the order. Recorded as unapplied money, which
+    // settling marks refunded; the order stays unpaid and expires as usual.
+    // A partial refund does not stop the capture (fulfilment then waits for
+    // an admin to acknowledge the refund). A refund stored after this check
+    // is caught by the settle after the UPDATE below.
+    if (await refundedAmountOf(payment.id, payment.currency) >= payment.amount) {
+        await reportRefundRequired(order, payment, REFUNDED_BEFORE_APPLIED);
+        await settleAfterCapture(payment.id);
+        throw new ApiError(409, "This payment was refunded before it could be applied to the order.");
+    }
 
     // The deadline is not checked here: until the expiry transition commits the
     // stock is still held, so a payment that gets here first wins.
@@ -379,6 +400,10 @@ export async function applyPayment(order, payment) {
 
     if (count === 0) return settleAfterChange(order.id, payment);
 
+    // Refunds stored for this payment before (or while) it was applied are
+    // matched to the order now (a full one refunds it at once).
+    await settleAfterCapture(payment.id);
+
     // Only the caller whose UPDATE marked the order PAID notifies (verify,
     // refresh, webhook or worker alike); every repeat or concurrent delivery
     // returns PAID above or through settleAfterChange without one. Never throws.
@@ -393,7 +418,7 @@ export async function applyPayment(order, payment) {
 async function settleAfterChange(id, payment) {
     const current = await loadOrder(id);
 
-    if (current.paymentStatus === "PAID" && current.razorpayPaymentId === payment.id) return "PAID";
+    if (appliedBy(current, payment.id)) return current.paymentStatus;
 
     // Expired just before this payment could be applied: a late payment.
     if (isExpiredUnpaid(current)) return applyLatePayment(current, payment);
@@ -435,6 +460,10 @@ async function applyLatePayment(order, payment) {
         throw err;
     }
 
+    // A refund of this payment stored earlier is matched now (to the
+    // reinstated order, or to the unapplied payment just recorded).
+    await settleAfterCapture(payment.id);
+
     if (outcome === "PAID") {
         console.log(`Razorpay late payment applied ${JSON.stringify({
             event: "razorpay_late_payment_applied",
@@ -450,6 +479,12 @@ async function applyLatePayment(order, payment) {
     // Recorded in unapplied_payments (now, or by an earlier attempt): this
     // payment is refunded, never used for the order, even if stock returns.
     if (outcome === "REFUND_DUE") {
+        const record = await prisma.unappliedPayment.findUnique({ where: { razorpayPaymentId: payment.id }, select: { reason: true } });
+
+        if (record?.reason === REFUNDED_BEFORE_APPLIED) {
+            throw new ApiError(409, "This payment was refunded before it could be applied to the order.");
+        }
+
         logRefundRequired(order, payment, LATE_PAYMENT_STOCK_UNAVAILABLE);
         throw new ApiError(409, "This order expired before your payment arrived, and some items are no longer available. Your payment will be refunded; please contact support.");
     }
@@ -474,9 +509,10 @@ export async function verifyPayment(userId, id, { razorpayOrderId, razorpayPayme
         throw new ApiError(409, "This payment does not belong to this order");
     }
 
-    // Repeating the verification that paid the order: same answer, no work.
-    if (order.paymentStatus === "PAID" && order.razorpayPaymentId === razorpayPaymentId) {
-        return result("PAID", userId, id);
+    // Repeating the verification that paid the order (refunded since, or
+    // not): the order's own state, no work.
+    if (appliedBy(order, razorpayPaymentId)) {
+        return result(order.paymentStatus, userId, id);
     }
 
     if (!isValidSignature(order.razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
@@ -688,7 +724,7 @@ async function reconcileListedPayment(payment) {
         return "unknown_order";
     }
 
-    if (order.paymentStatus === "PAID" && order.razorpayPaymentId === payment.id) return "settled_before";
+    if (appliedBy(order, payment.id)) return "settled_before";
 
     const recorded = await prisma.unappliedPayment.findUnique({ where: { razorpayPaymentId: payment.id }, select: { id: true } });
     if (recorded) return "recorded_before";

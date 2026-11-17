@@ -329,6 +329,75 @@ dbTest("6. logout revokes the refresh session", async () => {
     assert.equal((await post(`${server.url}/auth/logout`, undefined, { cookie: "garbage" })).status, 200);
 });
 
+dbTest("6c. logout ends the session's access token at once, not when it expires", async () => {
+    const { token, body } = await login(server.url, USER);
+    issuedTokens.push(token);
+    const me = () => fetch(`${server.url}/auth/me`, { headers: { Authorization: `Bearer ${body.accessToken}` } });
+
+    assert.equal((await me()).status, 200, "valid while the session is signed in");
+
+    assert.equal((await track(await post(`${server.url}/auth/logout`, undefined, { cookie: token }))).status, 200);
+
+    assert.equal((await me()).status, 401, "the unexpired access token of a signed-out session is refused");
+});
+
+dbTest("6d. failed logins are limited per account, across IPs; the owner's successful logins never count", async () => {
+    const limitedUser = await prisma.user.create({
+        data: { email: `phase6-acctlimit-${RUN}@example.test`, passwordHash: await bcrypt.hash(USER.password, SALT_ROUNDS), firstName: "Test", lastName: "AcctLimit", role: "CUSTOMER" },
+    });
+    registered.push(limitedUser);
+
+    // A fresh server, so the per-IP limiter (20) of the shared one is untouched;
+    // the per-account limit (10 failures) is reached first.
+    const limited = await startServer(testServerEnv(guard));
+    try {
+        const attempt = (password, email = limitedUser.email) => post(`${limited.url}/auth/login`, { email, password });
+
+        // Successful logins are not counted.
+        for (let i = 0; i < 3; i++) assert.equal((await attempt(USER.password)).status, 200);
+
+        // Ten failures (any case or spacing of the email is the same account).
+        for (let i = 0; i < 10; i++) {
+            const email = i % 2 ? ` ${limitedUser.email.toUpperCase()} ` : limitedUser.email;
+            assert.equal((await attempt("Wrong-Pass-123", email)).status, 401);
+        }
+        assert.equal((await attempt("Wrong-Pass-123")).status, 429, "the 11th failure is limited");
+        assert.equal((await attempt(USER.password)).status, 429, "the account is locked for the window, even with the right password");
+
+        // Another account from the same IP is unaffected.
+        assert.equal((await post(`${limited.url}/auth/login`, USER)).status, 200);
+    } finally {
+        await limited.stop();
+    }
+});
+
+dbTest("6e. aliases the login route treats as one account (gmail +tags, letter case) share its failed-login limit", async () => {
+    // Stored as registration stores it: normalized (no +tag, lower-case).
+    const local = `phase6alias${RUN}`;
+    const aliasUser = await prisma.user.create({
+        data: { email: `${local}@gmail.com`, passwordHash: await bcrypt.hash(USER.password, SALT_ROUNDS), firstName: "Test", lastName: "Alias", role: "CUSTOMER" },
+    });
+    registered.push(aliasUser);
+
+    const limited = await startServer(testServerEnv(guard));
+    try {
+        const attempt = (email, password = "Wrong-Pass-123") => post(`${limited.url}/auth/login`, { email, password });
+
+        // The route itself treats the aliases as this account.
+        assert.equal((await attempt(`${local}+one@gmail.com`, USER.password)).status, 200, "an alias signs in to the same account");
+
+        // Ten failures spread over different aliases.
+        const aliases = [`${local}+one@gmail.com`, `${local}+two@gmail.com`, `${local.toUpperCase()}+three@GMAIL.com`];
+        for (let i = 0; i < 10; i++) assert.equal((await attempt(aliases[i % aliases.length])).status, 401, `failure ${i + 1}`);
+
+        // A new alias, and the plain address, are in the same exhausted budget.
+        assert.equal((await attempt(`${local}+four@gmail.com`)).status, 429, "a fresh alias does not get a fresh budget");
+        assert.equal((await attempt(`${local}@gmail.com`, USER.password)).status, 429, "the account itself is limited");
+    } finally {
+        await limited.stop();
+    }
+});
+
 dbTest("7. expired, forged, revoked or missing tokens give a clean 401", async () => {
     const expired = jwt.sign(
         { sub: String(user.id), type: "refresh", fam: crypto.randomUUID(), jti: crypto.randomUUID(), exp: Math.floor(Date.now() / 1000) - 60 },

@@ -7,6 +7,7 @@ import { loadCartItems } from "./checkoutService.js";
 import { notifyOrderEvent } from "./notificationService.js";
 import { calculateTotals, lineTotalOf, roundMoney, toMoney } from "./pricingService.js";
 import { claimCoupon, evaluateCoupon, isLockFailure, lockOrderCoupon, reclaimCoupon, releaseCoupon } from "./couponService.js";
+import { adminRefundBadges, adminRefundView, assertFulfilmentAllowed } from "./refundService.js";
 
 // Waiting for another checkout of the same variant or cart can take a moment
 // under load; these bound it instead of Prisma's 2s/5s defaults.
@@ -33,6 +34,15 @@ const CANCELLABLE_PAYMENT_STATUSES = ["UNPAID"];
 // Matches the PaymentMethod enum. COD orders are fulfilled while unpaid;
 // RAZORPAY orders must be PAID (verified with Razorpay) before fulfilment.
 export const PAYMENT_METHODS = ["COD", "RAZORPAY"];
+
+// Statuses whose goods have not left the warehouse: a full refund of an
+// order in one of them gives its stock back (refundService). A SHIPPED or
+// DELIVERED order's goods are with the courier or customer (a return is
+// handled by hand), so its stock is not touched.
+export const NOT_YET_SHIPPED = ["PENDING", "CONFIRMED", "PROCESSING"];
+
+// Unconfirmed (PENDING) Cash on Delivery orders one customer may have open.
+export const MAX_OPEN_COD_ORDERS = 3;
 
 // How long an online order holds its stock while waiting for payment. The
 // deadline is stored on the order (reservationExpiresAt) from the server
@@ -251,6 +261,21 @@ async function placeOrder(tx, userId, { addressId, expectedTotal, expectedCurren
         throw new ApiError(422, "Nothing is left to pay online for this order. Choose Cash on Delivery to place it.", [
             { field: "paymentMethod", code: "NOTHING_TO_PAY", message: "Nothing is left to pay online for this order" },
         ]);
+    }
+
+    // Cash on Delivery orders take stock with no payment deadline (only online
+    // orders expire), so one account could otherwise hold any amount of stock
+    // indefinitely with unconfirmed COD orders. Counted under the cart row
+    // lock taken above, so two concurrent checkouts of one user cannot both
+    // pass with the last free slot.
+    if (paymentMethod === "COD") {
+        const open = await tx.order.count({ where: { userId, paymentMethod: "COD", status: "PENDING" } });
+
+        if (open >= MAX_OPEN_COD_ORDERS) {
+            throw new ApiError(422, `You can have at most ${MAX_OPEN_COD_ORDERS} unconfirmed Cash on Delivery orders. Please wait for one to be confirmed, or cancel one, before placing another.`, [
+                { field: "paymentMethod", code: "TOO_MANY_OPEN_COD_ORDERS", message: "Too many unconfirmed Cash on Delivery orders" },
+            ]);
+        }
     }
 
     if (applied) await claimCoupon(tx, applied.coupon, userId);
@@ -547,19 +572,33 @@ export async function listAdminOrders({ page, limit, status, refundDue }) {
                 shippingEmail: true,
                 items: { select: { quantity: true } },
                 _count: { select: { unappliedPayments: { where: { refundedAt: null } } } },
+                razorpayPaymentId: true,
+                refundReviewedAt: true,
+                refundReviewedCount: true,
+                refundReviewedAmount: true,
             },
         }),
     ]);
 
+    const badges = await adminRefundBadges(orders);
+
     return {
-        data: orders.map(({ items, total: orderTotal, shippingFirstName, shippingLastName, shippingEmail, _count, ...order }) => ({
+        data: orders.map(({
+            items, total: orderTotal, shippingFirstName, shippingLastName, shippingEmail, _count,
+            razorpayPaymentId, refundReviewedAt, refundReviewedCount, refundReviewedAmount, ...order
+        }) => ({
             ...order,
+            // Refunds of the payment that paid it: NONE, PARTIAL or FULL, any
+            // anomalies, and whether fulfilment waits for a refund review.
+            refundState: badges.get(order.id)?.refundState ?? "NONE",
+            refundAnomalies: badges.get(order.id)?.refundAnomalies ?? [],
+            refundReviewRequired: badges.get(order.id)?.refundReviewRequired ?? false,
             refundDue: _count.unappliedPayments > 0,
             total: toMoney(orderTotal),
             itemCount: items.reduce((count, item) => count + item.quantity, 0),
             customer: { name: `${shippingFirstName} ${shippingLastName}`.trim(), email: shippingEmail },
             awaitingPayment: awaitsPayment(order),
-            nextStatus: adminNextStatus(order),
+            nextStatus: badges.get(order.id)?.refundReviewRequired ? null : adminNextStatus(order),
         })),
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
@@ -572,6 +611,8 @@ export async function getAdminOrder(id) {
         where: { id },
         select: {
             ...orderSelect, userId: true, shippedAt: true, deliveredAt: true, razorpayOrderId: true, razorpayPaymentId: true,
+            refundReviewedAt: true, refundReviewedCount: true, refundReviewedAmount: true,
+            refundReviewedBy: { select: { id: true, firstName: true, lastName: true } },
             unappliedPayments: {
                 select: { razorpayPaymentId: true, amount: true, currency: true, reason: true, createdAt: true, refundedAt: true, razorpayRefundId: true },
                 orderBy: { id: "asc" },
@@ -582,6 +623,7 @@ export async function getAdminOrder(id) {
     if (!order) throw new ApiError(404, "Order not found");
 
     const { cancellable, payable, paymentDueBy, ...response } = toOrderResponse(order);
+    const refunds = await adminRefundView(order);
 
     return {
         ...response,
@@ -596,9 +638,15 @@ export async function getAdminOrder(id) {
         // Captured payments that could not be applied: refund them in the
         // Razorpay dashboard; refundedAt is set once Razorpay confirms it.
         // Amounts are in minor units (cents, paise), as Razorpay reports them.
-        unappliedPayments: order.unappliedPayments,
+        // Each with its own refunds (refundState, amounts, refund records).
+        unappliedPayments: order.unappliedPayments.map((payment) => ({ ...payment, refunds: refunds.unapplied[payment.razorpayPaymentId] })),
+        // Refunds of the payment that paid the order: captured, refunded and
+        // net amounts (minor units), refundState, anomalies and every refund.
+        // review: whether fulfilment waits for an admin acknowledgement.
+        paymentRefunds: refunds.payment,
+        refundReview: refunds.review,
         awaitingPayment: awaitsPayment(order),
-        nextStatus: adminNextStatus(order),
+        nextStatus: refunds.review.blocking ? null : adminNextStatus(order),
     };
 }
 
@@ -612,11 +660,26 @@ export async function advanceOrderStatus(id, status) {
     if (!from) throw new ApiError(422, "Validation failed", [{ field: "status", message: "status is not a fulfilment step" }]);
 
     const timestamp = STEP_TIMESTAMPS[status];
-    // Same conditional UPDATE, plus the payment rule: COD, or online and PAID.
-    const { count } = await prisma.order.updateMany({
-        where: { id, status: from, OR: [{ paymentMethod: "COD" }, { paymentStatus: "PAID" }] },
-        data: { status, ...(timestamp && { [timestamp]: new Date() }) },
-    });
+
+    const count = await prisma.$transaction(async (tx) => {
+        // The order row is locked first, so a refund settling concurrently
+        // (which locks it too) is either seen here or comes after this step.
+        const [current] = await tx.$queryRaw`
+            SELECT status, razorpayPaymentId, total, currency, refundReviewedAt, refundReviewedCount, refundReviewedAmount
+            FROM orders WHERE id = ${id} FOR UPDATE`;
+
+        // A refund of the payment that paid it (partial, or with an anomaly)
+        // blocks fulfilment until an admin acknowledges it (refundService).
+        if (current?.status === from) await assertFulfilmentAllowed(tx, current);
+
+        // Same conditional UPDATE, plus the payment rule: COD, or online and PAID.
+        const { count: changed } = await tx.order.updateMany({
+            where: { id, status: from, OR: [{ paymentMethod: "COD" }, { paymentStatus: "PAID" }] },
+            data: { status, ...(timestamp && { [timestamp]: new Date() }) },
+        });
+
+        return changed;
+    }, TRANSACTION_OPTIONS);
 
     if (count === 0) {
         const current = await prisma.order.findUnique({ where: { id }, select: { status: true, paymentMethod: true, paymentStatus: true } });
@@ -642,8 +705,9 @@ export async function advanceOrderStatus(id, status) {
 // Gives every item of the order its quantity back, in variant id order (the
 // order checkout locks them in). Called only inside the transaction whose
 // conditional UPDATE just moved the order to CANCELLED, so the stock of one
-// order is returned at most once.
-async function restoreStock(tx, orderId, step) {
+// order is returned at most once. Also used by refundService, inside the
+// transaction whose conditional UPDATE moved a paid order to REFUNDED.
+export async function restoreStock(tx, orderId, step) {
     const items = await tx.orderItem.findMany({
         where: { orderId, variantId: { not: null } },
         select: { variantId: true, quantity: true },
@@ -724,6 +788,38 @@ export async function cancelOrder(userId, id, hooks) {
     }
 }
 
+// Inside the account-deletion transaction: cancels the user's open Cash on
+// Delivery orders (PENDING, unpaid), giving back their coupon uses and stock,
+// so a deleted account does not hold stock forever. Each order moves by the
+// same conditional UPDATE as cancelOrder, so one already cancelled, confirmed
+// or paid in the meantime is left alone. Unpaid online orders are not touched
+// here: a payment may still be in flight at Razorpay, and the expiry worker
+// cancels them at their deadline with the late-payment rules. -> count cancelled.
+export async function cancelOpenCodOrdersForDeletion(tx, userId) {
+    const open = await tx.order.findMany({
+        where: { userId, paymentMethod: "COD", status: { in: CANCELLABLE_STATUSES }, paymentStatus: { in: CANCELLABLE_PAYMENT_STATUSES } },
+        select: { id: true },
+        orderBy: { id: "asc" },
+    });
+
+    let cancelled = 0;
+
+    for (const { id } of open) {
+        const { count } = await tx.order.updateMany({
+            where: { id, userId, status: { in: CANCELLABLE_STATUSES }, paymentStatus: { in: CANCELLABLE_PAYMENT_STATUSES } },
+            data: { status: "CANCELLED" },
+        });
+
+        if (count === 0) continue;
+
+        await releaseCoupon(tx, id);
+        await restoreStock(tx, id, async () => {});
+        cancelled++;
+    }
+
+    return cancelled;
+}
+
 /*
 |--------------------------------------------------------------------------
 | Reservation expiry and late payments (online orders)
@@ -757,6 +853,10 @@ export async function cancelOrder(userId, id, hooks) {
 
 // unapplied_payments.reason for a late payment whose order could not be reinstated.
 export const LATE_PAYMENT_STOCK_UNAVAILABLE = "expired_stock_unavailable";
+
+// unapplied_payments.reason for a capture whose payment Razorpay had already
+// refunded in full before it could be applied (paymentService, refundService).
+export const REFUNDED_BEFORE_APPLIED = "refunded_before_applied";
 
 export async function expireOrder(id, now = new Date(), hooks) {
     const expired = await prisma.$transaction(async (tx) => {
@@ -862,6 +962,29 @@ export async function reinstateExpiredOrder(order, payment, hooks) {
             SELECT id FROM unapplied_payments WHERE razorpayPaymentId = ${payment.id} FOR SHARE`;
 
         if (owed) return "REFUND_DUE";
+
+        // A payment Razorpay has already refunded in full (its refund arrived
+        // before this capture was applied) never reinstates the order: it is
+        // recorded as unapplied, and settling marks it refunded. A partial
+        // refund does not stop it (the capture stands; the refund is reviewed).
+        const [refunded] = await tx.$queryRaw`
+            SELECT COALESCE(SUM(amount), 0) AS total FROM razorpay_refunds
+            WHERE razorpayPaymentId = ${payment.id} AND currency = ${payment.currency} FOR SHARE`;
+
+        if (Number(refunded.total) >= payment.amount) {
+            await tx.unappliedPayment.create({
+                data: {
+                    orderId: order.id,
+                    razorpayPaymentId: payment.id,
+                    razorpayOrderId: payment.order_id,
+                    amount: payment.amount,
+                    currency: payment.currency,
+                    reason: REFUNDED_BEFORE_APPLIED,
+                },
+            });
+
+            return "REFUND_DUE";
+        }
 
         // Before the variants (lock order: orders -> coupon -> variants).
         const couponId = await lockOrderCoupon(tx, order.id);

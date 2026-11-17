@@ -11,14 +11,16 @@ import { orderEmail, refundEmail } from "./mailTemplates.js";
 |     notification. The notification's unique dedupeKey ("order:{id}:{type}")
 |     is what makes the email once-only: a repeated event, a retry or a
 |     request that lost a race creates no notification, so sends no email.
-|   - the refund.processed webhook, only when its conditional UPDATE marked
-|     the payment refunded (count === 1).
+|   Refund emails are not queued here: they go through the durable refund
+|     outbox in refundService (at least once, one per refund), which calls
+|     deliverRefundEmail.
 |
 | Never blocks or breaks the caller: everything (loading the order, building
 | the message, sending) happens after the caller has moved on, and every
 | failure is caught and logged with the order id and a masked address only.
-| There is no retry: an email that fails is lost (the in-app notification,
-| and the order itself, are unaffected).
+| Order emails are not retried: one that fails is lost (the in-app
+| notification, and the order itself, are unaffected). Refund emails are
+| retried by the outbox.
 |
 | Which email an event sends:
 |   ORDER_PLACED      COD orders: ORDER_CONFIRMED. Online orders: none (not
@@ -170,46 +172,57 @@ async function sendOrderEmail(orderId, type, reason) {
     }
 }
 
-async function sendRefundEmail({ razorpayPaymentId, refundId, amount, currency }) {
-    let orderId = "unknown";
+// One refund's email, sent by the refund outbox (refundService), which
+// records the result: "sent" (accepted by the provider), "failed" (retried
+// later) or "no_recipient" (nothing to retry). Never throws. totals: the
+// payment's captured amount and the total refunded up to this refund, or null.
+// The Message-ID is fixed per refund, so a resend after a crash carries the
+// same id (many mail services then drop the second copy; not guaranteed).
+export async function deliverRefundEmail(refund, totals) {
+    let orderId = refund?.orderId ?? "unknown";
     try {
-        const payment = await prisma.unappliedPayment.findUnique({
-            where: { razorpayPaymentId },
-            select: { order: { select: { id: true, orderNumber: true, shippingEmail: true, shippingFirstName: true, user: { select: { email: true, firstName: true } } } } },
-        });
-        const order = payment?.order;
-        if (!order) return false;
+        const order = refund.orderId ? await prisma.order.findUnique({
+            where: { id: refund.orderId },
+            select: { id: true, orderNumber: true, shippingEmail: true, shippingFirstName: true, user: { select: { email: true, firstName: true } } },
+        }) : null;
+        if (!order) return "no_recipient";
         orderId = order.id;
 
         const to = recipientFor(order);
         if (!to) {
             console.error(`No usable email address for refund email of order ${orderId}; nothing sent`);
-            return false;
+            return "no_recipient";
         }
 
         const message = refundEmail({
             firstName: order.user?.firstName || order.shippingFirstName,
             orderNumber: order.orderNumber,
-            amount,
-            currency,
-            refundId,
+            amount: refund.amount,
+            currency: refund.currency,
+            refundId: refund.razorpayRefundId,
+            totals,
             link: orderLink(order.id),
         });
 
-        return await deliver(to, message, "refund processed", orderId);
+        const sent = await deliver(to, { ...message, messageId: refundMessageId(refund.razorpayRefundId) }, "refund processed", orderId);
+        return sent ? "sent" : "failed";
     } catch (err) {
         console.error(`Failed to prepare refund processed email for order ${orderId}: ${err?.code ?? err?.name ?? "unknown error"}`);
-        return false;
+        return "failed";
     }
+}
+
+// <refund.rfnd_x@host>: the host of MAIL_FROM's address, else CLIENT_URL's.
+function refundMessageId(refundId) {
+    const from = /@([A-Za-z0-9.-]+)>?\s*$/.exec(process.env.MAIL_FROM ?? "")?.[1];
+    let host = from;
+    if (!host) {
+        try { host = new URL(process.env.CLIENT_URL).hostname; } catch { host = "localhost"; }
+    }
+    return `<refund.${refundId}@${host}>`;
 }
 
 // Fire-and-forget entry points. Never throw, never block the caller.
 export function queueOrderEmail(orderId, type, { reason } = {}) {
     track(sendOrderEmail(orderId, type, reason));
-}
-
-// refund: the refund entity from the verified webhook (id, payment_id,
-// amount in minor units, currency), exactly as Razorpay reported it.
-export function queueRefundEmail(refund) {
-    track(sendRefundEmail({ razorpayPaymentId: refund.payment_id, refundId: refund.id, amount: refund.amount, currency: refund.currency }));
 }
