@@ -184,6 +184,12 @@ export const routes = [
                 component: () => import("@/pages/admin/adminCouponsPage.vue"),
                 meta: { title: "Coupons · Admin" },
             },
+            {
+                path: "users",
+                name: "admin-users",
+                component: () => import("@/pages/admin/adminUsersPage.vue"),
+                meta: { title: "Customers · Admin" },
+            },
         ],
     },
 

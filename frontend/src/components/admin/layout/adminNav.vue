@@ -25,7 +25,7 @@
 
 <script setup>
 import { RouterLink, useRoute } from "vue-router";
-import { ClipboardDocumentListIcon, CubeIcon, FolderIcon, TicketIcon } from "@heroicons/vue/24/outline";
+import { ClipboardDocumentListIcon, CubeIcon, FolderIcon, TicketIcon, UsersIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps({
     // Set on the mobile drawer's copy only (the menu button's aria-controls).
@@ -51,6 +51,12 @@ const GROUPS = [
         items: [
             { label: "Orders", to: { name: "admin-orders" }, icon: ClipboardDocumentListIcon, section: "admin-order" },
             { label: "Coupons", to: { name: "admin-coupons" }, icon: TicketIcon, section: "admin-coupons" },
+        ],
+    },
+    {
+        label: "People",
+        items: [
+            { label: "Customers", to: { name: "admin-users" }, icon: UsersIcon, section: "admin-users" },
         ],
     },
 ];
