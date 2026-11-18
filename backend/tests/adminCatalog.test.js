@@ -153,14 +153,18 @@ dbTest("auth: every admin route needs a token and refuses customers, even when t
 // ------------------------------------------------------------ products
 
 dbTest("products: create normalizes input, ignores unknown fields, and is visible publicly", async () => {
-    const product = await createProduct("create", { id: 1, createdAt: "2000-01-01", orderItems: [], role: "ADMIN" });
+    // The injected id is the largest INT: a valid id the database would store if
+    // the field allowlist leaked it, but one AUTO_INCREMENT never reaches here.
+    // (id: 1 collided with the first product created in an empty database, as in CI.)
+    const injectedId = 2147483647;
+    const product = await createProduct("create", { id: injectedId, createdAt: "2000-01-01", orderItems: [], role: "ADMIN" });
 
     assert.equal(product.name, `P12 ${RUN} create`);
     assert.equal(product.slug, `testbrand-p12-${RUN}-create`);
     assert.equal(product.price, 49.9);
     assert.equal(product.originalPrice, 59.9);
     assert.equal(product.isActive, true);
-    assert.notEqual(product.id, 1);
+    assert.notEqual(product.id, injectedId);
     assert.deepEqual(product.variants.map((v) => [v.sku, v.stock, v.effectivePrice]),
         [[sku("create-m").toUpperCase(), 5, 49.9], [sku("create-l").toUpperCase(), 0, 54.9]]);
     assert.equal(product.variants[0].colorHex, "#00AA11");
