@@ -15,6 +15,11 @@ const MIN_SESSION_REMAINING_MS = 1000;
 
 const sessionExpired = () => new ApiError(401, "Session expired");
 
+// A blocked account (users.blockedAt) with the correct password. Only ever
+// thrown after the password has been verified, so it reveals nothing to
+// someone who does not know it.
+export const accountBlocked = () => new ApiError(403, "This account has been blocked. Please contact support.");
+
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 // sessionExpiresAt is set once, at login, and copied to every token of the
@@ -55,22 +60,23 @@ export function revokeAllUserSessions(userId, { exceptFamilyId, reason = "LOGOUT
 
 // Starts a new login session. persistent = "remember me". verifiedPasswordHash
 // is the hash the login's password was checked against: the session is only
-// created while it is still the user's password.
+// created while it is still the user's password, and never for a blocked account.
 export async function createSession(userId, persistent, { verifiedPasswordHash } = {}) {
     // Keep the table small: this user's expired tokens are no longer useful.
     await prisma.refreshToken.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
 
     return prisma.$transaction(async (tx) => {
-        if (verifiedPasswordHash !== undefined) {
-            // A password change updates this row before revoking sessions, so
-            // the lock orders the two: a change that commits first makes this
-            // login fail; one that comes later revokes the session made here.
-            const [current] = await tx.$queryRaw`SELECT passwordHash FROM users WHERE id = ${userId} FOR UPDATE`;
+        // A password change or a block updates this row before revoking
+        // sessions, so the lock orders the two: one that commits first makes
+        // this login fail; one that comes later revokes the session made here.
+        const [current] = await tx.$queryRaw`SELECT passwordHash, blockedAt FROM users WHERE id = ${userId} FOR UPDATE`;
 
-            if (current?.passwordHash !== verifiedPasswordHash) {
-                throw new ApiError(401, "Invalid email or password");
-            }
+        if (verifiedPasswordHash !== undefined && current?.passwordHash !== verifiedPasswordHash) {
+            throw new ApiError(401, "Invalid email or password");
         }
+
+        // After the password check: a stale password is the same 401 whether or not the account is blocked.
+        if (current?.blockedAt) throw accountBlocked();
 
         return issue(tx, {
             userId,
@@ -106,8 +112,10 @@ export async function rotateSession(token) {
         // a logout, password change or other refresh that held either row
         // commits first and is seen below; one that comes later waits for this
         // transaction and then sees the token issued here.
-        const [owner] = await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
-        if (!owner) return null;
+        const [owner] = await tx.$queryRaw`SELECT id, blockedAt FROM users WHERE id = ${userId} FOR UPDATE`;
+        // A blocked account's sessions end here, before its token is looked
+        // at: an ordinary 401 that revokes nothing and is never logged as reuse.
+        if (!owner || owner.blockedAt) return null;
 
         await tx.$queryRaw`SELECT id FROM refresh_tokens WHERE tokenHash = ${tokenHash} FOR UPDATE`;
 

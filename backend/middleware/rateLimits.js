@@ -145,6 +145,15 @@ export const sessionManagementLimiter = limiter({
     keyGenerator: (req) => `user:${req.user.id}`,
 });
 
+// Admin role changes, keyed by the acting admin (use after authenticate).
+// Each attempt checks that admin's password, like passwordChangeLimiter, so a
+// stolen admin access token cannot be used to guess it. Counts every attempt.
+export const adminRoleChangeLimiter = limiter({
+    limit: 5,
+    keyGenerator: (req) => `user:${req.user.id}`,
+    message: { success: false, message: "Too many role change attempts, please try again later" },
+});
+
 // Account deletion, keyed by user (use after authenticate). Each attempt
 // checks the password, like passwordChangeLimiter.
 export const accountDeletionLimiter = limiter({

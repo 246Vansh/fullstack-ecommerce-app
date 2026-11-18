@@ -10,12 +10,15 @@ import { listOrders, getOrder, updateOrderStatus, acknowledgeOrderRefund, resend
 import {
     listCoupons, getCoupon, createCoupon, updateCoupon, activateCoupon, deactivateCoupon, deleteCoupon,
 } from "../controllers/adminCouponController.js";
+import { listUsers, blockUser, unblockUser, changeUserRole } from "../controllers/adminUserController.js";
 import { ADMIN_COUPON_PAGINATION, COUPON_CODE } from "../services/couponService.js";
+import { ADMIN_USER_PAGINATION, MAX_SEARCH_WORDS, USER_ROLES, USER_STATUSES } from "../services/adminUserService.js";
 import { ADMIN_PAGINATION, MAX_STOCK } from "../services/adminCatalogService.js";
 import { ADMIN_ORDER_PAGINATION, FULFILMENT_STEPS, ORDER_STATUSES } from "../services/orderService.js";
 import { CURRENCIES } from "../services/pricingService.js";
 import { authenticate, authorize, requireCurrentAdmin } from "../middleware/auth.js";
-import { paginationRules, singleQuery, validate } from "../middleware/validate.js";
+import { adminRoleChangeLimiter } from "../middleware/rateLimits.js";
+import { MAX_PASSWORD_INPUT_LENGTH, paginationRules, singleQuery, validate } from "../middleware/validate.js";
 import { ApiError } from "../utils/ApiError.js";
 
 const router = Router();
@@ -262,6 +265,30 @@ const refundEmailResendRules = [
     param("refundId").matches(/^rfnd_[A-Za-z0-9]{1,40}$/).withMessage("refundId must be a Razorpay refund id"),
 ];
 
+// Users: search by email or name (every word must match), role and status
+// filters. % and \ are refused; _ is allowed and matched literally (the
+// service escapes LIKE wildcards).
+const userListRules = [
+    ...paginationRules(ADMIN_USER_PAGINATION),
+    singleQuery("search").optional().isString().trim()
+        .isLength({ max: 100 }).withMessage("search must be at most 100 characters").bail()
+        .not().matches(/[%\\]/).withMessage("search must not contain % or \\").bail()
+        .custom((value) => value.split(/\s+/).filter(Boolean).length <= MAX_SEARCH_WORDS)
+        .withMessage(`search must be at most ${MAX_SEARCH_WORDS} words`),
+    singleQuery("role").optional().isIn(USER_ROLES).withMessage(`role must be one of: ${USER_ROLES.join(", ")}`),
+    singleQuery("status").optional().isIn(USER_STATUSES).withMessage(`status must be one of: ${USER_STATUSES.join(", ")}`),
+];
+
+// Only role and the acting admin's password; nothing else in the body is read.
+const userRoleRules = [
+    idParam,
+    body("role").custom((value) => typeof value === "string" && USER_ROLES.includes(value))
+        .withMessage(`role must be one of: ${USER_ROLES.join(", ")}`),
+    body("currentPassword").isString().withMessage("Current password is required")
+        .notEmpty().withMessage("Current password is required")
+        .isLength({ max: MAX_PASSWORD_INPUT_LENGTH }).withMessage("Current password is too long"),
+];
+
 // ------------------------------------------------------------ routes
 
 router.get("/products", listRules, validate, listProducts);
@@ -297,5 +324,13 @@ router.post("/coupons/:id/activate", idParam, validate, activateCoupon);
 router.post("/coupons/:id/deactivate", idParam, validate, deactivateCoupon);
 // Only a coupon no order has used; others can only be deactivated.
 router.delete("/coupons/:id", idParam, validate, deleteCoupon);
+
+// Users. Never created, edited or deleted here: only listed, blocked or
+// unblocked (customers only), and moved between CUSTOMER and ADMIN. Role
+// changes are rate limited per admin: each one checks their password.
+router.get("/users", userListRules, validate, listUsers);
+router.post("/users/:id/block", idParam, validate, blockUser);
+router.post("/users/:id/unblock", idParam, validate, unblockUser);
+router.patch("/users/:id/role", adminRoleChangeLimiter, userRoleRules, validate, changeUserRole);
 
 export default router;

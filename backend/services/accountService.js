@@ -7,6 +7,10 @@ import { SALT_ROUNDS, safeUserSelect, sendVerificationEmail } from "./authServic
 import { revokeAllUserSessions } from "./refreshTokenService.js";
 import { cancelOpenCodOrdersForDeletion } from "./orderService.js";
 
+// Deleted accounts keep their row with an address on this reserved domain
+// (deleteAccount); admin user management recognises them by it.
+export const DELETED_EMAIL_DOMAIN = "deleted.invalid";
+
 // The only User columns a profile update may write. role, email,
 // emailVerifiedAt and passwordHash are never accepted here, even if a caller
 // passes them.
@@ -117,7 +121,7 @@ export async function deleteAccount(userId, { password }) {
         const { count } = await tx.user.updateMany({
             where: { id: userId, passwordHash: user.passwordHash },
             data: {
-                email: `deleted-${userId}-${crypto.randomBytes(6).toString("hex")}@deleted.invalid`,
+                email: `deleted-${userId}-${crypto.randomBytes(6).toString("hex")}@${DELETED_EMAIL_DOMAIN}`,
                 firstName: "Deleted",
                 lastName: "User",
                 phone: null,

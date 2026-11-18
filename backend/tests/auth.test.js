@@ -32,7 +32,10 @@ const SALT_ROUNDS = 12;
 const USER = { email: `phase6-auth-${RUN}@example.test`, password: `Auth-${RUN}-Pass1` };
 // Its password is changed by the concurrent-login test.
 const RACE_USER = { email: `phase6-auth-race-${RUN}@example.test`, password: `Race-${RUN}-Pass1` };
+// Blocked and unblocked (users.blockedAt) by the blocked-account tests.
+const BLOCKED_USER = { email: `phase6-auth-blocked-${RUN}@example.test`, password: `Blocked-${RUN}-Pass1` };
 const INVALID_LOGIN = { success: false, message: "Invalid email or password" };
+const BLOCKED_LOGIN = { success: false, message: "This account has been blocked. Please contact support." };
 
 const sha256 = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const row = (token) => prisma.refreshToken.findUnique({ where: { tokenHash: sha256(token) } });
@@ -85,7 +88,9 @@ async function raceAgainstOpenTransaction(revoke, request, whileBlocked) {
     return pending;
 }
 
-let server, user, raceUser;
+// blockedServer runs only the blocked-account tests: every server has its own
+// per-IP login budget (credentialsLimiter), and theirs would exhaust server's.
+let server, blockedServer, user, raceUser, blockedUser;
 // Accounts created through /auth/register by this run.
 const registered = [];
 const issuedTokens = [];
@@ -111,8 +116,12 @@ before(async () => {
     raceUser = await prisma.user.create({
         data: { email: RACE_USER.email, passwordHash: await bcrypt.hash(RACE_USER.password, SALT_ROUNDS), firstName: "Test", lastName: "Race", role: "CUSTOMER" },
     });
+    blockedUser = await prisma.user.create({
+        data: { email: BLOCKED_USER.email, passwordHash: await bcrypt.hash(BLOCKED_USER.password, SALT_ROUNDS), firstName: "Test", lastName: "Blocked", role: "CUSTOMER" },
+    });
 
     server = await startServer(testServerEnv(guard));
+    blockedServer = await startServer(testServerEnv(guard));
 
     // The server can log in a user that exists only in this run (a wrong
     // database would answer 401 and write nothing).
@@ -125,7 +134,7 @@ after(async () => {
 
     try {
         // Only this run's users and their refresh tokens (carts cascade with them).
-        const created = [user, raceUser, ...registered].filter(Boolean);
+        const created = [user, raceUser, blockedUser, ...registered].filter(Boolean);
 
         if (created.length) {
             await deleteInTestDatabase(prisma, async (tx) => {
@@ -138,6 +147,7 @@ after(async () => {
         }
     } finally {
         await server?.stop();
+        await blockedServer?.stop();
         await prisma.$disconnect();
     }
 });
@@ -437,6 +447,138 @@ dbTest("6b. a login that checked the old password creates no session once a pass
     assert.deepEqual(await res.json(), INVALID_LOGIN, "same answer as a wrong password");
     assert.equal(refreshCookie(res), null);
     assert.equal(await prisma.refreshToken.count({ where: { userId: raceUser.id, revokedAt: null } }), 0, "no active session survives the change");
+});
+
+// ------------------------------------------------------------ blocked accounts
+// users.blockedAt is set directly here (the admin API that sets it, and also
+// revokes the sessions, comes later), so these tests isolate the checks in
+// login, createSession and refresh themselves. They run on blockedServer.
+
+const refreshVia = async (target, token) => track(await post(`${target.url}/auth/refresh`, undefined, { cookie: token }));
+const setBlocked = (blockedAt, db = prisma) => db.user.update({ where: { id: blockedUser.id }, data: { blockedAt } });
+const activeSessionsOf = (userId) => prisma.refreshToken.count({ where: { userId, revokedAt: null } });
+
+dbTest("10. a blocked account with the correct password gets 403 and no session", async () => {
+    await setBlocked(new Date());
+    try {
+        const before = await prisma.refreshToken.count({ where: { userId: blockedUser.id } });
+        const res = await track(await post(`${blockedServer.url}/auth/login`, BLOCKED_USER));
+
+        assert.equal(res.status, 403);
+        assert.deepEqual(await res.json(), BLOCKED_LOGIN);
+        assert.equal(refreshCookie(res), null, "no refresh cookie");
+        assert.equal(await prisma.refreshToken.count({ where: { userId: blockedUser.id } }), before, "no refresh token row");
+    } finally {
+        await setBlocked(null);
+    }
+});
+
+dbTest("10b. a blocked account with a wrong password gets the usual 401, revealing nothing", async () => {
+    await setBlocked(new Date());
+    try {
+        const blocked = await track(await post(`${blockedServer.url}/auth/login`, { email: BLOCKED_USER.email, password: "Wrong-Pass-123" }));
+        const unblocked = await track(await post(`${blockedServer.url}/auth/login`, { email: USER.email, password: "Wrong-Pass-123" }));
+
+        assert.equal(blocked.status, 401);
+        assert.deepEqual(await blocked.json(), INVALID_LOGIN);
+        assert.deepEqual(await unblocked.json(), INVALID_LOGIN, "same answer as for an unblocked account");
+        assert.equal(refreshCookie(blocked), null);
+    } finally {
+        await setBlocked(null);
+    }
+});
+
+dbTest("10c. createSession refuses a blocked account, with or without a checked password", async () => {
+    await setBlocked(new Date());
+    try {
+        const { passwordHash } = await prisma.user.findUnique({ where: { id: blockedUser.id }, select: { passwordHash: true } });
+
+        await assert.rejects(createSession(blockedUser.id, false), { statusCode: 403, message: BLOCKED_LOGIN.message });
+        await assert.rejects(createSession(blockedUser.id, true, { verifiedPasswordHash: passwordHash }), { statusCode: 403 });
+        // A stale password is still the 401 a wrong password gets, blocked or not.
+        await assert.rejects(createSession(blockedUser.id, false, { verifiedPasswordHash: "stale-hash" }), { statusCode: 401 });
+        assert.equal(await activeSessionsOf(blockedUser.id), 0, "no session created");
+    } finally {
+        await setBlocked(null);
+    }
+});
+
+dbTest("10d. a login that checked the password creates no session once a block commits", async () => {
+    // The block commits while the login waits for the user row it locks in createSession.
+    const res = await track(await raceAgainstOpenTransaction(
+        (tx) => setBlocked(new Date(), tx),
+        () => post(`${blockedServer.url}/auth/login`, BLOCKED_USER),
+    ));
+
+    try {
+        assert.equal(res.status, 403);
+        assert.deepEqual(await res.json(), BLOCKED_LOGIN);
+        assert.equal(refreshCookie(res), null);
+        assert.equal(await activeSessionsOf(blockedUser.id), 0, "no session created");
+    } finally {
+        await setBlocked(null);
+    }
+});
+
+dbTest("10e. an existing session cannot be refreshed once its account is blocked, and that is not token reuse", async () => {
+    const { res: loginRes, token } = await login(blockedServer.url, BLOCKED_USER);
+    assert.equal(loginRes.status, 200);
+    issuedTokens.push(token);
+    const { familyId } = await row(token);
+
+    await setBlocked(new Date());
+    try {
+        const res = await refreshVia(blockedServer, token);
+
+        assert.equal(res.status, 401);
+        assert.match(setCookieHeader(res), /refreshToken=;/, "cookie cleared");
+        assert.equal(await prisma.refreshToken.count({ where: { familyId } }), 1, "no new token issued");
+        // Refused before the token is looked at: not revoked (let alone as REUSE), nothing logged.
+        assert.equal((await row(token)).revokedAt, null);
+        assert.ok(!blockedServer.output().includes(`session ${familyId} revoked`), "no reuse warning for this session");
+    } finally {
+        await setBlocked(null);
+    }
+
+    // Unblocked again, the same untouched session refreshes normally.
+    const again = await refreshVia(blockedServer, token);
+    assert.equal(again.status, 200);
+});
+
+dbTest("10f. a refresh that waits on a block issues no token", async () => {
+    const { res: loginRes, token } = await login(blockedServer.url, BLOCKED_USER);
+    assert.equal(loginRes.status, 200);
+    issuedTokens.push(token);
+    const { familyId } = await row(token);
+
+    const res = await raceAgainstOpenTransaction(
+        (tx) => setBlocked(new Date(), tx),
+        () => refreshVia(blockedServer, token),
+    );
+
+    try {
+        assert.equal(res.status, 401);
+        assert.equal(await prisma.refreshToken.count({ where: { familyId } }), 1, "no new token issued");
+        assert.ok(!blockedServer.output().includes(`session ${familyId} revoked`), "no reuse warning for this session");
+    } finally {
+        await setBlocked(null);
+    }
+});
+
+dbTest("10g. once unblocked, the account logs in and refreshes as before", async () => {
+    await setBlocked(new Date());
+    await setBlocked(null);
+
+    const { res, body, token } = await login(blockedServer.url, BLOCKED_USER);
+    issuedTokens.push(token);
+    assert.equal(res.status, 200);
+    assert.equal(body.user.email, BLOCKED_USER.email);
+    assert.ok(body.accessToken);
+    assert.equal(body.user.blockedAt, undefined, "blockedAt is not part of the user sent to clients");
+
+    const rotated = await refreshVia(blockedServer, token);
+    assert.equal(rotated.status, 200);
+    assert.equal((await row(token)).revokedReason, "ROTATED");
 });
 
 dbTest("8. registration limits passwords to 72 UTF-8 bytes, not 72 characters", async () => {

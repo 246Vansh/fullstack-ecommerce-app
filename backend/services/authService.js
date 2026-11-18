@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import prisma from "../config/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { issueUserToken, consumeUserToken, discardUserToken, replaceOlderUserTokens, tokenLifetimeMs } from "./userTokenService.js";
-import { revokeAllUserSessions } from "./refreshTokenService.js";
+import { revokeAllUserSessions, accountBlocked } from "./refreshTokenService.js";
 import { sendMail, appLink } from "./mailService.js";
 import { verificationEmail } from "./mailTemplates.js";
 
@@ -66,7 +66,13 @@ export async function loginUser({ email, password }) {
         throw new ApiError(401, "Invalid email or password");
     }
 
-    const { passwordHash, ...safeUser } = user;
+    // Only after the password matched, so a wrong password gets the same 401
+    // whether or not the account is blocked. createSession checks again under
+    // its row lock, for a block that commits after this read.
+    if (user.blockedAt) throw accountBlocked();
+
+    // blockedAt is not sent: the user returned at login keeps its existing fields.
+    const { passwordHash, blockedAt, ...safeUser } = user;
 
     // passwordHash is for createSession's check only; it is never sent.
     return { user: safeUser, passwordHash };
