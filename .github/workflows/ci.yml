@@ -1,0 +1,119 @@
+# Runs the frontend and backend test suites on every pull request and on
+# pushes to main. Every value below is a fake, CI-only setting: no GitHub
+# secrets are used, and nothing here can reach a development or production
+# database (the backend job talks only to its own throwaway MySQL container).
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (tests + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Production build
+        env:
+          # vite.config.js requires an https, non-local API URL for any build.
+          # Compiled into the bundle only; .invalid is a reserved domain that
+          # never resolves, and this build is never deployed.
+          VITE_API_URL: https://api.ci.invalid/api
+        run: pnpm build
+
+  backend:
+    name: Backend (MySQL tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-not-a-real-password
+          # The MySQL image grants MYSQL_USER rights on MYSQL_DATABASE only.
+          MYSQL_DATABASE: ecommerce_test
+          MYSQL_USER: ci_test
+          MYSQL_PASSWORD: ci-test-not-a-real-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root-not-a-real-password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      NODE_ENV: test
+      CLIENT_URL: http://localhost:5173
+      # The only database tests may write to (tests/testDatabase.js guards this).
+      TEST_DATABASE_URL: mysql://ci_test:ci-test-not-a-real-password@127.0.0.1:3306/ecommerce_test
+      # Required by config/env.js. Deliberately names a database that does not
+      # exist and that ci_test has no rights on: the test guard refuses a
+      # TEST_DATABASE_URL equal to it, and any accidental connection fails.
+      DATABASE_URL: mysql://ci_test:ci-test-not-a-real-password@127.0.0.1:3306/ecommerce_ci_unused
+      DATABASE_SSL: "false"
+      JWT_ACCESS_SECRET: ci-only-access-secret-not-real-0123456789
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-real-0123456789
+      MAIL_PROVIDER: console
+      RESERVATION_EXPIRY_WORKER: "false"
+      REFUND_WORKER: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma:generate
+
+      - name: Apply migrations to the test database
+        run: DATABASE_URL="$TEST_DATABASE_URL" pnpm db:migrate
+
+      - name: Run tests
+        run: pnpm test
